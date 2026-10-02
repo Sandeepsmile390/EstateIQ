@@ -154,6 +154,7 @@ All detailed system specs and guides are organized under the [`docs/`](docs/) di
 | 🌐 [**API Documentation**](docs/API_DOCUMENTATION.md) | FastAPI REST endpoints specification & MongoDB connector schemas |
 | 📖 [**Data Dictionary**](docs/DATA_DICTIONARY.md) | Telemetry features, MongoDB schemas, and Data Provenance badges |
 | 🎮 [**Demo Guide**](docs/DEMO_GUIDE.md) | Step-by-step hackathon demonstration walkthrough & scenarios |
+| 📋 [**Acceptance Specification**](ACCEPTANCE_SPECIFICATION.md) | Verified phase gates (0–10), 17 product requirements & scorecard |
 | 📑 [**Final Implementation Report**](docs/FINAL_IMPLEMENTATION_REPORT.md) | Executive summary, technical audit, and verification metrics |
 | ⚠️ [**Known Limitations**](docs/KNOWN_LIMITATIONS.md) | Simulated IoT telemetry, model estimate bounds, and disclaimers |
 

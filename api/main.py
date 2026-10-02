@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from src.data.repository import DataRepository, ProvenanceType
+from src.data.mongo_db import connect_mongo_db, get_db_status, save_prediction_log, query_prediction_logs
 from src.decisions.trace import DecisionTraceEngine
 from src.auth.security import get_user_by_role, verify_current_user, require_permission, USER_ROLES_DB
 from src.models.energy.pipeline import train_energy_module
@@ -35,6 +36,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
+@app.on_event("startup")
+def startup_db_client():
+    connect_mongo_db()
+
 if os.path.exists("web"):
     app.mount("/static", StaticFiles(directory="web"), name="static")
 if os.path.exists("web/css"):
@@ -53,6 +58,15 @@ def serve_dashboard_route():
     if os.path.exists("web/index.html"):
         return FileResponse("web/index.html")
     return {"message": "EstateIQ Web Dashboard"}
+
+@app.get("/api/v1/db/status")
+def db_status_endpoint():
+    return get_db_status()
+
+@app.get("/api/v1/db/logs/{collection_name}")
+def db_logs_endpoint(collection_name: str, limit: int = 50):
+    logs = query_prediction_logs(collection_name, limit=limit)
+    return {"collection": collection_name, "count": len(logs), "data": logs}
 
 repo = DataRepository()
 genai_engine = GenAIExplanationEngine()
@@ -150,12 +164,13 @@ def energy_history(limit: int = 50):
 @app.post("/api/v1/energy")
 def predict_energy(req: EnergyPredictRequest):
     model, meta = get_model_and_metadata("energy_kwh_prediction", train_energy_module)
-    df_in = pd.DataFrame([req.model_dump() if hasattr(req, "model_dump") else req.dict()])
+    req_dict = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+    df_in = pd.DataFrame([req_dict])
     for c in meta["feature_names"]:
         if c not in df_in.columns:
             df_in[c] = 0
     pred = float(model.predict(df_in[meta["feature_names"]])[0])
-    return {
+    res = {
         "task": "energy_kwh_prediction",
         "predicted_energy_kwh": round(pred, 2),
         "algorithm": meta["selected_model"],
@@ -163,6 +178,8 @@ def predict_energy(req: EnergyPredictRequest):
         "provenance": ProvenanceType.PREDICTED,
         "provenance_badge": "[ML FORECAST — 1H]"
     }
+    save_prediction_log("predictions", {**res, "request": req_dict})
+    return res
 
 @app.get("/api/v1/energy/forecast")
 def energy_forecast():

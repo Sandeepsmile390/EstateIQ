@@ -718,3 +718,32 @@ function updateScenarioChartData(baseLoadMultiplier, solarKwOffset) {
     scenarioChartInstance.data.datasets[1].data = targetCurve;
     scenarioChartInstance.update('active');
 }
+
+window.resizeAllCharts = function() {
+    const allInstances = [
+        mainWaveChartInstance,
+        miniBarChartInstance,
+        scenarioChartInstance,
+        energyTrendChartInstance,
+        energyAreaChartInstance,
+        waterTrendChartInstance,
+        waterAreaChartInstance,
+        wasteTrendChartInstance,
+        wasteAreaChartInstance,
+        mobilityTrendChartInstance,
+        airTrendChartInstance,
+        mobilityAreaChartInstance,
+        equipmentVibrationChartInstance,
+        equipmentAreaChartInstance
+    ];
+
+    allInstances.forEach(inst => {
+        if (inst) {
+            try {
+                inst.resize();
+                inst.update('none');
+            } catch (e) {}
+        }
+    });
+};
+

@@ -193,6 +193,12 @@ function initTabs() {
         } else if (tabId === "overview") {
             document.getElementById("contentOverview")?.classList.add("active");
         }
+
+        // Trigger chart resize & re-render so hidden tab canvases calculate full width & height
+        setTimeout(() => {
+            window.dispatchEvent(new Event('resize'));
+            if (window.resizeAllCharts) window.resizeAllCharts();
+        }, 40);
     };
 
     tabBtns.forEach(btn => {

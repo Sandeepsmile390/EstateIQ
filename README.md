@@ -111,31 +111,48 @@ DATA ──► MONITOR ──► ANALYZE ──► DETECT ──► PREDICT ─�
 
 ---
 
-## 🛠️ Quick Start & How to Run
+## 🛠️ Quick Start & Complete Execution Guide (Start-to-Finish)
 
-### 1. Installation
+Follow this complete step-by-step pipeline to set up the environment, generate synthetic campus telemetry, train all ML models, and launch the EstateIQ application.
+
+### Step 1: Environment Setup & Dependencies
 ```bash
-# Clone the repository
+# Clone repository & enter project directory
 git clone https://github.com/Sandeepsmile390/EstateIQ.git
 cd EstateIQ
 
-# Install required packages
+# Install required Python dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Run Main Web Application (FastAPI + Liquid Glass UI)
+### Step 2: Generate 365-Day Digital Twin Dataset
+Generate synthetic IoT campus telemetry (weather, occupancy, energy, water, waste, air quality, traffic, parking, equipment, safety, emissions, and ground-truth anomaly injections):
+```bash
+python -m facility_dataset.generator.main
+```
+
+### Step 3: Train & Register All 9 ML Pipeline Modules
+Train and register all 9 multi-model ML pipelines (CatBoost, Random Forest, Isolation Forest, XGBoost, LinearRegression):
+```bash
+python train_all_modules.py
+```
+
+### Step 4: Launch Main Web Application (FastAPI + Liquid Glass UI)
+Launch the primary REST API service and production web interface:
 ```bash
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
-Then open `http://localhost:8000/` in your web browser.
+Open **`http://localhost:8000/`** in your browser to access the complete EstateIQ Liquid Glass Dashboard.
 
-### 3. Run Streamlit Operational Dashboard
+### Step 5: (Optional) Run Streamlit Analytics Dashboard
+Launch the secondary Streamlit operational dashboard:
 ```bash
 streamlit run app.py --server.port 8501
 ```
-Then open `http://localhost:8501/` in your web browser.
+Open **`http://localhost:8501/`** in your browser.
 
-### 4. Run Automated Test Suite
+### Step 6: Execute Automated Test Suite
+Run the full test suite (34/34 passing tests covering models, API endpoints, decision trace, and MongoDB database connector):
 ```bash
 python -m unittest discover tests
 ```

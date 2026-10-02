@@ -1,90 +1,113 @@
-# 🏛️ Facility Intelligence AI Architecture
+# 🏛️ EstateIQ System Architecture
 
-System architecture document for **Sustainable Facility and Estate Intelligence Dashboard for India**.
+Comprehensive architecture reference for **EstateIQ — Sustainable Facility and Estate Intelligence Platform**.
 
 ---
 
-## 📐 End-to-End Intelligence Pipeline
+## 📐 Target System Architecture
 
 ```text
-               ┌──────────────────────────┐
-               │ Synthetic / IoT Data     │
-               └────────────┬─────────────┘
-                            │
-                            ▼
-               ┌──────────────────────────┐
-               │ Data Engineering Layer   │ (DataRepository & facility.db)
-               └────────────┬─────────────┘
-                            │
-                            ▼
-               ┌──────────────────────────┐
-               │ Feature Engineering      │ (Lags & Rolling Windows)
-               └────────────┬─────────────┘
-                            │
-            ┌───────────────┼────────────────┐
-            ▼               ▼                ▼
-     Forecasting        Anomaly          Prediction
-     Models             Detection        Models
-            │               │                │
-            └───────────────┼────────────────┘
-                            │
-                            ▼
-                   ┌────────────────┐
-                   │ SHAP / XAI     │
-                   └───────┬────────┘
-                           │
-                           ▼
-                  ┌──────────────────┐
-                  │ Decision Engine  │ (Priority Engine & Alerts)
-                  └────────┬─────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │ Recommendation      │ (Deterministic Rules & GenAI 7-Part)
-                │ Engine              │
-                └──────────┬──────────┘
-                           │
-            ┌──────────────┼──────────────┐
-            ▼                             ▼
-     What-if Simulation                GenAI / Rule Fallback
-            │                             │
-            └──────────────┬──────────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │ FastAPI         │ (/api/v1/ REST Endpoints)
-                  └────────┬────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │ Streamlit       │ (app.py 18-Page Dashboard)
-                  │ Dashboard       │
-                  └─────────────────┘
+                    ┌─────────────────────────┐
+                    │      DATA SOURCES       │
+                    │ Smart Meters / Sensors  │
+                    │ Occupancy / Weather     │
+                    │ HVAC / Water / Waste    │
+                    │ Traffic / Parking       │
+                    │ Equipment / Safety      │
+                    │ Synthetic IoT Simulator  │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │     INGESTION LAYER     │
+                    │ REST / CSV / MQTT-ready  │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   DATA QUALITY LAYER    │
+                    │ Range validation        │
+                    │ Missing value impute    │
+                    │ Sensor health audit     │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │    DATA REPOSITORY      │
+                    │ SQLite (PostgreSQL-ready)│
+                    │ Data Provenance Badges  │
+                    └────────────┬────────────┘
+                                 │
+             ┌───────────────────┼───────────────────┐
+             ▼                   ▼                   ▼
+       FORECASTING         ANOMALY ENGINE       ML MODELS
+       (1h, 4h, 24h, 7d)   (Isolation Forest)   (CatBoost/XGB)
+             │                   │                   │
+             └───────────────────┼───────────────────┘
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   SHAP EXPLAINABILITY   │
+                    │   (Tree/Kernel SHAP)    │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │ 11-STEP DECISION TRACE  │
+                    │ Audit Ledger (TRC_01)   │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │ RECOMMENDATION ENGINE   │
+                    │ Rules + Grounded GenAI  │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   WHAT-IF SIMULATOR     │
+                    │ 4-Slider Model Engine   │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   FASTAPI & SECURITY    │
+                    │ OAuth2 / JWT / RBAC     │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │      ESTATEIQ UI        │
+                    │ Liquid Glass Dashboard  │
+                    └─────────────────────────┘
 ```
 
 ---
 
-## 🧩 Architectural Layers
+## 🧩 Architectural Layers & Modules
 
-1. **IoT Data Stream & Database Layer**:
-   - `facility_dataset/facility.db`: SQLite database storing 16 normalized tables covering 180 days of 15-minute sensor feeds.
-   - `src/data/repository.py`: Centralized `DataRepository` wrapping SQL queries and CSV fallbacks.
+1. **Ingestion & Data Quality Layer (`src/data/quality.py` & `src/data/repository.py`)**:
+   - Ingests SQLite `facility.db` (16 normalized tables, 180 days at 15-min resolution) and CSV feeds.
+   - Evaluates data completeness (Energy 98.2%, Occupancy 94.1%, Weather 99.8%) and flags out-of-range sensor values.
+   - Attaches Data Provenance badges (`[SYNTHETIC IoT DATA]`, `[OBSERVED]`, `[ML FORECAST]`, `[SIMULATED]`, `[DERIVED]`).
 
-2. **ML Modeling & Selection Layer**:
-   - `src/models/selector.py`: Automated 21-step model selection framework evaluating Baselines, Linear Models, Random Forest, Gradient Boosting, XGBoost, LightGBM, and CatBoost.
-   - `models/`: Joblib serialized winning models and versioned metadata.
+2. **Contextual Baseline & Anomaly Engine (`src/anomaly/detector.py`)**:
+   - Calculates expected contextual energy baselines:
+     $$\text{Expected Energy} = f(\text{building}, \text{hour}, \text{occupancy}, \text{temperature}, \text{HVAC})$$
+   - Computes percentage deviation ($\text{Deviation \%}$) and Isolation Forest anomaly scores ($0.05$ to $0.99$).
 
-3. **Explainability & Anomaly Layer**:
-   - `src/anomaly/detector.py`: Isolation Forest and Local Outlier Factor anomaly scoring.
-   - `src/explainability/explainer.py`: Local feature attributions via Tree/Kernel SHAP.
+3. **Machine Learning & Model Registry (`src/models/` & `models/`)**:
+   - Automated 21-step model selector (`src/models/selector.py`) benchmarking Baselines, Linear Models, Random Forest, Gradient Boosting, XGBoost, and CatBoost.
+   - Serialized joblib artifacts in `models/` versioned with metadata.
 
-4. **Recommendation & Priority Layer**:
-   - `src/priority/engine.py`: Platform Operational Priority (Priority 1/2/3) combining severity, probability, impact, and urgency.
-   - `src/recommendations/genai_engine.py`: Structured 7-part operational action plans.
+4. **SHAP Explainability & Decision Trace (`src/explainability/explainer.py` & `src/decisions/trace.py`)**:
+   - Quantifies positive/negative feature attributions via SHAP.
+   - Assembles the **11-Step Decision Trace Audit Ledger** linking observed telemetry to baseline deviation, ML prediction, anomaly score, SHAP attribution, priority rank, grounded recommendation, system assumptions, What-If simulation impact, and simulated action execution.
 
-5. **Simulation & What-If Layer**:
-   - `src/scenarios/whatif.py`: Modelled operational parameter adjustments for HVAC schedules, water consumption, and renewable energy generation.
+5. **Security & RBAC Layer (`src/auth/security.py`)**:
+   - Enforces 4-tier Role-Based Access Control (**RS Administrator**, **Alex Chen - Operations Engineer**, **Dr. Priya Sharma - ESG Auditor**, **Sam Taylor - Viewer**).
+   - Protects action endpoints (`/api/v1/recommendations/apply`, `/api/v1/subscription/upgrade`).
 
-6. **Service & Presentation Layer**:
-   - `api/main.py`: FastAPI server exposing `/api/v1/` endpoints.
-   - `app.py`: Streamlit web dashboard providing 18 modules, interactive Folium maps, live IoT streaming simulation, and hackathon demo mode.
+6. **Service & Presentation Layer (`api/main.py` & `web/`)**:
+   - `api/main.py`: FastAPI backend REST API serving JSON endpoints and static assets.
+   - `web/index.html`, `web/js/app.js`, `web/js/charts.js`, `web/css/styles.css`: Liquid Glass design system.
+   - `app.py`: Streamlit operational dashboard.

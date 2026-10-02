@@ -1,0 +1,203 @@
+/* ==========================================================================
+   ESTATEIQ DESIGN SYSTEM - CENTRAL DESIGN TOKENS & UI COMPONENTS
+   Unified source of truth for colors, typography, glassmorphism, components,
+   empty states, badges, and responsive layouts.
+   ========================================================================== */
+
+:root {
+    /* --- COLOR PALETTE (CANVA-INSPIRED LIQUID GLASS) --- */
+    --brand-primary: #124B3E;      /* Deep Forest Green */
+    --brand-hover: #165749;
+    --brand-mint: #2BB49B;       /* Vibrant Mint */
+    --brand-teal: #1E7A68;       /* Primary Teal */
+    --brand-accent: #00D09C;     /* Glowing Accent Emerald */
+    --brand-gold: #F5C577;       /* Metallic Gold */
+    --brand-amber: #D97706;      /* Warning Amber */
+    --brand-red: #EF4444;        /* Critical Red */
+
+    /* Neutral Surfaces */
+    --bg-app: #F3F5F1;
+    --bg-sidebar: #0E3D32;
+    --bg-card: #FFFFFF;
+    --bg-card-translucent: rgba(255, 255, 255, 0.92);
+    --bg-glass-pill: rgba(14, 61, 50, 0.05);
+
+    /* Text Colors */
+    --text-main: #1A2321;
+    --text-muted: #526B64;
+    --text-light: #8E9F9A;
+    --text-on-dark: #FFFFFF;
+    --text-on-dark-muted: #A3C9BE;
+
+    /* Semantic Status Colors */
+    --status-green-bg: #E6F4EA;
+    --status-green-text: #137333;
+    --status-amber-bg: #FEF3D6;
+    --status-amber-text: #B06000;
+    --status-red-bg: #FCE8E6;
+    --status-red-text: #C5221F;
+    --status-blue-bg: #E8F0FE;
+    --status-blue-text: #1A73E8;
+
+    /* Glassmorphism & Elevation */
+    --glass-border: 1px solid rgba(14, 61, 50, 0.08);
+    --glass-border-hover: 1px solid rgba(30, 122, 104, 0.25);
+    --glass-shadow: 0 4px 20px -2px rgba(14, 61, 50, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+    --glass-shadow-hover: 0 16px 36px -4px rgba(14, 61, 50, 0.14), 0 6px 16px -2px rgba(0, 0, 0, 0.06);
+
+    /* Typography */
+    --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    /* Radius Scale */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+    --radius-pill: 9999px;
+
+    /* Transitions */
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* --- REUSABLE COMPONENT SYSTEM --- */
+
+/* Page Header */
+.page-header-unified {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.page-title-block h1 {
+    font-family: var(--font-heading);
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.5px;
+}
+
+.page-title-block p {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* Filter Bar */
+.unified-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #FFFFFF;
+    border: var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 10px 18px;
+    box-shadow: var(--glass-shadow);
+    flex-wrap: wrap;
+}
+
+/* Data Provenance Badge */
+.provenance-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    user-select: none;
+}
+
+.provenance-observed { background: #E6F4EA; color: #137333; border: 1px solid #CEEAD6; }
+.provenance-predicted { background: #E8F0FE; color: #1A73E8; border: 1px solid #D2E3FC; }
+.provenance-simulated { background: #FEF3D6; color: #B06000; border: 1px solid #FAD199; }
+.provenance-synthetic { background: #F3E8FF; color: #7E22CE; border: 1px solid #E9D5FF; }
+
+/* Unified Action Status Badges */
+.status-badge-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.status-new { background: #E8F0FE; color: #1A73E8; }
+.status-assigned { background: #FEF3D6; color: #B06000; }
+.status-in-progress { background: #E0F2FE; color: #0284C7; }
+.status-completed { background: #E6F4EA; color: #137333; }
+.status-verified { background: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; }
+.status-dismissed { background: #F1F5F9; color: #64748B; }
+
+/* Empty & Error States */
+.empty-state-box, .error-state-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    text-align: center;
+    background: #FFFFFF;
+    border: var(--glass-border);
+    border-radius: var(--radius-lg);
+    gap: 12px;
+}
+
+.empty-state-box i { font-size: 36px; color: var(--text-light); }
+.empty-state-box h4 { font-size: 16px; font-weight: 700; color: var(--text-main); }
+.empty-state-box p { font-size: 13px; color: var(--text-muted); max-width: 400px; }
+
+/* Opportunity Card Component */
+.opportunity-card {
+    background: #FFFFFF;
+    border: var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: var(--glass-shadow);
+    transition: all var(--transition-smooth);
+}
+
+.opportunity-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(30, 122, 104, 0.25);
+    box-shadow: var(--glass-shadow-hover);
+}
+
+.opp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.opp-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.opp-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+
+.opp-impact {
+    font-family: var(--font-heading);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--brand-teal);
+}

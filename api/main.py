@@ -1,7 +1,7 @@
 """
 FastAPI Application for Sustainable Facility and Estate Intelligence Platform.
 Exposes /api/v1/ REST endpoints for health, domain monitoring, forecasting, anomaly detection,
-explainability (SHAP), recommendations, What-If simulation, and AI Assistant chat.
+SHAP explainability, decision traces, recommendations, What-If simulation, AI Co-Pilot chat, and RBAC security.
 """
 
 import os
@@ -9,12 +9,14 @@ import joblib
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Security
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from src.data.repository import DataRepository
+from src.data.repository import DataRepository, ProvenanceType
+from src.decisions.trace import DecisionTraceEngine
+from src.auth.security import get_user_by_role, verify_current_user, require_permission, USER_ROLES_DB
 from src.models.energy.pipeline import train_energy_module
 from src.models.water.pipeline import train_water_module
 from src.models.waste.pipeline import train_waste_module, categorize_waste_risk
@@ -28,8 +30,8 @@ from src.scenarios.whatif import WhatIfScenarioEngine
 from src.priority.engine import FacilityPriorityEngine
 
 app = FastAPI(
-    title="Facility Intelligence AI API (India)",
-    description="Production-quality ML, Anomaly Detection, Explainability (SHAP), and GenAI Recommendation Engine for Indian Estates.",
+    title="EstateIQ - Sustainable Facility Intelligence Platform",
+    description="AI-powered decision-support dashboard for government, university, PSU, and enterprise campuses in India.",
     version="1.0.0"
 )
 
@@ -55,6 +57,7 @@ def serve_dashboard_route():
 repo = DataRepository()
 genai_engine = GenAIExplanationEngine()
 priority_engine = FacilityPriorityEngine()
+decision_trace_engine = DecisionTraceEngine()
 
 # --- Request Models ---
 
@@ -90,6 +93,17 @@ class ScenarioRequest(BaseModel):
     current_values: Dict[str, float] = {"temperature": 28.0, "occupancy": 150.0, "hvac_load": 50.0}
     modifications: Dict[str, float] = {"hvac_load": 0.80, "occupancy": 0.90}
 
+class UpgradeRequest(BaseModel):
+    target_plan: str = "enterprise_pro"
+    billing_cycle: str = "annual"
+
+class ApplyRuleRequest(BaseModel):
+    rule_id: str
+    building_id: str
+
+class LoginRequest(BaseModel):
+    role: str = "admin"
+
 # --- Helper to load trained model ---
 def get_model_and_metadata(task_name: str, train_fn):
     meta_path = f"models/{task_name}_metadata.joblib"
@@ -99,14 +113,14 @@ def get_model_and_metadata(task_name: str, train_fn):
     model, meta, _ = train_fn()
     return model, meta
 
-# --- Endpoints (/api/v1/ & root compatibility) ---
+# --- Endpoints ---
 
 @app.get("/health")
 @app.get("/api/v1/health")
 def health_check():
     return {
         "status": "HEALTHY",
-        "system": "Facility Intelligence AI Backend (India)",
+        "system": "EstateIQ Sustainable Facility Intelligence Engine (India)",
         "version": "1.0.0",
         "timestamp": pd.Timestamp.now().isoformat()
     }
@@ -119,6 +133,17 @@ def facility_summary():
         "facility": fac,
         "total_buildings": len(bld_df),
         "building_list": bld_df["building_name"].tolist() if not bld_df.empty else []
+    }
+
+@app.get("/api/v1/energy/history")
+@app.get("/api/v1/energy/data")
+def energy_history(limit: int = 50):
+    df = repo.get_energy_data(limit=limit)
+    return {
+        "count": len(df),
+        "provenance": ProvenanceType.SYNTHETIC,
+        "provenance_badge": "[SYNTHETIC IoT DATA]",
+        "data": df.to_dict(orient="records") if not df.empty else []
     }
 
 @app.post("/predict/energy")
@@ -134,7 +159,9 @@ def predict_energy(req: EnergyPredictRequest):
         "task": "energy_kwh_prediction",
         "predicted_energy_kwh": round(pred, 2),
         "algorithm": meta["selected_model"],
-        "unit": "kWh"
+        "unit": "kWh",
+        "provenance": ProvenanceType.PREDICTED,
+        "provenance_badge": "[ML FORECAST — 1H]"
     }
 
 @app.get("/api/v1/energy/forecast")
@@ -143,30 +170,35 @@ def energy_forecast():
         "forecast_horizon": "1h, 4h, 24h",
         "predicted_1h_kwh": 135.5,
         "predicted_4h_kwh": 142.0,
-        "predicted_24h_kwh": 118.2
+        "predicted_24h_kwh": 118.2,
+        "confidence_interval": "±8.4%",
+        "provenance": ProvenanceType.PREDICTED,
+        "provenance_badge": "[ML FORECAST]"
     }
 
 @app.get("/api/v1/energy/anomalies")
 def energy_anomalies():
     return {
         "active_anomalies_count": 1,
+        "provenance": ProvenanceType.DERIVED,
+        "provenance_badge": "[ANOMALY DETECTOR]",
         "anomalies": [
             {
+                "id": "ALT_01",
                 "building": "Block B Hostel",
                 "issue": "HVAC Malfunction / Surge",
                 "severity": "HIGH",
                 "actual_kwh": 145.2,
-                "expected_kwh": 78.0
+                "expected_kwh": 78.0,
+                "deviation_percent": "+86.1%",
+                "disclaimer": "Potential abnormal operational pattern detected. Physical inspection may be required."
             }
         ]
     }
 
 @app.get("/api/v1/water")
 def water_summary():
-    return {
-        "status": "NORMAL",
-        "disclaimer": "Possible abnormal water-use patterns represent operational indicators for physical inspection."
-    }
+    return repo.get_latest_water()
 
 @app.post("/anomaly/water")
 @app.post("/api/v1/water/anomaly")
@@ -179,7 +211,9 @@ def anomaly_water(req: AnomalyRequest):
         "building_id": req.building_id,
         "anomaly_status": "ANOMALY_DETECTED" if is_anomaly else "NORMAL",
         "anomaly_score": 0.92 if is_anomaly else 0.08,
-        "explanation": "Possible abnormal water-use pattern detected. High flow observed during off-peak occupancy. Physical inspection may be required."
+        "explanation": "Possible abnormal water-use pattern detected. High flow observed during off-peak occupancy. Physical inspection may be required.",
+        "provenance": ProvenanceType.DERIVED,
+        "provenance_badge": "[ANOMALY DETECTOR]"
     }
 
 @app.post("/anomaly/energy")
@@ -193,7 +227,9 @@ def anomaly_energy(req: AnomalyRequest):
         "building_id": req.building_id,
         "anomaly_status": "ANOMALY_DETECTED" if is_anomaly else "NORMAL",
         "anomaly_score": 0.88 if is_anomaly else 0.12,
-        "explanation": "High HVAC load detected relative to building occupancy."
+        "explanation": "High HVAC load detected relative to building occupancy.",
+        "provenance": ProvenanceType.DERIVED,
+        "provenance_badge": "[ANOMALY DETECTOR]"
     }
 
 @app.post("/predict/waste")
@@ -214,68 +250,76 @@ def predict_waste(req: WastePredictRequest):
         "overflow_probability": round(prob, 4),
         "risk_level": risk_lvl,
         "algorithm": meta["selected_model"],
+        "provenance": ProvenanceType.PREDICTED,
+        "provenance_badge": "[ML PREDICTION]",
         "note": "Probabilities represent estimated risk levels, not physical certainty."
     }
 
 @app.get("/api/v1/waste/summary")
 def waste_summary():
-    return {
-        "bins_monitored": 32,
-        "bins_requiring_collection": 3
-    }
+    return repo.get_latest_waste()
 
 @app.get("/api/v1/air")
 def air_summary():
-    return {
-        "campus_avg_aqi": 110.5,
-        "category": "Moderate",
-        "disclaimer": "Outputs represent decision-support indicators, not official regulatory measurements."
-    }
+    return repo.get_latest_air_quality()
 
 @app.get("/api/v1/traffic")
 def traffic_summary():
-    return {
-        "gate_status": "MODERATE_FLOW",
-        "average_speed_kmph": 22.5
-    }
+    return repo.get_latest_traffic()
 
 @app.get("/api/v1/parking")
 def parking_summary():
-    return {
-        "total_capacity": 900,
-        "occupied_spaces": 580,
-        "occupancy_rate": 0.64
-    }
+    return repo.get_latest_parking()
 
 @app.get("/api/v1/equipment")
 def equipment_summary():
+    return repo.get_latest_equipment()
+
+@app.get("/api/v1/safety")
+def safety_summary():
     return {
-        "assets_monitored": 35,
-        "maintenance_risk_alerts": 1,
-        "disclaimer": "Outputs represent maintenance-risk indicators, not guaranteed physical failure."
+        "incidents_recorded": 2,
+        "sample_notice": "Limited historical sample size",
+        "provenance": ProvenanceType.SYNTHETIC,
+        "provenance_badge": "[SYNTHETIC IoT DATA]"
     }
 
 @app.get("/api/v1/alerts")
 def get_alerts():
     return {
         "total_active_alerts": 2,
+        "provenance": ProvenanceType.DERIVED,
+        "provenance_badge": "[DECISION ENGINE]",
         "alerts": [
             {
                 "id": "ALT_01",
                 "priority": "Priority 1 (URGENT)",
                 "module": "Energy",
                 "location": "Block B Hostel",
-                "message": "Unusual HVAC load surge during off-peak hours."
+                "message": "Unusual HVAC load surge during off-peak hours.",
+                "observed_kwh": 145.2,
+                "expected_kwh": 78.0,
+                "deviation": "+86.1%"
             },
             {
                 "id": "ALT_02",
                 "priority": "Priority 2 (MODERATE)",
                 "module": "Waste",
                 "location": "Central Cafeteria",
-                "message": "Bin 01 fill level projected >90% within 2 hours."
+                "message": "Bin 01 fill level projected >90% within 2 hours.",
+                "fill_level_pct": 78.5,
+                "fill_rate_phr": 4.2
             }
         ]
     }
+
+@app.get("/api/v1/decisions/{id}")
+def get_decision_trace(id: str):
+    return decision_trace_engine.build_trace(
+        alert_id=id,
+        building="Block B Hostel" if "01" in id else "Central Cafeteria",
+        observed_value=145.2 if "01" in id else 78.5
+    )
 
 @app.post("/recommendations")
 @app.get("/api/v1/recommendations")
@@ -298,7 +342,10 @@ def run_simulation(req: ScenarioRequest):
     for c in meta["feature_names"]:
         if c not in df_in.columns:
             df_in[c] = 0
-    return engine.run_scenario(df_in, req.modifications)
+    res = engine.run_scenario(df_in, req.modifications)
+    res["provenance"] = ProvenanceType.SIMULATED
+    res["provenance_badge"] = "[SIMULATED SCENARIO]"
+    return res
 
 @app.get("/models")
 @app.get("/api/v1/models")
@@ -311,53 +358,65 @@ def list_registered_models():
         results.append(meta)
     return {"registered_models_count": len(results), "models": results}
 
+@app.get("/api/v1/data-quality")
+def data_quality_report():
+    return repo.get_data_quality_report()
+
+@app.get("/api/v1/sustainability")
+def sustainability_score():
+    return {
+        "sustainability_score": 82,
+        "max_score": 100,
+        "grade": "Gold Grade (Internal Decision Support)",
+        "disclaimer": "Internal facility decision-support score. Not an official certification.",
+        "sub_scores": {
+            "energy_efficiency": "84/100 (Weight: 20%)",
+            "water_recovery": "78/100 (Weight: 15%)",
+            "waste_diversion": "75/100 (Weight: 15%)",
+            "air_quality_index": "88/100 (Weight: 15%)",
+            "carbon_emissions": "85/100 (Weight: 15%)",
+            "equipment_health": "90/100 (Weight: 10%)",
+            "mobility_flow": "82/100 (Weight: 10%)"
+        }
+    }
+
 @app.post("/api/v1/ai/chat")
 def ai_assistant_chat(req: ChatRequest):
     query = req.user_query.lower()
     
-    # Check if OPENAI_API_KEY or GENAI_API_KEY is available
     api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("GENAI_API_KEY")
     
     if not api_key:
-        # Grounded Rule-Based Offline Fallback Engine
-        if "energy" in query:
-            ans = "Block B Hostel is experiencing elevated energy consumption (145 kWh vs 78 kWh baseline), primarily attributed to HVAC load and temperature features. Recommend inspecting thermostat controls."
-        elif "water" in query:
-            ans = "Hostel A recorded abnormal nighttime flow. This is an operational indicator—physical inspection of valves is recommended."
-        elif "waste" or "bin" in query:
+        # Correct condition logic for query matching
+        if "waste" in query or "bin" in query or "overflow" in query or "dumpster" in query:
             ans = "Bin 01 at Central Cafeteria is projected to reach >90% fill capacity within 2 hours. Scheduled collection dispatch is advised."
-        elif "equipment" or "chiller" in query:
-            ans = "Chiller 01 is exhibiting high vibration (3.8 mm/s). Maintenance-risk indicator score is 0.82. Preventive servicing is recommended."
-        elif "scenario" in query or "hvac" in query:
-            ans = "Reducing HVAC load by 15% is estimated to lower hourly energy by 18.5 kWh and reduce CO2e emissions by ~15.2 kg."
+        elif "energy" in query or "power" in query or "kwh" in query or "electricity" in query:
+            ans = "Block B Hostel is experiencing elevated energy consumption (145.2 kWh vs 78.0 kWh baseline), primarily driven by HVAC load (+42% SHAP impact) and temperature features (+11%). Recommend inspecting thermostat setback schedule."
+        elif "water" in query or "leak" in query or "pipe" in query:
+            ans = "Hostel A recorded abnormal flow rate telemetry during off-peak hours. This is an operational indicator—physical inspection of valves is recommended."
+        elif "equipment" in query or "chiller" in query or "ahu" in query or "vibration" in query:
+            ans = "AST_CHILLER_01 is exhibiting high vibration (3.8 mm/s). Maintenance-risk indicator score is 0.82. Preventive servicing is recommended."
+        elif "scenario" in query or "hvac" in query or "simulate" in query:
+            ans = "Reducing HVAC load by 20% is estimated to lower target demand to 121.5 kWh, saving ~₹1,42,800/month ($1,740/mo) and reducing carbon emissions by 16.4 Tons CO₂e."
         else:
-            ans = "Overall campus status is ATTENTION. 2 active operational alerts registered (Energy & Waste). Sustainability Score: 78.5 (Gold)."
+            ans = "Overall campus status is ATTENTION. 2 active operational alerts registered (Energy & Waste). Sustainability Score: 82/100 (Gold Grade)."
             
         return {
             "mode": "Rule-Based Offline Fallback Engine (Active)",
             "query": req.user_query,
             "response": ans,
-            "validated_context": True
+            "validated_context": True,
+            "provenance": ProvenanceType.DERIVED
         }
     else:
-        # LLM integration placeholder
         return {
             "mode": "GenAI LLM Service (Online)",
             "query": req.user_query,
             "response": "Live LLM response generated using validated structured context.",
-            "validated_context": True
+            "validated_context": True,
+            "provenance": ProvenanceType.PREDICTED
         }
 
-# --- Request Models for Subscription & Rules ---
-class UpgradeRequest(BaseModel):
-    target_plan: str = "enterprise_pro"
-    billing_cycle: str = "annual"
-
-class ApplyRuleRequest(BaseModel):
-    rule_id: str
-    building_id: str
-
-# --- SaaS Business Model & Subscription Endpoint ---
 @app.get("/api/v1/subscription")
 def get_subscription_details():
     return {
@@ -374,48 +433,24 @@ def get_subscription_details():
         "usage_limits": {
             "monitored_buildings": {"used": 8, "total": 15, "unit": "Buildings"},
             "api_requests": {"used": 14200, "total": 50000, "unit": "Calls/mo"},
-            "ml_predictions": {"used": 8500, "total": 25000, "unit": "Inferences/mo"},
-            "iot_telemetry_rate": "1 Sec Live Streaming"
-        },
-        "available_plans": [
-            {
-                "id": "starter",
-                "name": "Starter Facility Tier",
-                "price_usd": 499,
-                "price_inr": 39999,
-                "features": ["Up to 5 Buildings", "Basic Energy & Water Monitoring", "Daily Email Alerts", "Standard Dashboard"]
-            },
-            {
-                "id": "enterprise_pro",
-                "name": "Enterprise Pro Tier (Active)",
-                "price_usd": 1499,
-                "price_inr": 119999,
-                "features": ["Up to 15 Buildings", "All 9 Domain ML Models", "24/7 AI Co-Pilot & What-If Simulator", "Real-time Telemetry & SHAP Explainability", "Automated Action Rules"]
-            },
-            {
-                "id": "sovereign_custom",
-                "name": "Sovereign / ESG Enterprise",
-                "price_usd": "Custom",
-                "price_inr": "Custom",
-                "features": ["Unlimited Buildings & Campuses", "On-Premise ML Model Deployment", "ISO 14064 ESG Audit Exporter", "SLA 99.99% & Dedicated AI Engineer"]
-            }
-        ]
+            "ml_predictions": {"used": 8500, "total": 25000, "unit": "Inferences/mo"}
+        }
     }
 
 @app.post("/api/v1/subscription/upgrade")
-def upgrade_subscription(req: UpgradeRequest):
+def upgrade_subscription(req: UpgradeRequest, user: Dict[str, Any] = Depends(require_permission("subscription_upgrade"))):
     return {
         "status": "SUCCESS",
         "message": f"Successfully updated subscription to {req.target_plan.upper()} ({req.billing_cycle} billing).",
         "active_plan": req.target_plan,
+        "updated_by": user["name"],
         "effective_date": pd.Timestamp.now().isoformat()
     }
 
-# --- ESG Carbon Audit Endpoint ---
 @app.get("/api/v1/esg/audit")
 def get_esg_audit():
     return {
-        "iso_standard": "ISO 14064-1 Greenhouse Gas Protocol",
+        "iso_standard": "ISO 14064-1 Greenhouse Gas Protocol Guidelines",
         "campus_footprint_tco2e": 482.4,
         "emissions_breakdown": {
             "scope_1_direct": {"tco2e": 84.2, "sources": "Diesel Generators & Boilers"},
@@ -425,11 +460,11 @@ def get_esg_audit():
         "carbon_offsets": {
             "solar_yield_tco2e_saved": 164.2,
             "net_campus_footprint_tco2e": 318.2,
-            "esg_grade": "A+ EXCELLENT"
-        }
+            "esg_grade": "A+ EXCELLENT (Internal Benchmark)"
+        },
+        "disclaimer": "Internal carbon audit indicator. Not an official regulatory certification."
     }
 
-# --- Actionable Recommendations & ROI Suggestions Engine ---
 @app.get("/api/v1/recommendations/actionable")
 def get_actionable_recommendations():
     return {
@@ -446,7 +481,7 @@ def get_actionable_recommendations():
                 "annual_savings_inr": 1150000,
                 "co2_reduction_tons": 18.2,
                 "priority": "HIGH",
-                "action_type": "AUTOMATED_RULE",
+                "action_type": "SIMULATED_ACTION",
                 "status": "PENDING"
             },
             {
@@ -458,7 +493,7 @@ def get_actionable_recommendations():
                 "annual_savings_inr": 550000,
                 "co2_reduction_tons": 4.2,
                 "priority": "MEDIUM",
-                "action_type": "AUTOMATED_RULE",
+                "action_type": "SIMULATED_ACTION",
                 "status": "PENDING"
             },
             {
@@ -470,98 +505,40 @@ def get_actionable_recommendations():
                 "annual_savings_inr": 280000,
                 "co2_reduction_tons": 2.1,
                 "priority": "MEDIUM",
-                "action_type": "AUTOMATED_RULE",
+                "action_type": "SIMULATED_ACTION",
                 "status": "PENDING"
             }
         ]
     }
 
 @app.post("/api/v1/recommendations/apply")
-def apply_recommendation_rule(req: ApplyRuleRequest):
+def apply_recommendation_rule(req: ApplyRuleRequest, user: Dict[str, Any] = Depends(require_permission("action_execute"))):
     return {
-        "status": "RULE_EXECUTED",
+        "status": "SIMULATED_ACTION_RECORDED",
         "rule_id": req.rule_id,
         "building_id": req.building_id,
-        "action_taken": "Automated telemetry setpoint adjust signal transmitted to BMS gateway.",
+        "executed_by": user["name"],
+        "action_taken": "Simulated setpoint adjustment recorded in Decision Trace log.",
         "projected_kwh_reduction_hourly": 18.5,
         "facility_score_boost": "+3.5 Points",
+        "disclaimer": "Simulated operational action. No physical BMS signal transmitted without hardware gateway integration.",
         "timestamp": pd.Timestamp.now().isoformat()
     }
 
-# --- Request Models for Auth & RBAC ---
-class LoginRequest(BaseModel):
-    role: str = "admin"
-
-USER_ROLES_DB = {
-    "admin": {
-        "user_id": "USR_ADMIN_01",
-        "name": "RS Administrator",
-        "initials": "RS",
-        "role_key": "admin",
-        "role_label": "Facility Lead & Admin",
-        "avatar_bg": "#124B3E",
-        "permissions": ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "esg", "billing", "ai-assistant"],
-        "can_execute_rules": True,
-        "can_upgrade_subscription": True,
-        "token": "bearer_estateiq_admin_jwt_token_8731"
-    },
-    "engineer": {
-        "user_id": "USR_ENG_02",
-        "name": "Alex Chen",
-        "initials": "AC",
-        "role_key": "engineer",
-        "role_label": "Operations Engineer",
-        "avatar_bg": "#1E7A68",
-        "permissions": ["overview", "energy", "water", "waste", "mobility", "simulator", "models", "ai-assistant"],
-        "can_execute_rules": True,
-        "can_upgrade_subscription": False,
-        "token": "bearer_estateiq_engineer_jwt_token_4290"
-    },
-    "auditor": {
-        "user_id": "USR_AUD_03",
-        "name": "Dr. Priya Sharma",
-        "initials": "PS",
-        "role_key": "auditor",
-        "role_label": "ESG Compliance Auditor",
-        "avatar_bg": "#D97706",
-        "permissions": ["overview", "suggestions", "esg", "ai-assistant"],
-        "can_execute_rules": False,
-        "can_upgrade_subscription": False,
-        "token": "bearer_estateiq_auditor_jwt_token_9912"
-    },
-    "viewer": {
-        "user_id": "USR_VIEW_04",
-        "name": "Sam Taylor",
-        "initials": "ST",
-        "role_key": "viewer",
-        "role_label": "Campus Stakeholder",
-        "avatar_bg": "#4B5563",
-        "permissions": ["overview", "mobility"],
-        "can_execute_rules": False,
-        "can_upgrade_subscription": False,
-        "token": "bearer_estateiq_viewer_jwt_token_1102"
-    }
-}
-
-current_active_session = USER_ROLES_DB["admin"].copy()
+# --- Auth & RBAC Endpoints ---
 
 @app.post("/api/v1/auth/login")
 def auth_login(req: LoginRequest):
-    global current_active_session
-    role_key = req.role.lower()
-    if role_key not in USER_ROLES_DB:
-        raise HTTPException(status_code=400, detail="Invalid role specified. Valid roles: admin, engineer, auditor, viewer")
-    
-    current_active_session = USER_ROLES_DB[role_key].copy()
+    user = get_user_by_role(req.role)
     return {
         "status": "AUTHENTICATED",
-        "user": current_active_session,
+        "user": user,
         "session_expires": "24 Hours"
     }
 
 @app.get("/api/v1/auth/me")
-def get_current_user():
-    return current_active_session
+def get_current_user(user: Dict[str, Any] = Depends(verify_current_user)):
+    return user
 
 @app.get("/api/v1/auth/roles")
 def list_available_roles():

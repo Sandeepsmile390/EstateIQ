@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initChatEngine();
     initTelemetryStreamer();
     initKeyboardShortcuts();
+    initDecisionTraceModal();
 
     // Fetch initial data from REST API endpoints
     loadBackendFacilitySummary();
@@ -1220,3 +1221,67 @@ function escapeHtml(str) {
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
     );
 }
+
+/* --------------------------------------------------------------------------
+   DECISION TRACE AUDIT MODAL CONTROLLER
+   -------------------------------------------------------------------------- */
+function initDecisionTraceModal() {
+    const traceModal = document.getElementById("decisionTraceModal");
+    const closeTraceBtn = document.getElementById("closeTraceModalBtn");
+    const dismissTraceBtn = document.getElementById("dismissTraceModalBtn");
+    const inspectSignalsBtn = document.getElementById("inspectSignalsBtn");
+    const runAiDiagnosticBtn = document.getElementById("runAiDiagnosticBtn");
+    const simulateTraceActionBtn = document.getElementById("simulateTraceActionBtn");
+
+    const openTrace = async (alertId = "ALT_01") => {
+        try {
+            const res = await fetch(`/api/v1/decisions/${alertId}`);
+            if (res.ok) {
+                const data = await res.json();
+                
+                const idEl = document.getElementById("traceModalId");
+                const bldEl = document.getElementById("traceBuildingName");
+                const obsEl = document.getElementById("traceObservedVal");
+                const baseEl = document.getElementById("traceBaselineVal");
+                const devAbsEl = document.getElementById("traceDevAbs");
+                const devPctEl = document.getElementById("traceDevPct");
+                const f1hEl = document.getElementById("traceForecast1h");
+                const f24hEl = document.getElementById("traceForecast24h");
+                const scoreEl = document.getElementById("traceAnomalyScore");
+                const recEl = document.getElementById("traceRecommendationText");
+
+                if (idEl) idEl.textContent = data.trace_id || `TRC_${alertId}`;
+                if (bldEl) bldEl.textContent = data.building || "Block B Hostel";
+                if (obsEl && data.step_1_observed) obsEl.textContent = `${data.step_1_observed.value} ${data.step_1_observed.unit}`;
+                if (baseEl && data.step_2_baseline) baseEl.textContent = `${data.step_2_baseline.expected_value} ${data.step_2_baseline.unit}`;
+                if (devAbsEl && data.step_3_deviation) devAbsEl.textContent = `+${data.step_3_deviation.absolute_deviation} kWh`;
+                if (devPctEl && data.step_3_deviation) devPctEl.textContent = data.step_3_deviation.percentage_deviation;
+                if (f1hEl && data.step_4_ml_prediction) f1hEl.textContent = `${data.step_4_ml_prediction["1h_forecast"]} kWh`;
+                if (f24hEl && data.step_4_ml_prediction) f24hEl.textContent = `${data.step_4_ml_prediction["24h_forecast"]} kWh`;
+                if (scoreEl && data.step_5_anomaly) scoreEl.textContent = data.step_5_anomaly.anomaly_score;
+                if (recEl && data.step_8_recommendation) recEl.textContent = data.step_8_recommendation.detailed_recommendation;
+            }
+        } catch (e) {
+            console.warn("Using baseline Decision Trace modal details.");
+        }
+        traceModal?.classList.add("show");
+    };
+
+    const closeTrace = () => traceModal?.classList.remove("show");
+
+    inspectSignalsBtn?.addEventListener("click", () => openTrace("ALT_01"));
+    runAiDiagnosticBtn?.addEventListener("click", () => {
+        document.getElementById("signalsModal")?.classList.remove("show");
+        openTrace("ALT_01");
+    });
+    closeTraceBtn?.addEventListener("click", closeTrace);
+    dismissTraceBtn?.addEventListener("click", closeTrace);
+
+    simulateTraceActionBtn?.addEventListener("click", () => {
+        closeTrace();
+        const simTab = document.getElementById("tabSimulator");
+        simTab?.click();
+        showToast("Loaded Decision Trace parameters into What-If Simulator.");
+    });
+}
+

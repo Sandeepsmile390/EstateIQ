@@ -1,5 +1,5 @@
 """
-FastAPI Endpoints Tests
+FastAPI Endpoints & Decision Trace Integration Tests
 """
 
 import unittest
@@ -61,6 +61,37 @@ class TestAPIEndpoints(unittest.TestCase):
         res = self.client.post("/anomaly/water", json=payload)
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["anomaly_status"], "ANOMALY_DETECTED")
+
+    def test_decision_trace_endpoint(self):
+        res = self.client.get("/api/v1/decisions/ALT_01")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("step_1_observed", data)
+        self.assertIn("step_5_anomaly", data)
+        self.assertIn("step_6_shap", data)
+        self.assertIn("step_10_whatif_impact", data)
+
+    def test_data_quality_endpoint(self):
+        res = self.client.get("/api/v1/data-quality")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("overall_quality_score", res.json())
+
+    def test_sustainability_score_endpoint(self):
+        res = self.client.get("/api/v1/sustainability")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("sustainability_score", res.json())
+
+    def test_ai_chat_query_matching(self):
+        queries = [
+            ("Why is energy high in Block B?", "Block B"),
+            ("Which waste bins need collection?", "Bin 01"),
+            ("What is chiller vibration status?", "AST_CHILLER_01"),
+            ("What is water leak risk?", "Hostel A")
+        ]
+        for q, expected in queries:
+            res = self.client.post("/api/v1/ai/chat", json={"user_query": q})
+            self.assertEqual(res.status_code, 200)
+            self.assertIn(expected, res.json()["response"])
 
     def test_models_registry_endpoint(self):
         res = self.client.get("/models")

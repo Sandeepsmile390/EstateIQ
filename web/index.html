@@ -1572,6 +1572,175 @@
         </div>
     </div>
 
+    <!-- DECISION TRACE AUDIT MODAL (NEW CORE FEATURE) -->
+    <div class="modal-backdrop" id="decisionTraceModal">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <i class="fa-solid fa-route text-mint"></i>
+                    <div>
+                        <h3>EstateIQ Grounded Decision Trace Audit Ledger</h3>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0;">Trace ID: <span id="traceModalId" style="font-family: monospace; color: var(--accent-mint);">TRC_ALT_01</span> • 11-Step Explainability Audit Trail</p>
+                    </div>
+                </div>
+                <button class="modal-close" id="closeTraceModalBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                
+                <div class="decision-trace-timeline">
+                    
+                    <!-- STEP 1: OBSERVED DATA -->
+                    <div class="trace-step">
+                        <div class="trace-badge">1</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>1. Observed Sensor Data</strong>
+                                <span class="provenance-badge-pill">[SYNTHETIC IoT DATA]</span>
+                            </div>
+                            <p>Electricity Consumption in <strong id="traceBuildingName">Block B Hostel</strong>: <strong class="text-amber" id="traceObservedVal">145.2 kWh</strong> (Telemetry Timestamped)</p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2: CONTEXTUAL BASELINE -->
+                    <div class="trace-step">
+                        <div class="trace-badge">2</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>2. Contextual Baseline</strong>
+                                <span class="provenance-badge-pill">[DERIVED BASELINE]</span>
+                            </div>
+                            <p>Expected Energy: <strong class="text-green" id="traceBaselineVal">78.0 kWh</strong> • Formula: <code>f(building, hour, occupancy, temp, HVAC)</code></p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: DEVIATION -->
+                    <div class="trace-step">
+                        <div class="trace-badge">3</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>3. Operational Deviation</strong>
+                                <span class="badge-red">ABNORMAL SURGE</span>
+                            </div>
+                            <p>Absolute Surge: <strong class="text-red" id="traceDevAbs">+67.2 kWh</strong> • Percentage Deviation: <strong class="text-red" id="traceDevPct">+86.1%</strong> above expected baseline</p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 4: ML PREDICTION -->
+                    <div class="trace-step">
+                        <div class="trace-badge">4</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>4. ML Model Forecast</strong>
+                                <span class="provenance-badge-pill">[CatBoost FORECAST]</span>
+                            </div>
+                            <p>1H Forecast: <strong id="traceForecast1h">152.5 kWh</strong> • 24H Cumulative: <strong id="traceForecast24h">2,940 kWh</strong> • Confidence: <strong>±8.4%</strong></p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 5: ANOMALY SCORE -->
+                    <div class="trace-step">
+                        <div class="trace-badge">5</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>5. Anomaly Detection Score</strong>
+                                <span class="badge-amber" id="traceSeverityTag">HIGH SEVERITY</span>
+                            </div>
+                            <p>Isolation Forest Score: <strong id="traceAnomalyScore">0.88</strong> • <em>Potential abnormal operational pattern detected. Physical inspection may be required.</em></p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 6: SHAP EXPLAINABILITY -->
+                    <div class="trace-step">
+                        <div class="trace-badge">6</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>6. SHAP Feature Attribution Impact</strong>
+                                <span class="provenance-badge-pill">[SHAP EXPLAINER]</span>
+                            </div>
+                            <div class="shap-bar-group" style="margin-top: 8px;">
+                                <div class="shap-bar-item"><span>HVAC Load</span> <div class="bar-fill bg-teal" style="width: 84%;">+42%</div></div>
+                                <div class="shap-bar-item"><span>Occupancy Rate</span> <div class="bar-fill bg-amber" style="width: 36%;">+18%</div></div>
+                                <div class="shap-bar-item"><span>Ambient Temperature</span> <div class="bar-fill bg-slate" style="width: 22%;">+11%</div></div>
+                            </div>
+                            <p style="font-size: 0.75rem; color: #94A3B8; margin-top: 6px;"><em>SHAP values explain model behavior. They do not prove physical causation.</em></p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 7: PRIORITY RANK -->
+                    <div class="trace-step">
+                        <div class="trace-badge">7</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>7. Priority Score & Action Complexity</strong>
+                                <span class="badge-red">PRIORITY 1 URGENT</span>
+                            </div>
+                            <p>Priority Score: <strong>8.8 / 10</strong> • Action Complexity Rating: <strong class="text-amber">MEDIUM</strong></p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 8: GROUNDED RECOMMENDATION -->
+                    <div class="trace-step">
+                        <div class="trace-badge">8</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>8. Grounded AI Action Recommendation</strong>
+                                <span class="badge-green">GROUNDED</span>
+                            </div>
+                            <p id="traceRecommendationText">Reset thermostat setpoint schedule to 24.5°C in Block B Hostel. Inspect compressor cycling pattern and verify occupancy setback timing.</p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 9: MODEL ASSUMPTIONS -->
+                    <div class="trace-step">
+                        <div class="trace-badge">9</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>9. System Assumptions & Disclaimers</strong>
+                            </div>
+                            <ul style="font-size: 0.8rem; padding-left: 18px; margin: 4px 0; color: var(--text-secondary);">
+                                <li>Occupancy sensors report current building headcounts.</li>
+                                <li>Ambient temperature sensors reflect local microclimate.</li>
+                                <li>Tariff rate calculated at baseline ₹9.50/kWh.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- STEP 10: WHAT-IF IMPACT -->
+                    <div class="trace-step">
+                        <div class="trace-badge">10</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>10. What-If Simulated Intervention Impact</strong>
+                                <span class="provenance-badge-pill">[SIMULATED SCENARIO]</span>
+                            </div>
+                            <p>Intervention: <strong>Reduce HVAC load by 20%</strong> • Simulated Demand Target: <strong class="text-green">121.5 kWh</strong> • Estimated Savings: <strong class="text-green">₹1,42,800/mo ($1,740/mo)</strong> • Carbon Reduction: <strong class="text-mint">16.4 Tons CO₂e</strong></p>
+                        </div>
+                    </div>
+
+                    <!-- STEP 11: ACTION RECORD -->
+                    <div class="trace-step">
+                        <div class="trace-badge">11</div>
+                        <div class="trace-card">
+                            <div class="trace-step-header">
+                                <strong>11. Recorded Decision & Simulated Execution</strong>
+                                <span class="badge-green">ACTION RECORDED</span>
+                            </div>
+                            <p>Status: <strong class="text-green">SIMULATED_ACTION_RECORDED</strong> • Logged in EstateIQ Decision Trace Ledger.</p>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="dismissTraceModalBtn">Close Trace</button>
+                <button class="btn btn-emerald" id="simulateTraceActionBtn">
+                    <i class="fa-solid fa-sliders"></i> Open in What-If Simulator
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Custom JavaScript -->
     <script src="js/charts.js"></script>
     <script src="js/app.js"></script>

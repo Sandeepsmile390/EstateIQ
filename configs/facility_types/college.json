@@ -1,0 +1,45 @@
+{
+  "facility_type": "engineering_college",
+  "name": "IIT / NIT Institutional Campus Configuration",
+  "available_modules": [
+    "energy",
+    "water",
+    "waste",
+    "air",
+    "traffic",
+    "parking",
+    "equipment",
+    "safety",
+    "emissions",
+    "sustainability_score"
+  ],
+  "available_sensors": [
+    "hvac_smart_meter",
+    "lighting_load_sensor",
+    "water_flow_sensor",
+    "waste_bin_ultrasonic",
+    "aqi_pm25_sensor",
+    "traffic_camera",
+    "parking_loop_detector",
+    "lab_equipment_vibration"
+  ],
+  "feature_mappings": {
+    "peak_hours": [8, 17],
+    "high_occupancy_days": [1, 2, 3, 4, 5]
+  },
+  "thresholds": {
+    "energy_kwh_max": 250.0,
+    "water_flow_liters_max": 1000.0,
+    "waste_fill_level_alert": 85.0,
+    "aqi_pm25_warning": 120.0,
+    "parking_capacity_warning": 0.90
+  },
+  "dashboard_widgets": [
+    "energy_forecast_chart",
+    "water_leak_risk_alert",
+    "waste_overflow_map",
+    "air_quality_hotspot",
+    "parking_occupancy_meter",
+    "overall_sustainability_gauge"
+  ]
+}

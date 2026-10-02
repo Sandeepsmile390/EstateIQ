@@ -1,0 +1,10 @@
+Task,Winning Algorithm,MAE,RMSE,R2 / F1,Precision,Recall
+air_pm25_prediction,Linear Regression,1.7804,2.2177,0.977,N/A,N/A
+emissions_forecasting,Linear Regression,4.1666,5.1936,0.9885,N/A,N/A
+energy_consumption,Linear Regression,2.3378,2.934,0.996,N/A,N/A
+energy_kwh_prediction,Linear Regression,2.3851,3.002,0.9966,N/A,N/A
+equipment_maintenance_risk,Random Forest,N/A,N/A,1.0,1.0,1.0
+parking_occupancy_forecasting,Gradient Boosting,0.1281,0.1689,0.6852,N/A,N/A
+traffic_congestion_class,CatBoost,N/A,N/A,0.9774,0.9848,0.9701
+waste_overflow_2hr,Logistic Regression,N/A,N/A,0.9985,1.0,0.997
+water_usage_forecasting,Linear Regression,7.8545,9.8889,0.9997,N/A,N/A

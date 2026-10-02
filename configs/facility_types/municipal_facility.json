@@ -1,0 +1,40 @@
+{
+  "facility_type": "municipal_facility",
+  "name": "Smart City Municipal Zone Configuration",
+  "available_modules": [
+    "energy",
+    "water",
+    "waste",
+    "air",
+    "traffic",
+    "parking",
+    "safety",
+    "emissions",
+    "sustainability_score"
+  ],
+  "available_sensors": [
+    "street_light_meter",
+    "civic_water_pipeline_sensor",
+    "smart_bin_sensor",
+    "city_aqi_monitor",
+    "traffic_cam_ai",
+    "public_parking_sensor"
+  ],
+  "feature_mappings": {
+    "peak_hours": [7, 21],
+    "high_occupancy_days": [1, 2, 3, 4, 5, 6, 0]
+  },
+  "thresholds": {
+    "energy_kwh_max": 500.0,
+    "water_flow_liters_max": 3000.0,
+    "waste_fill_level_alert": 80.0,
+    "aqi_pm25_warning": 140.0
+  },
+  "dashboard_widgets": [
+    "civic_waste_route_optimizer",
+    "city_aqi_heat_map",
+    "public_traffic_flow",
+    "municipal_water_balance",
+    "overall_sustainability_gauge"
+  ]
+}

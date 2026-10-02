@@ -1,0 +1,24 @@
+{
+  "energy": {
+    "total_rows": 172800,
+    "missing_pct": 1.5,
+    "mean_electricity_kwh": 28.88,
+    "min_electricity_kwh": 4.361,
+    "max_electricity_kwh": 115.2
+  },
+  "water": {
+    "total_rows": 172800,
+    "missing_pct": 1.2,
+    "mean_water_liters": 1071.29
+  },
+  "waste": {
+    "total_rows": 483840,
+    "mean_fill_pct": 28.65,
+    "overflow_events_count": 0
+  },
+  "air_quality": {
+    "total_rows": 120960,
+    "mean_aqi": 50.15,
+    "mean_pm25": 29.07
+  }
+}

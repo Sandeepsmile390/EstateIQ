@@ -1,0 +1,41 @@
+{
+  "facility_type": "industrial_estate",
+  "name": "MIDC Industrial Estate Configuration",
+  "available_modules": [
+    "energy",
+    "water",
+    "waste",
+    "air",
+    "traffic",
+    "equipment",
+    "safety",
+    "emissions",
+    "sustainability_score"
+  ],
+  "available_sensors": [
+    "substation_meter",
+    "effluent_water_meter",
+    "industrial_waste_sensor",
+    "stack_emission_sensor",
+    "heavy_vehicle_counter",
+    "motor_vibration_sensor"
+  ],
+  "feature_mappings": {
+    "peak_hours": [6, 22],
+    "high_occupancy_days": [1, 2, 3, 4, 5, 6]
+  },
+  "thresholds": {
+    "energy_kwh_max": 1200.0,
+    "water_flow_liters_max": 5000.0,
+    "waste_fill_level_alert": 80.0,
+    "aqi_pm25_warning": 150.0,
+    "emissions_co2_max": 500.0
+  },
+  "dashboard_widgets": [
+    "industrial_load_factor",
+    "stack_emissions_gauge",
+    "effluent_flow_rate",
+    "heavy_equipment_health",
+    "overall_sustainability_gauge"
+  ]
+}

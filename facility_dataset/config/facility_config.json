@@ -1,0 +1,36 @@
+{
+  "facility": {
+    "facility_id": "FAC_GEC_01",
+    "facility_name": "GEC Smart Campus",
+    "facility_type": "engineering_college",
+    "city": "Pune",
+    "state": "Maharashtra",
+    "country": "India",
+    "latitude": 18.5204,
+    "longitude": 73.8567,
+    "total_area_sqft": 450000,
+    "operational_start": "08:00",
+    "operational_end": "20:00"
+  },
+  "buildings": [
+    {"building_id": "BLD001", "building_name": "Academic Block A", "building_type": "Academic", "floor_count": 4, "area_sqft": 45000, "capacity": 1200, "occupancy_profile": "academic_daytime", "hvac_type": "VRF_Central", "construction_year": 2012},
+    {"building_id": "BLD002", "building_name": "Academic Block B", "building_type": "Academic", "floor_count": 4, "area_sqft": 40000, "capacity": 1000, "occupancy_profile": "academic_daytime", "hvac_type": "VRF_Central", "construction_year": 2014},
+    {"building_id": "BLD003", "building_name": "Computer Science Block", "building_type": "Academic", "floor_count": 5, "area_sqft": 50000, "capacity": 1500, "occupancy_profile": "academic_extended", "hvac_type": "Chiller_FCU", "construction_year": 2016},
+    {"building_id": "BLD004", "building_name": "Administration Block", "building_type": "Admin", "floor_count": 3, "area_sqft": 25000, "capacity": 300, "occupancy_profile": "office_hours", "hvac_type": "Split_AC", "construction_year": 2010},
+    {"building_id": "BLD005", "building_name": "Library", "building_type": "Library", "floor_count": 3, "area_sqft": 35000, "capacity": 800, "occupancy_profile": "library_hours", "hvac_type": "Central_AHU", "construction_year": 2013},
+    {"building_id": "BLD006", "building_name": "Hostel A (Boys)", "building_type": "Hostel", "floor_count": 6, "area_sqft": 65000, "capacity": 600, "occupancy_profile": "residential_247", "hvac_type": "Natural_Ventilation", "construction_year": 2011},
+    {"building_id": "BLD007", "building_name": "Hostel B (Girls)", "building_type": "Hostel", "floor_count": 6, "area_sqft": 65000, "capacity": 600, "occupancy_profile": "residential_247", "hvac_type": "Natural_Ventilation", "construction_year": 2015},
+    {"building_id": "BLD008", "building_name": "Canteen", "building_type": "Canteen", "floor_count": 2, "area_sqft": 20000, "capacity": 500, "occupancy_profile": "meal_peaks", "hvac_type": "Exhaust_Cooling", "construction_year": 2012},
+    {"building_id": "BLD009", "building_name": "Sports Complex", "building_type": "Sports", "floor_count": 2, "area_sqft": 30000, "capacity": 400, "occupancy_profile": "sports_hours", "hvac_type": "Natural_Ventilation", "construction_year": 2017},
+    {"building_id": "BLD010", "building_name": "Central Utility Building", "building_type": "Utility", "floor_count": 1, "area_sqft": 15000, "capacity": 50, "occupancy_profile": "utility_247", "hvac_type": "Industrial_Ventilation", "construction_year": 2010}
+  ],
+  "locations": [
+    {"location_id": "LOC_GATE_MAIN", "location_name": "Main Gate", "zone": "Academic Zone"},
+    {"location_id": "LOC_PARK_NORTH", "location_name": "North Parking", "zone": "Academic Zone"},
+    {"location_id": "LOC_PARK_SOUTH", "location_name": "South Parking", "zone": "Hostel Zone"},
+    {"location_id": "LOC_CANTEEN_AREA", "location_name": "Canteen Area", "zone": "Canteen Zone"},
+    {"location_id": "LOC_ACADEMIC_ZONE", "location_name": "Academic Quadrangle", "zone": "Academic Zone"},
+    {"location_id": "LOC_HOSTEL_ZONE", "location_name": "Hostel Courtyard", "zone": "Hostel Zone"},
+    {"location_id": "LOC_SPORTS_ZONE", "location_name": "Sports Ground", "zone": "Sports Zone"}
+  ]
+}

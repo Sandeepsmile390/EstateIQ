@@ -1,0 +1,41 @@
+{
+  "facility_type": "company_campus",
+  "name": "Corporate Tech Park Campus Configuration",
+  "available_modules": [
+    "energy",
+    "water",
+    "waste",
+    "air",
+    "traffic",
+    "parking",
+    "equipment",
+    "safety",
+    "emissions",
+    "sustainability_score"
+  ],
+  "available_sensors": [
+    "chiller_plant_meter",
+    "water_meter",
+    "waste_compactor_sensor",
+    "iaq_sensor",
+    "parking_anpr_camera",
+    "generator_health_monitor"
+  ],
+  "feature_mappings": {
+    "peak_hours": [9, 19],
+    "high_occupancy_days": [1, 2, 3, 4, 5]
+  },
+  "thresholds": {
+    "energy_kwh_max": 350.0,
+    "water_flow_liters_max": 1500.0,
+    "waste_fill_level_alert": 85.0,
+    "aqi_pm25_warning": 100.0
+  },
+  "dashboard_widgets": [
+    "building_energy_intensity",
+    "water_recycling_status",
+    "parking_slot_availability",
+    "indoor_air_quality_index",
+    "overall_sustainability_gauge"
+  ]
+}

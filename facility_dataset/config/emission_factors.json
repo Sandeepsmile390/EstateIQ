@@ -1,0 +1,11 @@
+{
+  "emission_factors": {
+    "grid_electricity_kg_co2_per_kwh": 0.82,
+    "diesel_generator_kg_co2_per_liter": 2.68,
+    "car_transport_kg_co2_per_km": 0.14,
+    "bus_transport_kg_co2_per_km": 0.85,
+    "two_wheeler_kg_co2_per_km": 0.04
+  },
+  "source": "Indian Central Electricity Authority (CEA) Baseline & IPCC Guidelines",
+  "disclaimer": "Estimated CO2e based on configured emission factors. Not official statutory carbon audit measurements."
+}

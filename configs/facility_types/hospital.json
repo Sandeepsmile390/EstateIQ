@@ -1,0 +1,40 @@
+{
+  "facility_type": "hospital",
+  "name": "Super-Specialty Hospital Estate Configuration",
+  "available_modules": [
+    "energy",
+    "water",
+    "waste",
+    "air",
+    "equipment",
+    "safety",
+    "emissions",
+    "sustainability_score"
+  ],
+  "available_sensors": [
+    "hvac_smart_meter",
+    "icu_power_monitor",
+    "water_flow_sensor",
+    "medical_waste_sensor",
+    "cleanroom_air_sensor",
+    "mri_vibration_sensor"
+  ],
+  "feature_mappings": {
+    "peak_hours": [0, 23],
+    "high_occupancy_days": [0, 1, 2, 3, 4, 5, 6]
+  },
+  "thresholds": {
+    "energy_kwh_max": 400.0,
+    "water_flow_liters_max": 2000.0,
+    "waste_fill_level_alert": 75.0,
+    "aqi_pm25_warning": 60.0,
+    "equipment_vibration_critical": 4.5
+  },
+  "dashboard_widgets": [
+    "critical_power_monitor",
+    "water_pressure_guard",
+    "hazardous_waste_tracker",
+    "air_sterility_index",
+    "overall_sustainability_gauge"
+  ]
+}

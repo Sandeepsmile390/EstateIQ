@@ -1,0 +1,309 @@
+{
+  "models": {
+    "energy_kwh_prediction_v1": {
+      "model_id": "energy_kwh_prediction_v1",
+      "model_version": "v1.0",
+      "task": "energy_kwh_prediction",
+      "facility_type": "configurable_estate",
+      "training_date": "2026-09-29 01:10:18",
+      "dataset_version": "v1.0_synthetic",
+      "features": [
+        "temperature",
+        "humidity",
+        "occupancy",
+        "hvac_load",
+        "lighting_load",
+        "equipment_load",
+        "previous_energy_kwh",
+        "hour",
+        "day_of_week",
+        "month",
+        "is_weekend",
+        "is_peak_hour",
+        "hour_sin",
+        "hour_cos",
+        "energy_kwh_lag_1",
+        "energy_kwh_lag_24",
+        "energy_kwh_rolling_mean_6",
+        "energy_kwh_rolling_std_6"
+      ],
+      "algorithm": "Linear Regression",
+      "hyperparameters": "default",
+      "metrics": {
+        "MAE": 2.3851,
+        "RMSE": 3.002,
+        "R2": 0.9966,
+        "MAPE": 3.03,
+        "sMAPE": 3.03
+      },
+      "validation_method": "Chronological Split 70/15/15",
+      "status": "ACTIVE"
+    },
+    "water_usage_forecasting_v1": {
+      "model_id": "water_usage_forecasting_v1",
+      "model_version": "v1.0",
+      "task": "water_usage_forecasting",
+      "facility_type": "configurable_estate",
+      "training_date": "2026-09-29 01:10:20",
+      "dataset_version": "v1.0_synthetic",
+      "features": [
+        "flow_rate",
+        "occupancy",
+        "temperature",
+        "humidity",
+        "hour",
+        "day_of_week",
+        "month",
+        "is_weekend",
+        "is_peak_hour",
+        "hour_sin",
+        "hour_cos",
+        "water_usage_liters_lag_1",
+        "water_usage_liters_lag_24",
+        "water_usage_liters_rolling_mean_3",
+        "water_usage_liters_rolling_std_3"
+      ],
+      "algorithm": "Linear Regression",
+      "hyperparameters": "default",
+      "metrics": {
+        "MAE": 7.8545,
+        "RMSE": 9.8889,
+        "R2": 0.9997,
+        "MAPE": 0.88,
+        "sMAPE": 0.88
+      },
+      "validation_method": "Chronological Split 70/15/15",
+      "status": "ACTIVE"
+    },
+    "waste_overflow_2hr_v1": {
+      "model_id": "waste_overflow_2hr_v1",
+      "model_version": "v1.0",
+      "task": "waste_overflow_2hr",
+      "facility_type": "configurable_estate",
+      "training_date": "2026-09-29 01:10:21",
+      "dataset_version": "v1.0_synthetic",
+      "features": [
+        "fill_level",
+        "fill_rate",
+        "temperature",
+        "occupancy",
+        "day_of_week",
+        "hour",
+        "collection_time",
+        "month",
+        "is_weekend",
+        "is_peak_hour",
+        "hour_sin",
+        "hour_cos"
+      ],
+      "algorithm": "Logistic Regression",
+      "hyperparameters": "default",
+      "metrics": {
+        "Precision": 1.0,
+        "Recall": 0.997,
+        "F1": 0.9985,
+        "ROC-AUC": 1.0,
+        "PR-AUC": 1.0,
+        "Confusion_Matrix": [
+          [
+            534,
+            0
+          ],
+          [
+            1,
+            330
+          ]
+        ]
+      },
+      "validation_method": "Chronological Split 70/15/15",
+      "status": "ACTIVE"
+    },
+    "air_pm25_prediction_v1": {
+      "model_id": "air_pm25_prediction_v1",
+      "model_version": "v1.0",
+      "task": "air_pm25_prediction",
+      "facility_type": "configurable_estate",
+      "training_date": "2026-09-29 01:10:22",
+      "dataset_version": "v1.0_synthetic",
+      "features": [
+        "PM10",
+        "CO2",
+        "temperature",
+        "humidity",
+        "wind_speed",
+        "traffic_level",
+        "hour",
+        "day_of_week",
+        "month",
+        "is_weekend",
+        "is_peak_hour",
+        "hour_sin",
+        "hour_cos"
+      ],
+      "algorithm": "Linear Regression",
+      "hyperparameters": "default",
+      "metrics": {
+        "MAE": 1.7804,
+        "RMSE": 2.2177,
+        "R2": 0.977,
+        "MAPE": 4.47,
+        "sMAPE": 4.46
+      },
+      "validation_method": "Chronological Split 70/15/15",
+      "status": "ACTIVE"
+    },
+    "traffic_congestion_class_v1": {
+      "model_id": "traffic_congestion_class_v1",
+      "model_version": "v1.0",
+      "task": "traffic_congestion_class",
+      "facility_type": "configurable_estate",
+      "training_date": "2026-09-29 01:10:23",
+      "dataset_version": "v1.0_synthetic",
+      "features": [
+        "average_speed",
+        "pedestrian_count",
+        "parking_occupancy",
+        "day_of_week",
+        "hour",
+        "month",
+        "is_weekend",
+        "is_peak_hour",
+        "hour_sin",
+        "hour_cos",
+        "weather_Foggy",
+        "weather_Overcast",
+        "weather_Rainy"
+      ],
+      "algorithm": "CatBoost",
+      "hyperparameters": "default",
+      "metrics": {
+        "Precision": 0.9848,
+        "Recall": 0.9701,
+        "F1": 0.9774,
+        "ROC-AUC": 0.999,
+        "PR-AUC": 0.996,
+        "Confusion_Matrix": [
+          [
+            512,
+            2
+          ],
+          [
+            4,
+            130
+          ]
+        ]
+      },
+      "validation_method": "Chronological Split 70/15/15",
+      "status": "ACTIVE"
+    },
+    "parking_occupancy_forecasting_v1": {
+      "model_id": "parking_occupancy_forecasting_v1",
+      "model_version": "v1.0",
+      "task": "parking_occupancy_forecasting",
+      "facility_type": "configurable_estate",
+      "training_date": "2026-09-29 01:10:24",
+      "dataset_version": "v1.0_synthetic",
+      "features": [
+        "capacity",
+        "vehicle_arrivals",
+        "vehicle_departures",
+        "hour",
+        "day_of_week",
+        "event_flag",
+        "month",
+        "is_weekend",
+        "is_peak_hour",
+        "hour_sin",
+        "hour_cos"
+      ],
+      "algorithm": "Gradient Boosting",
+      "hyperparameters": "default",
+      "metrics": {
+        "MAE": 0.1281,
+        "RMSE": 0.1689,
+        "R2": 0.6852,
+        "MAPE": 56664511.18,
+        "sMAPE": 38.34
+      },
+      "validation_method": "Chronological Split 70/15/15",
+      "status": "ACTIVE"
+    },
+    "equipment_maintenance_risk_v1": {
+      "model_id": "equipment_maintenance_risk_v1",
+      "model_version": "v1.0",
+      "task": "equipment_maintenance_risk",
+      "facility_type": "configurable_estate",
+      "training_date": "2026-09-29 01:10:25",
+      "dataset_version": "v1.0_synthetic",
+      "features": [
+        "runtime_hours",
+        "load",
+        "temperature",
+        "vibration",
+        "power_consumption",
+        "maintenance_history",
+        "utilization_rate",
+        "hour",
+        "day_of_week",
+        "month",
+        "is_weekend",
+        "is_peak_hour",
+        "hour_sin",
+        "hour_cos"
+      ],
+      "algorithm": "Random Forest",
+      "hyperparameters": "default",
+      "metrics": {
+        "Precision": 1.0,
+        "Recall": 1.0,
+        "F1": 1.0,
+        "ROC-AUC": 1.0,
+        "PR-AUC": 1.0,
+        "Confusion_Matrix": [
+          [
+            415,
+            0
+          ],
+          [
+            0,
+            450
+          ]
+        ]
+      },
+      "validation_method": "Chronological Split 70/15/15",
+      "status": "ACTIVE"
+    },
+    "emissions_forecasting_v1": {
+      "model_id": "emissions_forecasting_v1",
+      "model_version": "v1.0",
+      "task": "emissions_forecasting",
+      "facility_type": "configurable_estate",
+      "training_date": "2026-09-29 01:10:26",
+      "dataset_version": "v1.0_synthetic",
+      "features": [
+        "energy_consumption",
+        "fuel_consumption",
+        "vehicle_count",
+        "production_level",
+        "hour",
+        "day_of_week",
+        "month",
+        "is_weekend",
+        "is_peak_hour",
+        "hour_sin",
+        "hour_cos"
+      ],
+      "algorithm": "Linear Regression",
+      "hyperparameters": "default",
+      "metrics": {
+        "MAE": 4.1666,
+        "RMSE": 5.1936,
+        "R2": 0.9885,
+        "MAPE": 3.25,
+        "sMAPE": 3.26
+      },
+      "validation_method": "Chronological Split 70/15/15",
+      "status": "ACTIVE"
+    }
+  }
+}

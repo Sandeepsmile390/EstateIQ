@@ -1,0 +1,14 @@
+dataset,column,datatype,unit,description,source_type,generated_or_derived,allowed_range
+energy_readings,electricity_kwh,float,kWh,Total 15-min building electricity consumption,synthetic,generated,>=0
+energy_readings,hvac_kwh,float,kWh,HVAC sub-meter electricity consumption,synthetic,generated,>=0
+energy_readings,power_factor,float,ratio,Electrical power factor,synthetic,generated,0.70-1.00
+water_readings,water_consumption_liters,float,Liters,15-min building water usage,synthetic,generated,>=0
+water_readings,water_flow_rate_lpm,float,LPM,Water flow rate in Liters Per Minute,synthetic,generated,>=0
+waste_readings,fill_level_percent,float,%,Waste bin fill percentage,synthetic,generated,0-100
+waste_readings,overflow_within_2h,int,binary,Target: Bin overflow in next 2 hours,synthetic,derived,0 or 1
+air_quality_readings,pm25,float,µg/m³,Particulate matter PM2.5 concentration,synthetic,generated,>=0
+air_quality_readings,aqi,float,index,CPCB Indian Air Quality Index proxy,synthetic,derived,0-500
+traffic_readings,vehicle_count,int,vehicles,Count of vehicles passed in 15-min interval,synthetic,generated,>=0
+parking_readings,occupancy_percent,float,%,Parking zone occupied space ratio,synthetic,derived,0-100
+equipment_sensor_readings,vibration_mm_s,float,mm/s,Equipment vibration amplitude,synthetic,generated,>=0
+equipment_sensor_readings,maintenance_risk_score,float,score,Predictive maintenance risk indicator,synthetic,derived,0.0-1.0

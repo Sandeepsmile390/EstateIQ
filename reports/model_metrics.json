@@ -1,0 +1,83 @@
+[
+  {
+    "Task":"air_pm25_prediction",
+    "Winning Algorithm":"Linear Regression",
+    "MAE":1.7804,
+    "RMSE":2.2177,
+    "R2 \/ F1":0.977,
+    "Precision":"N\/A",
+    "Recall":"N\/A"
+  },
+  {
+    "Task":"emissions_forecasting",
+    "Winning Algorithm":"Linear Regression",
+    "MAE":4.1666,
+    "RMSE":5.1936,
+    "R2 \/ F1":0.9885,
+    "Precision":"N\/A",
+    "Recall":"N\/A"
+  },
+  {
+    "Task":"energy_consumption",
+    "Winning Algorithm":"Linear Regression",
+    "MAE":2.3378,
+    "RMSE":2.934,
+    "R2 \/ F1":0.996,
+    "Precision":"N\/A",
+    "Recall":"N\/A"
+  },
+  {
+    "Task":"energy_kwh_prediction",
+    "Winning Algorithm":"Linear Regression",
+    "MAE":2.3851,
+    "RMSE":3.002,
+    "R2 \/ F1":0.9966,
+    "Precision":"N\/A",
+    "Recall":"N\/A"
+  },
+  {
+    "Task":"equipment_maintenance_risk",
+    "Winning Algorithm":"Random Forest",
+    "MAE":"N\/A",
+    "RMSE":"N\/A",
+    "R2 \/ F1":1.0,
+    "Precision":1.0,
+    "Recall":1.0
+  },
+  {
+    "Task":"parking_occupancy_forecasting",
+    "Winning Algorithm":"Gradient Boosting",
+    "MAE":0.1281,
+    "RMSE":0.1689,
+    "R2 \/ F1":0.6852,
+    "Precision":"N\/A",
+    "Recall":"N\/A"
+  },
+  {
+    "Task":"traffic_congestion_class",
+    "Winning Algorithm":"CatBoost",
+    "MAE":"N\/A",
+    "RMSE":"N\/A",
+    "R2 \/ F1":0.9774,
+    "Precision":0.9848,
+    "Recall":0.9701
+  },
+  {
+    "Task":"waste_overflow_2hr",
+    "Winning Algorithm":"Logistic Regression",
+    "MAE":"N\/A",
+    "RMSE":"N\/A",
+    "R2 \/ F1":0.9985,
+    "Precision":1.0,
+    "Recall":0.997
+  },
+  {
+    "Task":"water_usage_forecasting",
+    "Winning Algorithm":"Linear Regression",
+    "MAE":7.8545,
+    "RMSE":9.8889,
+    "R2 \/ F1":0.9997,
+    "Precision":"N\/A",
+    "Recall":"N\/A"
+  }
+]

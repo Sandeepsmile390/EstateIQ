@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="EstateIQ - Premium SaaS Facility & Estate Intelligence Platform for Sustainable Campus Operations">
+    <title>EstateIQ - Multi-Role Facility Intelligence Platform</title>
+
+    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome 6 Pro Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="sidebar" id="mainSidebar">
+            <div class="sidebar-header">
+                <div class="brand-logo" id="brandLogo">
+                    <div class="logo-icon">
+                        <i class="fa-solid fa-leaf"></i>
+                    </div>
+                    <span class="logo-text">Estate<span class="highlight">IQ</span></span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav" id="sidebarNavList">
+                <a href="#overview" class="nav-item active" id="navDashboard" data-tab-nav="overview" data-tooltip="Dashboard Overview">
+                    <i class="fa-solid fa-border-all"></i>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="#suggestions" class="nav-item" id="navSuggestions" data-tab-nav="suggestions" data-tooltip="AI Suggestions & ROI Advisor">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span class="nav-label">AI Suggestions</span>
+                    <span class="badge-count bg-mint">3</span>
+                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
+                </a>
+                <a href="#energy" class="nav-item" id="navEnergy" data-tab-nav="energy" data-tooltip="Energy ML Forecasting">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span class="nav-label">Energy ML</span>
+                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
+                </a>
+                <a href="#water" class="nav-item" id="navWater" data-tab-nav="water" data-tooltip="Water Anomaly Detection">
+                    <i class="fa-solid fa-droplet"></i>
+                    <span class="nav-label">Water Module</span>
+                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
+                </a>
+                <a href="#waste" class="nav-item" id="navWaste" data-tab-nav="waste" data-tooltip="Waste Overflow Prediction">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span class="nav-label">Waste Overflow</span>
+                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
+                </a>
+                <a href="#mobility" class="nav-item" id="navMobility" data-tab-nav="mobility" data-tooltip="Traffic & Parking">
+                    <i class="fa-solid fa-car"></i>
+                    <span class="nav-label">Mobility & Air</span>
+                </a>
+                <a href="#simulator" class="nav-item" id="navSimulator" data-tab-nav="simulator" data-tooltip="What-If Scenario Simulation">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span class="nav-label">What-If Simulator</span>
+                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
+                </a>
+                <a href="#ai-assistant" class="nav-item" id="navAiAssistant" data-tab-nav="ai-assistant" data-tooltip="AI Operational Co-Pilot">
+                    <i class="fa-solid fa-wand-magic-sparkles text-accent"></i>
+                    <span class="nav-label">AI Co-Pilot</span>
+                    <span class="badge-count bg-mint">AI</span>
+                </a>
+                <a href="#models" class="nav-item" id="navModels" data-tab-nav="models" data-tooltip="Trained ML Models Registry">
+                    <i class="fa-solid fa-microchip"></i>
+                    <span class="nav-label">ML Models</span>
+                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
+                </a>
+                <a href="#esg" class="nav-item" id="navEsg" data-tab-nav="esg" data-tooltip="ESG & Carbon Footprint Audit">
+                    <i class="fa-solid fa-earth-americas"></i>
+                    <span class="nav-label">ESG & Carbon</span>
+                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
+                </a>
+                <a href="#billing" class="nav-item" id="navBilling" data-tab-nav="billing" data-tooltip="SaaS Subscription & Billing">
+                    <i class="fa-solid fa-crown text-gold"></i>
+                    <span class="nav-label">Subscription & Plans</span>
+                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="live-status-pill">
+                    <span class="pulse-dot"></span>
+                    <span class="status-text" id="backendStatusPill">Admin Mode Active</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="main-wrapper">
+            
+            <!-- TOP HEADER -->
+            <header class="top-header" id="topHeader">
+                <div class="header-left">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="globalSearchInput" placeholder="Search campus, ML predictions, ROI suggestions..." autocomplete="off">
+                        <kbd class="search-shortcut">⌘K</kbd>
+                    </div>
+                </div>
+
+                <div class="header-right">
+                    <!-- SaaS Plan Badge -->
+                    <div class="saas-plan-pill" id="headerPlanPill" data-tab-nav="billing">
+                        <i class="fa-solid fa-crown text-gold"></i>
+                        <span class="plan-label" id="headerPlanLabel">Enterprise Pro</span>
+                        <span class="upgrade-link">Upgrade</span>
+                    </div>
+
+                    <!-- Location Selector -->
+                    <div class="location-dropdown-wrapper" id="locationSelector">
+                        <div class="location-pill">
+                            <i class="fa-solid fa-location-dot loc-icon"></i>
+                            <span class="loc-text" id="currentLocationText">Main Campus - All Blocks</span>
+                            <i class="fa-solid fa-chevron-down arrow-icon"></i>
+                        </div>
+                        <div class="dropdown-menu" id="locationDropdown">
+                            <div class="dropdown-item active" data-location="all">Main Campus - All Blocks</div>
+                            <div class="dropdown-item" data-location="block_b">Block B Hostel</div>
+                            <div class="dropdown-item" data-location="cafeteria">Central Cafeteria</div>
+                            <div class="dropdown-item" data-location="science">Science & Tech Complex</div>
+                        </div>
+                    </div>
+
+                    <!-- Notification Dropdown Wrapper -->
+                    <div class="notification-dropdown-wrapper" id="notificationsWrapper">
+                        <button class="icon-btn notification-btn" id="notificationsBtn" aria-label="Notifications">
+                            <i class="fa-regular fa-bell"></i>
+                            <span class="notification-badge" id="notificationCount">2</span>
+                        </button>
+
+                        <!-- NOTIFICATIONS DROPDOWN MENU -->
+                        <div class="notification-dropdown-menu" id="notificationsDropdown">
+                            <div class="notif-header">
+                                <div class="notif-title-group">
+                                    <i class="fa-solid fa-bell text-amber"></i>
+                                    <strong>Operational Alerts</strong>
+                                    <span class="notif-count-badge" id="notifUnreadBadge">2 New</span>
+                                </div>
+                                <button class="notif-mark-read" id="markAllNotifsReadBtn">Mark read</button>
+                            </div>
+
+                            <div class="notif-list" id="notifListItems">
+                                <div class="notif-item unread p1-alert">
+                                    <div class="notif-icon-box bg-red"><i class="fa-solid fa-bolt"></i></div>
+                                    <div class="notif-content">
+                                        <div class="notif-top-row">
+                                            <span class="notif-severity badge-red">PRIORITY 1</span>
+                                            <span class="notif-time">12m ago</span>
+                                        </div>
+                                        <h4>HVAC Surge — Block B Hostel</h4>
+                                        <p>Observed 145.2 kWh vs 78.0 kWh baseline (+86.1% deviation).</p>
+                                    </div>
+                                </div>
+
+                                <div class="notif-item unread p2-alert">
+                                    <div class="notif-icon-box bg-amber"><i class="fa-solid fa-dumpster"></i></div>
+                                    <div class="notif-content">
+                                        <div class="notif-top-row">
+                                            <span class="notif-severity badge-amber">PRIORITY 2</span>
+                                            <span class="notif-time">35m ago</span>
+                                        </div>
+                                        <h4>Bin Overflow Risk — Central Cafeteria</h4>
+                                        <p>Bin #01 projected to reach >90% capacity within 2 hours.</p>
+                                    </div>
+                                </div>
+
+                                <div class="notif-item p3-alert">
+                                    <div class="notif-icon-box bg-teal"><i class="fa-solid fa-gears"></i></div>
+                                    <div class="notif-content">
+                                        <div class="notif-top-row">
+                                            <span class="notif-severity badge-green">NOTICE</span>
+                                            <span class="notif-time">1h ago</span>
+                                        </div>
+                                        <h4>Chiller 01 Vibration Telemetry</h4>
+                                        <p>Sensor registered 3.8 mm/s vibration. Maintenance scheduled.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="notif-footer">
+                                <button class="btn btn-secondary btn-block btn-sm" id="viewAllSignalsBtn">
+                                    <i class="fa-solid fa-magnifying-glass-chart"></i> Full Diagnostic Audit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- USER PROFILE & ROLE SWITCHER -->
+                    <div class="user-profile-wrapper" id="userProfile">
+                        <div class="profile-avatar" id="activeAvatarInitials">RS</div>
+                        <div class="profile-info">
+                            <span class="profile-name" id="activeUserName">RS Administrator</span>
+                            <span class="profile-role" id="activeUserRoleLabel">Facility Lead & Admin</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down arrow-icon"></i>
+
+                        <!-- ROLE SWITCHER DROPDOWN -->
+                        <div class="role-switcher-dropdown" id="roleSwitcherDropdown">
+                            <div class="role-dropdown-header">
+                                <span>Switch User Session Role</span>
+                            </div>
+                            <div class="role-option active" data-role="admin">
+                                <div class="r-avatar" style="background:#124B3E;">RS</div>
+                                <div class="r-info">
+                                    <strong>RS Administrator</strong>
+                                    <span>Facility Lead & Admin (Full Access)</span>
+                                </div>
+                            </div>
+                            <div class="role-option" data-role="engineer">
+                                <div class="r-avatar" style="background:#1E7A68;">AC</div>
+                                <div class="r-info">
+                                    <strong>Alex Chen</strong>
+                                    <span>Operations Engineer (Technical Access)</span>
+                                </div>
+                            </div>
+                            <div class="role-option" data-role="auditor">
+                                <div class="r-avatar" style="background:#D97706;">PS</div>
+                                <div class="r-info">
+                                    <strong>Dr. Priya Sharma</strong>
+                                    <span>ESG Compliance Auditor (Audit & ROI)</span>
+                                </div>
+                            </div>
+                            <div class="role-option" data-role="viewer">
+                                <div class="r-avatar" style="background:#4B5563;">ST</div>
+                                <div class="r-info">
+                                    <strong>Sam Taylor</strong>
+                                    <span>Campus Stakeholder (View Only)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </header>
+
+            <!-- STATUS ANNOUNCEMENT BANNER -->
+            <div class="status-banner" id="statusBanner">
+                <div class="banner-content">
+                    <span class="banner-badge">NOTICE</span>
+                    <span class="banner-text" id="bannerText">Campus Grid Live: Logged in as <strong id="bannerUserRole">RS Administrator (Full Access)</strong> • 3 AI Suggestions active</span>
+                </div>
+                <button class="banner-close" id="closeBannerBtn" aria-label="Close Banner"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- DASHBOARD BODY CONTAINER -->
+            <div class="dashboard-body">
+                
+                <!-- ROW 1: KEY METRICS DASHBOARD CARDS (CANVA DESIGN PATTERN) -->
+                <section class="metrics-grid-top">
+                    
+                    <!-- CARD 1: OVERALL SUSTAINABILITY & HEALTH SCORE (DARK GREEN CARD) -->
+                    <div class="metric-card score-hero-card" id="heroScoreCard">
+                        <div class="card-bg-decoration"></div>
+                        <div class="score-card-header">
+                            <span class="card-tag">Overall Facility Score</span>
+                            <span class="grade-pill" id="scoreGradeTag">Gold Grade</span>
+                        </div>
+                        <div class="score-display">
+                            <div class="main-score" id="heroScoreValue">87</div>
+                            <div class="max-score">/100</div>
+                        </div>
+                        <div class="score-footer">
+                            <div class="status-indicator">
+                                <span class="indicator-dot green"></span>
+                                <span class="indicator-label" id="scoreStatusText">Optimal Efficiency Operating</span>
+                            </div>
+                            <div class="score-trend text-green">
+                                <i class="fa-solid fa-arrow-up-right"></i> +4.2% vs last month
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CARD 2: ENERGY TARGET CARD WITH CIRCULAR DONUT CHART -->
+                    <div class="metric-card target-chart-card" id="energyTargetCard">
+                        <div class="card-meta">
+                            <span class="metric-value-title" id="energyTargetVal">7.42 MWh</span>
+                            <span class="metric-subtitle">Energy Consumption</span>
+                        </div>
+                        <div class="circular-progress-wrapper">
+                            <svg class="progress-ring" width="100" height="100">
+                                <circle class="progress-ring-bg" stroke="rgba(22, 78, 61, 0.1)" stroke-width="10" fill="transparent" r="38" cx="50" cy="50"/>
+                                <circle class="progress-ring-circle" id="energyProgressRing" stroke="#1E7A68" stroke-width="10" stroke-dasharray="238.76" stroke-dashoffset="62" stroke-linecap="round" fill="transparent" r="38" cx="50" cy="50"/>
+                            </svg>
+                            <div class="ring-center-text">
+                                <span class="percentage" id="energyTargetPercent">74%</span>
+                                <span class="subtext">target</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CARD 3: WATER VOLUME & AIR QUALITY SPLIT CARD -->
+                    <div class="metric-card split-metrics-card" id="splitMetricsCard">
+                        <!-- Upper Section: Water -->
+                        <div class="split-section upper-section">
+                            <div class="split-header">
+                                <span class="split-value" id="waterVolumeVal">12,480 kL</span>
+                                <span class="pill-badge badge-green" id="waterStatusPill">On track</span>
+                            </div>
+                            <div class="mini-progress-bar">
+                                <div class="progress-fill bg-teal" id="waterMiniFill" style="width: 78%;"></div>
+                            </div>
+                        </div>
+                        <div class="split-divider"></div>
+                        <!-- Lower Section: Air/Secondary Stat -->
+                        <div class="split-section lower-section">
+                            <div class="split-header">
+                                <span class="split-value" id="airQualityVal">68</span>
+                                <span class="pill-badge badge-amber" id="airStatusPill">Watch</span>
+                            </div>
+                            <div class="mini-progress-bar">
+                                <div class="progress-fill bg-amber" id="airMiniFill" style="width: 62%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CARD 4: WEEKLY COMPARISON BAR CHART CARD -->
+                    <div class="metric-card chart-mini-card" id="weeklyComparisonCard">
+                        <div class="mini-card-header">
+                            <span class="mini-card-title">Weekly Load Profile</span>
+                            <span class="pill-badge badge-green" id="weeklyDeltaTag">-8.4%</span>
+                        </div>
+                        <div class="mini-bar-chart-container">
+                            <canvas id="miniBarChart"></canvas>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- NAVIGATION TABS ROW -->
+                <nav class="dashboard-tabs" id="dashboardTabsNav">
+                    <button class="tab-btn active" data-tab="overview" id="tabOverview">
+                        <i class="fa-solid fa-house"></i>
+                        <span>Overview</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="suggestions" id="tabSuggestions">
+                        <i class="fa-solid fa-lightbulb text-mint"></i>
+                        <span>AI Suggestions & ROI</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="energy" id="tabEnergy">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>Energy ML</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="water" id="tabWater">
+                        <i class="fa-solid fa-droplet"></i>
+                        <span>Water</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="waste" id="tabWaste">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span>Waste</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="mobility" id="tabMobility">
+                        <i class="fa-solid fa-car"></i>
+                        <span>Mobility</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="simulator" id="tabSimulator">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>What-If Simulator</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="models" id="tabModels">
+                        <i class="fa-solid fa-microchip"></i>
+                        <span>ML Registry</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="esg" id="tabEsg">
+                        <i class="fa-solid fa-earth-americas"></i>
+                        <span>ESG & Carbon</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="billing" id="tabBilling">
+                        <i class="fa-solid fa-crown text-gold"></i>
+                        <span>Subscription & Billing</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="ai-assistant" id="tabAiAssistant">
+                        <i class="fa-solid fa-wand-magic-sparkles text-accent"></i>
+                        <span>AI Co-Pilot</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                </nav>
+
+                <!-- TAB CONTENT 1: OVERVIEW & DETAILED METRICS -->
+                <div class="tab-content active" id="contentOverview">
+                    
+                    <!-- MIDDLE 3 SUMMARY CARDS ROW -->
+                    <section class="summary-cards-row">
+                        <div class="summary-card" id="cardSummaryEnergy">
+                            <div class="summary-info">
+                                <span class="summary-title">Total Energy</span>
+                                <h3 class="summary-value" id="summaryEnergyVal">7.42 MWh</h3>
+                            </div>
+                            <div class="summary-pill-graphic">
+                                <div class="pill-inner"></div>
+                            </div>
+                        </div>
+
+                        <div class="summary-card" id="cardSummaryWater">
+                            <div class="summary-info">
+                                <span class="summary-title">Water Recycled</span>
+                                <h3 class="summary-value" id="summaryWaterVal">12,480 kL</h3>
+                            </div>
+                            <div class="summary-pill-graphic">
+                                <div class="pill-inner"></div>
+                            </div>
+                        </div>
+
+                        <div class="summary-card" id="cardSummaryWaste">
+                            <div class="summary-info">
+                                <span class="summary-title">Waste Diverted</span>
+                                <h3 class="summary-value" id="summaryWasteVal">5,420 kg</h3>
+                            </div>
+                            <div class="summary-pill-graphic">
+                                <div class="pill-inner"></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- BOTTOM MAIN ANALYTICS SECTION (2 COLUMNS) -->
+                    <section class="analytics-main-grid">
+                        
+                        <!-- LEFT COLUMN: MULTI-LINE WAVE TREND CHART -->
+                        <div class="analytics-panel chart-panel" id="mainChartPanel">
+                            <div class="panel-header">
+                                <div class="panel-title-group">
+                                    <h3 class="panel-title">Resource Consumption Wave Trend</h3>
+                                    <p class="panel-subtitle">Multi-domain real-time sensor telemetry comparison</p>
+                                </div>
+                                <div class="chart-controls">
+                                    <div class="legend-pills">
+                                        <span class="legend-item"><span class="legend-dot dot-teal"></span> Energy</span>
+                                        <span class="legend-item"><span class="legend-dot dot-sage"></span> Water</span>
+                                        <span class="legend-item"><span class="legend-dot dot-amber"></span> Waste</span>
+                                    </div>
+                                    <div class="time-range-toggle">
+                                        <button class="range-btn active">24H</button>
+                                        <button class="range-btn">7D</button>
+                                        <button class="range-btn">30D</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="main-wave-chart-container">
+                                <canvas id="mainWaveChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN: BREAKDOWN + ALERT BANNER CARD -->
+                        <div class="analytics-panel side-panel">
+                            
+                            <!-- PERFORMANCE BREAKDOWN WIDGET -->
+                            <div class="widget-card breakdown-widget" id="breakdownWidget">
+                                <div class="widget-header">
+                                    <h4 class="widget-title">Performance Metrics</h4>
+                                    <i class="fa-solid fa-ellipsis-vertical widget-more"></i>
+                                </div>
+                                <div class="breakdown-list">
+                                    
+                                    <div class="breakdown-item">
+                                        <div class="breakdown-meta">
+                                            <span class="item-name">Energy intensity</span>
+                                            <span class="item-val" id="energyIntensityVal">74%</span>
+                                        </div>
+                                        <div class="progress-bar-track">
+                                            <div class="progress-bar-fill fill-teal" id="barEnergyIntensity" style="width: 74%;"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="breakdown-item">
+                                        <div class="breakdown-meta">
+                                            <span class="item-name">Water recovery</span>
+                                            <span class="item-val" id="waterRecoveryVal">68%</span>
+                                        </div>
+                                        <div class="progress-bar-track">
+                                            <div class="progress-bar-fill fill-slate" id="barWaterRecovery" style="width: 68%;"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="breakdown-item">
+                                        <div class="breakdown-meta">
+                                            <span class="item-name">Waste diversion</span>
+                                            <span class="item-val" id="wasteDiversionVal">61%</span>
+                                        </div>
+                                        <div class="progress-bar-track">
+                                            <div class="progress-bar-fill fill-amber" id="barWasteDiversion" style="width: 61%;"></div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <!-- CANVA MATCH ALERT ATTENTION CARD -->
+                            <div class="widget-card attention-card" id="attentionSignalCard">
+                                <div class="attention-icon-box">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                </div>
+                                <div class="attention-content">
+                                    <h4 class="attention-title" id="attentionTitle">2 Active Backend Alerts</h4>
+                                    <p class="attention-desc" id="attentionDesc">
+                                        Block B HVAC anomaly (145.2 kWh) & Central Cafeteria Bin #01 overflow risk.
+                                    </p>
+                                    <button class="btn btn-attention" id="inspectSignalsBtn">
+                                        <span>Inspect Active Signals</span>
+                                        <i class="fa-solid fa-arrow-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </section>
+
+                </div>
+
+                <!-- TAB CONTENT 2: AI SUGGESTIONS & ROI ADVISOR -->
+                <div class="tab-content" id="contentSuggestions">
+                    <div class="module-tab-wrapper">
+                        
+                        <!-- ROI SUMMARY BANNER -->
+                        <div class="roi-summary-card">
+                            <div class="roi-left">
+                                <span class="roi-subtitle">Total Actionable AI Potential Savings</span>
+                                <h1 class="roi-value" id="roiTotalVal">$24,400 / yr <span class="roi-inr">(₹19.8 Lakhs/yr)</span></h1>
+                                <p class="roi-desc">Executing all 3 AI automated optimization rules will reduce campus carbon footprint by <strong>24.5 Tons CO₂e / yr</strong>.</p>
+                            </div>
+                            <div class="roi-right">
+                                <button class="btn btn-emerald" id="applyAllRulesBtn">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                    <span>Execute All AI Rules</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- SUGGESTIONS LIST -->
+                        <div class="suggestions-list-grid" id="suggestionsListGrid">
+                            <div class="suggestion-card-item">
+                                <div class="sug-top">
+                                    <span class="badge-red">HIGH PRIORITY</span>
+                                    <span class="sug-cat">Energy Optimization</span>
+                                </div>
+                                <h3>HVAC Thermostat Setpoint Reset in Block B</h3>
+                                <p>Automated ML detection flags continuous compressor load surge. Resetting setpoint saves 18.2 Tons CO₂e annually.</p>
+                                <div class="sug-footer">
+                                    <div class="sug-savings text-green">+$14,200 / yr (₹11.5L)</div>
+                                    <button class="btn btn-primary btn-sm apply-rule-btn" data-rule="REC_HVAC_01" data-building="Block_B_Hostel">
+                                        <i class="fa-solid fa-play"></i> Apply Automated Rule
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                        <!-- TAB CONTENT 3: ENERGY ML INTELLIGENCE & FORECASTING -->
+                <div class="tab-content" id="contentEnergy">
+                    <div class="module-tab-wrapper">
+                        
+                        <!-- TOP HORIZON FORECAST CARDS -->
+                        <div class="forecast-cards-grid">
+                            <div class="forecast-card">
+                                <span class="fc-label">1-Hour Forecast</span>
+                                <h3 class="fc-val text-amber" id="forecast1hVal">135.5 kWh</h3>
+                                <span class="fc-sub text-green"><i class="fa-solid fa-shield-check"></i> CatBoost Model Active</span>
+                            </div>
+                            <div class="forecast-card">
+                                <span class="fc-label">4-Hour Peak Demand Forecast</span>
+                                <h3 class="fc-val text-red" id="forecast4hVal">155.0 kWh</h3>
+                                <span class="fc-sub text-amber"><i class="fa-solid fa-triangle-exclamation"></i> Peak Demand Window (14:00-17:00)</span>
+                            </div>
+                            <div class="forecast-card">
+                                <span class="fc-label">24-Hour Cumulative Load</span>
+                                <h3 class="fc-val text-mint" id="forecast24hVal">118.2 kWh</h3>
+                                <span class="fc-sub text-green"><i class="fa-solid fa-leaf"></i> Off-Peak Baseline Compliant</span>
+                            </div>
+                        </div>
+
+                        <!-- TIME HORIZON FORECASTING GRAPH CANVAS -->
+                        <div class="interactive-card">
+                            <div class="card-header-styled header-with-horizon">
+                                <div class="header-left-title">
+                                    <i class="fa-solid fa-bolt text-gold"></i>
+                                    <div>
+                                        <h3>Multi-Horizon Energy Load Forecasting & Peak Analysis</h3>
+                                        <p>Granular 15-minute telemetry, 24-hour peak windows, monthly seasonal trends & ML predictions (`/api/v1/energy/forecast`)</p>
+                                    </div>
+                                </div>
+                                <div class="time-horizon-bar" data-chart-target="energyTrend">
+                                    <button class="th-btn" data-timeframe="15m">15 Min</button>
+                                    <button class="th-btn" data-timeframe="1h">1 Hour</button>
+                                    <button class="th-btn active" data-timeframe="24h">24 Hours</button>
+                                    <button class="th-btn" data-timeframe="7d">7 Days</button>
+                                    <button class="th-btn" data-timeframe="1m">1 Month</button>
+                                    <button class="th-btn" data-timeframe="1y">1 Year</button>
+                                </div>
+                            </div>
+
+                            <div class="sim-chart-container" style="height: 320px;">
+                                <canvas id="energyTrendChartCanvas"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 2-COL LAYOUT: AREA & EQUIPMENT COMPARISON vs ANOMALY DETECTOR -->
+                        <div class="grid-2col">
+                            
+                            <!-- AREA & EQUIPMENT COMPARISON CHART -->
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-chart-column text-teal"></i>
+                                    <div>
+                                        <h3>Equipment & Building Area Load Comparison</h3>
+                                        <p>Chiller Plant vs AHUs vs Server Power vs Campus Lighting sub-meter breakdown</p>
+                                    </div>
+                                </div>
+
+                                <div class="sim-chart-container" style="height: 250px;">
+                                    <canvas id="energyAreaChartCanvas"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- ANOMALY DETECTOR & PREDICTOR -->
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-triangle-exclamation text-amber"></i>
+                                    <div>
+                                        <h3>Active Energy Anomalies & Live Inference</h3>
+                                        <p>Real-time anomaly scoring engine (`/api/v1/energy/anomalies`)</p>
+                                    </div>
+                                </div>
+
+                                <div class="anomaly-alert-box high" style="margin-bottom: 16px;">
+                                    <div class="alert-top">
+                                        <span class="badge-red">PRIORITY 1 ANOMALY</span>
+                                        <span class="bld-name">Block B Hostel</span>
+                                    </div>
+                                    <h4>HVAC Malfunction / Surge Detected</h4>
+                                    <p>Observed load: <strong>145.2 kWh</strong> vs expected baseline: <strong>78.0 kWh</strong> (+86.1% deviation).</p>
+                                    <span class="rec-note">Isolation Forest Score: 0.88 • Recommended Action: Reset setback schedule to 24.5°C.</span>
+                                </div>
+
+                                <form id="energyPredictForm" class="form-grid">
+                                    <div class="form-group">
+                                        <label>Temperature (°C)</label>
+                                        <input type="number" id="energyTemp" value="28.5" step="0.1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Building Occupancy</label>
+                                        <input type="number" id="energyOccupancy" value="120" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>HVAC Load (%)</label>
+                                        <input type="number" id="energyHvac" value="45.0" step="0.1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Equipment Load (kW)</label>
+                                        <input type="number" id="energyEquipment" value="25.0" step="0.1" required>
+                                    </div>
+                                    <input type="hidden" id="energyHumidity" value="60.0">
+                                    <input type="hidden" id="energyLighting" value="15.0">
+                                    <button type="submit" class="btn btn-primary btn-block" id="btnPredictEnergy">
+                                        <i class="fa-solid fa-bolt"></i>
+                                        <span>Run Live Energy Inference</span>
+                                    </button>
+                                </form>
+
+                                <div class="prediction-result-box" id="energyResultBox" style="margin-top: 12px;">
+                                    <span class="res-title">Model Prediction Result</span>
+                                    <h2 class="res-value" id="energyResultVal">-- kWh</h2>
+                                    <span class="res-meta" id="energyResultMeta">Algorithm: CatBoostRegressor</span>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>           </div>
+
+                <!-- TAB CONTENT 4: WATER MODULE & ANOMALY CHECKER -->
+                <div class="tab-content" id="contentWater">
+                    <div class="module-tab-wrapper">
+                        
+                        <!-- TIME HORIZON WATER FORECASTING CHART -->
+                        <div class="interactive-card">
+                            <div class="card-header-styled header-with-horizon">
+                                <div class="header-left-title">
+                                    <i class="fa-solid fa-droplet text-teal"></i>
+                                    <div>
+                                        <h3>Multi-Horizon Water Consumption & Recovery Forecast</h3>
+                                        <p>15-minute sensor telemetry, daily flushing curves, greywater recycling & pipe pressure audit (`/api/v1/water`)</p>
+                                    </div>
+                                </div>
+                                <div class="time-horizon-bar" data-chart-target="waterTrend">
+                                    <button class="th-btn" data-timeframe="15m">15 Min</button>
+                                    <button class="th-btn" data-timeframe="1h">1 Hour</button>
+                                    <button class="th-btn active" data-timeframe="24h">24 Hours</button>
+                                    <button class="th-btn" data-timeframe="7d">7 Days</button>
+                                    <button class="th-btn" data-timeframe="1m">1 Month</button>
+                                    <button class="th-btn" data-timeframe="1y">1 Year</button>
+                                </div>
+                            </div>
+
+                            <div class="sim-chart-container" style="height: 280px;">
+                                <canvas id="waterTrendChartCanvas"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 2-COL LAYOUT: WATER AREA COMPARISON & ANOMALY DETECTOR -->
+                        <div class="grid-2col">
+                            
+                            <!-- BUILDING AREA WATER COMPARISON -->
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-chart-pie text-mint"></i>
+                                    <div>
+                                        <h3>Building Area Water Usage & Recycling Matrix</h3>
+                                        <p>Hostel B (42%) vs Hostel A (28%) vs Cafeteria (18%) vs Admin Complex (12%)</p>
+                                    </div>
+                                </div>
+
+                                <div class="sim-chart-container" style="height: 240px;">
+                                    <canvas id="waterAreaChartCanvas"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- WATER ANOMALY DETECTOR -->
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-faucet-drip text-teal"></i>
+                                    <div>
+                                        <h3>Water Anomaly & Leakage Detector</h3>
+                                        <p>Detect abnormal flow rates and pipe pressure indicators (`/api/v1/water/anomaly`)</p>
+                                    </div>
+                                </div>
+
+                                <form id="waterAnomalyForm" class="form-grid">
+                                    <div class="form-group">
+                                        <label>Facility Building</label>
+                                        <select id="waterBuildingSelect">
+                                            <option value="Block_B_Hostel">Block B Hostel</option>
+                                            <option value="Hostel_A">Hostel A</option>
+                                            <option value="Cafeteria">Central Cafeteria</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Flow Rate (L/min)</label>
+                                        <input type="number" id="waterFlow" value="50.0" step="0.1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Building Occupancy</label>
+                                        <input type="number" id="waterOccupancy" value="5" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-block">
+                                        <i class="fa-solid fa-magnifying-glass-chart"></i>
+                                        <span>Audit Flow Rate & Pressure</span>
+                                    </button>
+                                </form>
+
+                                <div class="prediction-result-box" id="waterResultBox" style="margin-top: 12px;">
+                                    <span class="res-title">Anomaly Audit Status</span>
+                                    <h2 class="res-value" id="waterResultStatus">NORMAL</h2>
+                                    <p class="res-desc" id="waterResultExpl">Flow rate is within acceptable threshold for occupancy level.</p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT 5: WASTE OVERFLOW PREDICTOR -->
+                <div class="tab-content" id="contentWaste">
+                    <div class="module-tab-wrapper">
+                        
+                        <!-- TOP FORECAST CARDS -->
+                        <div class="forecast-cards-grid">
+                            <div class="forecast-card">
+                                <span class="fc-label">Current Waste Stream Generation</span>
+                                <h3 class="fc-val text-amber" id="wasteCurrentGenVal">5,420 kg</h3>
+                                <span class="fc-sub text-green"><i class="fa-solid fa-leaf"></i> 61% Diverted from Landfill</span>
+                            </div>
+                            <div class="forecast-card">
+                                <span class="fc-label">Peak Bin Fill Window</span>
+                                <h3 class="fc-val text-red" id="wastePeakWindowVal">13:00 - 15:00</h3>
+                                <span class="fc-sub text-amber"><i class="fa-solid fa-triangle-exclamation"></i> Cafeteria Lunch Peak</span>
+                            </div>
+                            <div class="forecast-card">
+                                <span class="fc-label">24-Hour Projected Recyclables</span>
+                                <h3 class="fc-val text-mint" id="waste24hRecycleVal">3,250 kg</h3>
+                                <span class="fc-sub text-green"><i class="fa-solid fa-recycle"></i> Automated Sort Active</span>
+                            </div>
+                        </div>
+
+                        <!-- TIME HORIZON WASTE FORECASTING GRAPH CANVAS -->
+                        <div class="interactive-card">
+                            <div class="card-header-styled header-with-horizon">
+                                <div class="header-left-title">
+                                    <i class="fa-solid fa-trash-can text-amber"></i>
+                                    <div>
+                                        <h3>Multi-Horizon Waste Generation & Fill Rate Forecast</h3>
+                                        <p>Granular 15-minute IoT bin fill telemetry, peak generation windows & 2-hour overflow predictions (`/api/v1/waste`)</p>
+                                    </div>
+                                </div>
+                                <div class="time-horizon-bar" data-chart-target="wasteTrend">
+                                    <button class="th-btn" data-timeframe="15m">15 Min</button>
+                                    <button class="th-btn" data-timeframe="1h">1 Hour</button>
+                                    <button class="th-btn active" data-timeframe="24h">24 Hours</button>
+                                    <button class="th-btn" data-timeframe="7d">7 Days</button>
+                                    <button class="th-btn" data-timeframe="1m">1 Month</button>
+                                    <button class="th-btn" data-timeframe="1y">1 Year</button>
+                                </div>
+                            </div>
+
+                            <div class="sim-chart-container" style="height: 300px;">
+                                <canvas id="wasteTrendChartCanvas"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 2-COL LAYOUT: WASTE AREA COMPARISON & OVERFLOW PREDICTOR -->
+                        <div class="grid-2col">
+                            
+                            <!-- AREA & BIN COMPOSITION COMPARISON CHART -->
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-chart-pie text-amber"></i>
+                                    <div>
+                                        <h3>Waste Stream Composition & Area Distribution</h3>
+                                        <p>Organic vs Dry Recyclables vs Hazardous vs E-Waste across campus zones</p>
+                                    </div>
+                                </div>
+
+                                <div class="sim-chart-container" style="height: 250px;">
+                                    <canvas id="wasteAreaChartCanvas"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- WASTE PREDICTOR FORM & ANOMALY DETECTOR -->
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-dumpster text-teal"></i>
+                                    <div>
+                                        <h3>2-Hour Waste Overflow Predictor & Active Bins</h3>
+                                        <p>Run ML overflow probability classification (`waste_overflow_2hr`)</p>
+                                    </div>
+                                </div>
+
+                                <div class="anomaly-alert-box medium" style="margin-bottom: 16px;">
+                                    <div class="alert-top">
+                                        <span class="badge-amber">PRIORITY 2 OVERFLOW RISK</span>
+                                        <span class="bld-name">Central Cafeteria Bin #01</span>
+                                    </div>
+                                    <h4>Cafeteria Bin #01 Capacity Alert</h4>
+                                    <p>Current fill: <strong>78.5%</strong> • Fill rate: <strong>4.2%/hr</strong> • Projected overflow in <strong>1h 45m</strong>.</p>
+                                    <span class="rec-note">Automated Dispatch: Facilities Team Notified.</span>
+                                </div>
+
+                                <form id="wastePredictForm" class="form-grid">
+                                    <div class="form-group">
+                                        <label>Current Fill Level (%)</label>
+                                        <input type="number" id="wasteFill" value="78.5" step="0.1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Fill Rate (%/hr)</label>
+                                        <input type="number" id="wasteFillRate" value="4.2" step="0.1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Ambient Temperature (°C)</label>
+                                        <input type="number" id="wasteTemp" value="29.0" step="0.1" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Occupancy Rate</label>
+                                        <input type="number" id="wasteOcc" value="200" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-block">
+                                        <i class="fa-solid fa-calculator"></i>
+                                        <span>Evaluate Overflow Risk</span>
+                                    </button>
+                                </form>
+
+                                <div class="prediction-result-box" id="wasteResultBox" style="margin-top: 12px;">
+                                    <span class="res-title">2-Hour Overflow Risk</span>
+                                    <h2 class="res-value" id="wasteResultProb">-- %</h2>
+                                    <span class="badge-amber" id="wasteResultRisk">MODERATE</span>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT 6: MOBILITY, AIR QUALITY & EQUIPMENT INTELLIGENCE -->
+                <div class="tab-content" id="contentMobility">
+                    <div class="module-tab-wrapper">
+                        
+                        <!-- TOP METRICS GRID -->
+                        <div class="metrics-grid-top">
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-car text-teal"></i>
+                                    <div>
+                                        <h3>Campus Gate Traffic</h3>
+                                        <p>(`/api/v1/traffic`)</p>
+                                    </div>
+                                </div>
+                                <h2 class="summary-value" id="trafficGateStatus">MODERATE_FLOW</h2>
+                                <span class="text-muted">Average Speed: <strong id="trafficAvgSpeed">22.5 km/h</strong></span>
+                            </div>
+
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-square-parking text-teal"></i>
+                                    <div>
+                                        <h3>Smart Parking</h3>
+                                        <p>(`/api/v1/parking`)</p>
+                                    </div>
+                                </div>
+                                <h2 class="summary-value" id="parkingOccupancyRate">64%</h2>
+                                <span class="text-muted"><strong id="parkingSpacesText">580 / 900</strong> spaces occupied</span>
+                            </div>
+
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-wind text-mint"></i>
+                                    <div>
+                                        <h3>Campus Air Quality Index</h3>
+                                        <p>(`/api/v1/air`)</p>
+                                    </div>
+                                </div>
+                                <h2 class="summary-value" id="airAqiVal">110.5 AQI</h2>
+                                <span class="pill-badge badge-amber" id="airAqiCat">Moderate</span>
+                            </div>
+
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-gears text-amber"></i>
+                                    <div>
+                                        <h3>Equipment Predictive Health</h3>
+                                        <p>(`/api/v1/equipment`)</p>
+                                    </div>
+                                </div>
+                                <h2 class="summary-value" id="equipMonitoredCount">35 Assets</h2>
+                                <span class="pill-badge badge-amber" id="equipRiskCount">1 Risk Alert</span>
+                            </div>
+                        </div>
+
+                        <!-- TIME HORIZON TRAFFIC & PARKING FORECASTING GRAPH CANVAS -->
+                        <div class="interactive-card">
+                            <div class="card-header-styled header-with-horizon">
+                                <div class="header-left-title">
+                                    <i class="fa-solid fa-road text-teal"></i>
+                                    <div>
+                                        <h3>Multi-Horizon Mobility & Parking Flow Forecast</h3>
+                                        <p>15-minute gate entry counters, peak arrival windows, EV charging station load & parking dynamics (`/api/v1/traffic`)</p>
+                                    </div>
+                                </div>
+                                <div class="time-horizon-bar" data-chart-target="mobilityTrend">
+                                    <button class="th-btn" data-timeframe="15m">15 Min</button>
+                                    <button class="th-btn" data-timeframe="1h">1 Hour</button>
+                                    <button class="th-btn active" data-timeframe="24h">24 Hours</button>
+                                    <button class="th-btn" data-timeframe="7d">7 Days</button>
+                                    <button class="th-btn" data-timeframe="1m">1 Month</button>
+                                    <button class="th-btn" data-timeframe="1y">1 Year</button>
+                                </div>
+                            </div>
+
+                            <div class="sim-chart-container" style="height: 280px;">
+                                <canvas id="mobilityTrendChartCanvas"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 2-COL LAYOUT: AIR QUALITY FORECAST & MOBILITY AREA COMPARISON -->
+                        <div class="grid-2col">
+                            
+                            <!-- AIR QUALITY & POLLUTION TELEMETRY CHART -->
+                            <div class="interactive-card">
+                                <div class="card-header-styled header-with-horizon">
+                                    <div class="header-left-title">
+                                        <i class="fa-solid fa-smog text-mint"></i>
+                                        <div>
+                                            <h3>Multi-Horizon AQI & PM2.5 Telemetry</h3>
+                                            <p>CO2, VOC, PM2.5 & Ambient Humidity monitoring (`/api/v1/air`)</p>
+                                        </div>
+                                    </div>
+                                    <div class="time-horizon-bar" data-chart-target="airTrend">
+                                        <button class="th-btn" data-timeframe="15m">15M</button>
+                                        <button class="th-btn" data-timeframe="1h">1H</button>
+                                        <button class="th-btn active" data-timeframe="24h">24H</button>
+                                        <button class="th-btn" data-timeframe="7d">7D</button>
+                                        <button class="th-btn" data-timeframe="1m">1M</button>
+                                        <button class="th-btn" data-timeframe="1y">1Y</button>
+                                    </div>
+                                </div>
+
+                                <div class="sim-chart-container" style="height: 240px;">
+                                    <canvas id="airTrendChartCanvas"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- PARKING & MOBILITY ZONE COMPARISON -->
+                            <div class="interactive-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-square-parking text-amber"></i>
+                                    <div>
+                                        <h3>Campus Zone Parking & EV Occupancy Breakdown</h3>
+                                        <p>North Gate (78%) vs South Gate (52%) vs Multi-Story Deck (64%) vs EV Chargers (85%)</p>
+                                    </div>
+                                </div>
+
+                                <div class="sim-chart-container" style="height: 240px;">
+                                    <canvas id="mobilityAreaChartCanvas"></canvas>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- DEDICATED EQUIPMENT INTELLIGENCE & VIBRATION ANOMALY SECTION -->
+                        <div class="interactive-card" style="margin-top: 24px;">
+                            <div class="card-header-styled header-with-horizon">
+                                <div class="header-left-title">
+                                    <i class="fa-solid fa-gears text-amber"></i>
+                                    <div>
+                                        <h3>Equipment Predictive Health & Vibration Anomaly Intelligence</h3>
+                                        <p>Chiller Plant, Air Handler Units, Water Pumps & Solar Inverter telemetry (`/api/v1/equipment`)</p>
+                                    </div>
+                                </div>
+                                <div class="time-horizon-bar" data-chart-target="equipmentTrend">
+                                    <button class="th-btn" data-timeframe="15m">15 Min</button>
+                                    <button class="th-btn" data-timeframe="1h">1 Hour</button>
+                                    <button class="th-btn active" data-timeframe="24h">24 Hours</button>
+                                    <button class="th-btn" data-timeframe="7d">7 Days</button>
+                                    <button class="th-btn" data-timeframe="1m">1 Month</button>
+                                    <button class="th-btn" data-timeframe="1y">1 Year</button>
+                                </div>
+                            </div>
+
+                            <div class="grid-2col" style="margin-top: 16px;">
+                                <div>
+                                    <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;">Vibration & Thermal Stress Waveform (mm/s)</h4>
+                                    <div class="sim-chart-container" style="height: 240px;">
+                                        <canvas id="equipmentVibrationChartCanvas"></canvas>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;">Asset Health Distribution by Category</h4>
+                                    <div class="sim-chart-container" style="height: 240px;">
+                                        <canvas id="equipmentAreaChartCanvas"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT 7: WHAT-IF SCENARIO SIMULATOR -->
+                <div class="tab-content" id="contentSimulator">
+                    <div class="module-tab-wrapper">
+                        
+                        <!-- SIMULATOR HERO & PRESETS -->
+                        <div class="simulator-hero-card">
+                            <div class="sim-hero-top">
+                                <div class="sim-title">
+                                    <div class="sim-icon-box"><i class="fa-solid fa-sliders"></i></div>
+                                    <div>
+                                        <h2>Operational What-If Scenario Simulator</h2>
+                                        <p>Simulate campus HVAC setbacks, solar PV offsets, greywater recycling, and tariff shifts in real-time (`/api/v1/simulation`)</p>
+                                    </div>
+                                </div>
+                                <div class="sim-preset-pills">
+                                    <span class="preset-label">Quick Scenario Presets:</span>
+                                    <button class="preset-btn" id="presetSummerPeak" data-hvac="0.75" data-solar="250" data-water="40" data-tariff="11.5">
+                                        🔥 Summer Peak Heatwave
+                                    </button>
+                                    <button class="preset-btn" id="presetGreenCampus" data-hvac="0.70" data-solar="450" data-water="50" data-tariff="9.5">
+                                        🌱 100% Green Campus Push
+                                    </button>
+                                    <button class="preset-btn" id="presetOffPeak" data-hvac="0.60" data-solar="150" data-water="30" data-tariff="8.0">
+                                        🌙 Weekend Off-Peak Saver
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4 METRICS RESULT CARDS -->
+                        <div class="forecast-cards-grid sim-metrics-grid">
+                            <div class="forecast-card sim-card">
+                                <span class="fc-label">Simulated Demand Target</span>
+                                <h3 class="fc-val text-amber" id="simTargetDemandVal">121.5 kWh</h3>
+                                <span class="fc-sub text-muted" id="simDemandShiftLabel">-13.2% Shift vs Baseline</span>
+                            </div>
+                            <div class="forecast-card sim-card">
+                                <span class="fc-label">Monthly Cost Savings</span>
+                                <h3 class="fc-val text-green" id="simCostSavingsVal">₹1,42,800 / mo</h3>
+                                <span class="fc-sub text-green" id="simUsdSavingsVal">($1,740 / month)</span>
+                            </div>
+                            <div class="forecast-card sim-card">
+                                <span class="fc-label">Carbon Footprint Reduction</span>
+                                <h3 class="fc-val text-mint" id="simCo2ReducedVal">16.4 Tons CO₂e</h3>
+                                <span class="fc-sub text-mint">0.82 kg CO₂e/kWh CEA Factor</span>
+                            </div>
+                            <div class="forecast-card sim-card">
+                                <span class="fc-label">Sustainability Score Impact</span>
+                                <h3 class="fc-val text-gold" id="simScoreBoostVal">+4.5 Pts</h3>
+                                <span class="fc-sub text-gold">Upgrades Score to 91.5 (Gold+)</span>
+                            </div>
+                        </div>
+
+                        <!-- 2-COL LAYOUT: SLIDERS & COMPARISON CHART -->
+                        <div class="grid-2col sim-workspace">
+                            
+                            <!-- SLIDERS CONTROLS PANEL -->
+                            <div class="interactive-card sim-controls-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-gears text-teal"></i>
+                                    <div>
+                                        <h3>Interactive Operational Sliders</h3>
+                                        <p>Adjust variables to forecast real-time electrical & financial impacts</p>
+                                    </div>
+                                </div>
+
+                                <form id="scenarioSimulatorForm" class="form-grid">
+                                    <div class="form-group sim-slider-group">
+                                        <div class="slider-header">
+                                            <label><i class="fa-solid fa-snowflake text-teal"></i> HVAC Load Adjustment</label>
+                                            <span class="slider-val-badge" id="hvacModLabel">20% Reduction (0.80)</span>
+                                        </div>
+                                        <input type="range" id="hvacModSlider" min="0.5" max="1.0" step="0.05" value="0.80">
+                                    </div>
+
+                                    <div class="form-group sim-slider-group">
+                                        <div class="slider-header">
+                                            <label><i class="fa-solid fa-sun text-gold"></i> Rooftop Solar PV Addition</label>
+                                            <span class="slider-val-badge" id="solarCapLabel">150 kWp Generation</span>
+                                        </div>
+                                        <input type="range" id="solarCapSlider" min="0" max="500" step="25" value="150">
+                                    </div>
+
+                                    <div class="form-group sim-slider-group">
+                                        <div class="slider-header">
+                                            <label><i class="fa-solid fa-droplet text-mint"></i> Greywater Recycling Rate</label>
+                                            <span class="slider-val-badge" id="waterRecLabel">35% Recovery Rate</span>
+                                        </div>
+                                        <input type="range" id="waterRecSlider" min="0" max="60" step="5" value="35">
+                                    </div>
+
+                                    <div class="form-group sim-slider-group">
+                                        <div class="slider-header">
+                                            <label><i class="fa-solid fa-indian-rupee-sign text-amber"></i> Electricity Tariff Rate</label>
+                                            <span class="slider-val-badge" id="tariffRateLabel">₹9.50 / kWh</span>
+                                        </div>
+                                        <input type="range" id="tariffRateSlider" min="6.0" max="15.0" step="0.5" value="9.5">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Baseline Ambient Temperature (°C)</label>
+                                        <input type="number" id="scenarioTemp" value="28.0" step="0.5">
+                                    </div>
+
+                                    <div class="sim-btn-group">
+                                        <button type="submit" class="btn btn-primary btn-block" id="btnExecuteSim">
+                                            <i class="fa-solid fa-play"></i>
+                                            <span>Recalculate Scenario</span>
+                                        </button>
+                                        <button type="button" class="btn btn-emerald" id="btnApplySimPolicy">
+                                            <i class="fa-solid fa-check-double"></i>
+                                            <span>Apply Scenario as Active Policy</span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- COMPARISON CHART & BENCHMARK -->
+                            <div class="interactive-card sim-chart-card">
+                                <div class="card-header-styled">
+                                    <i class="fa-solid fa-chart-line text-mint"></i>
+                                    <div>
+                                        <h3>24-Hour Demand Curve Comparison</h3>
+                                        <p>Baseline load profile vs Simulated Target load curve</p>
+                                    </div>
+                                </div>
+
+                                <div class="sim-chart-container">
+                                    <canvas id="scenarioComparisonChart"></canvas>
+                                </div>
+
+                                <!-- PAIRED DECISION BENCHMARK (RESEARCH PAPER INTEGRATION) -->
+                                <div class="paper-benchmark-box">
+                                    <div class="bm-header">
+                                        <i class="fa-solid fa-flask-vial text-accent"></i>
+                                        <strong>Paired Decision-Effectiveness Benchmark (Research Paper 2 Integration)</strong>
+                                    </div>
+                                    <p class="bm-desc">
+                                        Plain-language XAI-guided scenario simulation achieves <strong>10.9% mean energy savings</strong> compared to <strong>3.9%</strong> under standard unguided heuristics (p=0.015, Cohen's d=0.46).
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT 8: ML MODELS REGISTRY -->
+                <div class="tab-content" id="contentModels">
+                    <div class="module-tab-wrapper">
+                        
+                        <div class="interactive-card">
+                            <div class="card-header-styled">
+                                <i class="fa-solid fa-microchip text-teal"></i>
+                                <div>
+                                    <h3>Trained Machine Learning Model Registry</h3>
+                                    <p>9 Registered Machine Learning Models & Metadata (`/api/v1/models`)</p>
+                                </div>
+                            </div>
+
+                            <div class="models-grid" id="mlModelsGrid">
+                                <div class="model-card-item">
+                                    <div class="mc-header">
+                                        <span class="mc-task">energy_kwh_prediction</span>
+                                        <span class="badge-green">REGISTERED</span>
+                                    </div>
+                                    <h4>Algorithm: CatBoostRegressor</h4>
+                                    <p>Features: 12 • Task: Energy Demand Forecasting</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT 9: ESG & CARBON AUDIT -->
+                <div class="tab-content" id="contentEsg">
+                    <div class="module-tab-wrapper">
+                        
+                        <div class="interactive-card">
+                            <div class="card-header-styled">
+                                <i class="fa-solid fa-earth-americas text-mint"></i>
+                                <div>
+                                    <h3>ESG & Carbon Footprint Audit (ISO 14064 Standard)</h3>
+                                    <p>Real-time Scope 1, Scope 2, Scope 3 greenhouse gas auditing (`/api/v1/esg/audit`)</p>
+                                </div>
+                            </div>
+
+                            <div class="grid-2col">
+                                <div class="esg-breakdown-box">
+                                    <div class="esg-item">
+                                        <span class="esg-label">Scope 1 (Direct Emissions - Boilers & Generators)</span>
+                                        <span class="esg-val">84.2 tCO₂e</span>
+                                    </div>
+                                    <div class="esg-item">
+                                        <span class="esg-label">Scope 2 (Indirect - Grid Electricity)</span>
+                                        <span class="esg-val">340.8 tCO₂e</span>
+                                    </div>
+                                    <div class="esg-item">
+                                        <span class="esg-label">Scope 3 (Value Chain - Water & Waste Logistics)</span>
+                                        <span class="esg-val">57.4 tCO₂e</span>
+                                    </div>
+                                    <div class="esg-item highlight">
+                                        <span class="esg-label">Solar Offsets & Net Footprint</span>
+                                        <span class="esg-val text-green">-164.2 tCO₂e (Net: 318.2 tCO₂e)</span>
+                                    </div>
+                                </div>
+
+                                <div class="esg-cert-card">
+                                    <span class="cert-badge">GRADE A+ EXCELLENT</span>
+                                    <h3>ISO 14064 Compliance Certified</h3>
+                                    <p>EstateIQ automatically logs verifiable GHG audit records suitable for corporate sustainability disclosures.</p>
+                                    <button class="btn btn-primary" id="downloadEsgBtn">
+                                        <i class="fa-solid fa-file-pdf"></i> Download ISO 14064 Audit PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT 10: SAAS SUBSCRIPTION & BILLING -->
+                <div class="tab-content" id="contentBilling">
+                    <div class="module-tab-wrapper">
+                        
+                        <!-- CURRENT ACTIVE SUBSCRIPTION CARD -->
+                        <div class="subscription-hero-card">
+                            <div class="sub-hero-left">
+                                <span class="sub-badge-gold"><i class="fa-solid fa-crown"></i> PRO ACTIVE PLAN</span>
+                                <h1 class="sub-plan-name" id="billingCurrentPlanTitle">Enterprise Pro Tier</h1>
+                                <p class="sub-plan-price">$1,499 / month <span class="inr-sub">(₹1,19,999 / mo)</span> • Billed Annually (20% Savings)</p>
+                            </div>
+                            <div class="sub-hero-right">
+                                <div class="usage-meter-group">
+                                    <div class="meter-item">
+                                        <div class="meter-meta">
+                                            <span>Monitored Buildings</span>
+                                            <strong id="meterBuildingsText">8 / 15 Buildings</strong>
+                                        </div>
+                                        <div class="progress-bar-track">
+                                            <div class="progress-bar-fill fill-teal" style="width: 53%;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="meter-item">
+                                        <div class="meter-meta">
+                                            <span>API Request Quota</span>
+                                            <strong id="meterApiText">14,200 / 50,000 Calls/mo</strong>
+                                        </div>
+                                        <div class="progress-bar-track">
+                                            <div class="progress-bar-fill fill-slate" style="width: 28%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PRICING TIERS COMPARISON -->
+                        <div class="pricing-header-toggle">
+                            <h2>Select Your EstateIQ Subscription Plan</h2>
+                            <div class="billing-toggle-pill">
+                                <span>Monthly</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="billingCycleToggle" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                                <span class="discount-label">Annual (Save 20%)</span>
+                            </div>
+                        </div>
+
+                        <div class="pricing-cards-grid">
+                            
+                            <!-- TIER 1: STARTER -->
+                            <div class="pricing-card" id="planCardStarter">
+                                <div class="p-header">
+                                    <h3>Starter Facility Tier</h3>
+                                    <p>Ideal for single buildings or small college campuses.</p>
+                                </div>
+                                <div class="p-price">
+                                    <span class="p-amount" id="priceStarter">$499</span>
+                                    <span class="p-period">/ month</span>
+                                </div>
+                                <ul class="p-features">
+                                    <li><i class="fa-solid fa-check text-green"></i> Up to 5 Buildings</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> Basic Energy & Water Monitoring</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> Daily Email Alerts</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> Standard Web Dashboard</li>
+                                </ul>
+                                <button class="btn btn-secondary btn-block upgrade-plan-btn" data-plan="starter">Switch to Starter</button>
+                            </div>
+
+                            <!-- TIER 2: ENTERPRISE PRO (ACTIVE) -->
+                            <div class="pricing-card featured" id="planCardPro">
+                                <div class="p-badge">MOST POPULAR</div>
+                                <div class="p-header">
+                                    <h3>Enterprise Pro Tier</h3>
+                                    <p>Full ML intelligence, IoT streaming, and AI suggestions.</p>
+                                </div>
+                                <div class="p-price">
+                                    <span class="p-amount" id="pricePro">$1,499</span>
+                                    <span class="p-period">/ month</span>
+                                </div>
+                                <ul class="p-features">
+                                    <li><i class="fa-solid fa-check text-green"></i> Up to 15 Buildings</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> All 9 Domain ML Models</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> 24/7 AI Co-Pilot & What-If Simulator</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> Real-time Telemetry & SHAP Explainability</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> Automated Action Rules Engine</li>
+                                </ul>
+                                <button class="btn btn-primary btn-block upgrade-plan-btn" data-plan="enterprise_pro" disabled>Current Active Plan</button>
+                            </div>
+
+                            <!-- TIER 3: SOVEREIGN CUSTOM -->
+                            <div class="pricing-card" id="planCardSovereign">
+                                <div class="p-header">
+                                    <h3>Sovereign / ESG Enterprise</h3>
+                                    <p>For government campuses and multi-city estates.</p>
+                                </div>
+                                <div class="p-price">
+                                    <span class="p-amount">Custom</span>
+                                </div>
+                                <ul class="p-features">
+                                    <li><i class="fa-solid fa-check text-green"></i> Unlimited Buildings & Campuses</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> On-Premise ML Model Deployment</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> ISO 14064 ESG Audit Exporter</li>
+                                    <li><i class="fa-solid fa-check text-green"></i> SLA 99.99% & Dedicated AI Engineer</li>
+                                </ul>
+                                <button class="btn btn-secondary btn-block upgrade-plan-btn" data-plan="sovereign_custom">Contact Enterprise Sales</button>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT 11: AI CO-PILOT & CHAT ENGINE -->
+                <div class="tab-content" id="contentAiAssistant">
+                    <div class="ai-co-pilot-container">
+                        
+                        <!-- AI COPILOT TOP CONTROL HEADER -->
+                        <div class="ai-chat-header">
+                            <div class="ai-avatar-pulse">
+                                <div class="ai-avatar">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                </div>
+                                <span class="ai-pulse-ring"></span>
+                            </div>
+                            <div class="ai-title-group">
+                                <div class="ai-title-row">
+                                    <h3>EstateIQ Facility Intelligence Co-Pilot</h3>
+                                    <span class="pill-badge badge-green" id="copilotModelPill">
+                                        <i class="fa-solid fa-microchip"></i> Gemini 3.6 Flash + Grounded XAI
+                                    </span>
+                                </div>
+                                <p>Natural language decision support, SHAP feature attributions, grounded 7-part operational action plans, and automated dispatch.</p>
+                            </div>
+
+                            <div class="ai-context-status">
+                                <div class="ctx-pill">
+                                    <i class="fa-solid fa-shield-halved text-mint"></i>
+                                    <span id="copilotPersonaTag">Admin Persona (Full Access)</span>
+                                </div>
+                                <div class="ctx-pill">
+                                    <i class="fa-solid fa-database text-teal"></i>
+                                    <span>FastAPI Live Connection</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CHAT MESSAGES CANVAS -->
+                        <div class="chat-messages-area" id="chatMessagesArea">
+                            
+                            <!-- WELCOME BOT MESSAGE WITH STRUCTURED ACTION DEMO -->
+                            <div class="chat-message bot">
+                                <div class="msg-avatar"><i class="fa-solid fa-robot"></i></div>
+                                <div class="msg-bubble">
+                                    <div class="msg-header-tag">
+                                        <span>ESTATEIQ AI CO-PILOT</span>
+                                        <span class="time-stamp">Just now</span>
+                                    </div>
+                                    <p>Welcome! I am your <strong>EstateIQ Grounded Operational Decision Co-Pilot</strong>. I monitor 16 database domain tables, real-time IoT sensor telemetry, and 9 trained ML models across campus.</p>
+                                    <div class="ai-grounded-highlights">
+                                        <div class="hl-item"><i class="fa-solid fa-bolt text-gold"></i> Live Anomaly Root Cause Analysis</div>
+                                        <div class="hl-item"><i class="fa-solid fa-brain text-accent"></i> SHAP Feature Impact Quantification</div>
+                                        <div class="hl-item"><i class="fa-solid fa-sliders text-teal"></i> Interactive Scenario Simulation</div>
+                                        <div class="hl-item"><i class="fa-solid fa-indian-rupee-sign text-green"></i> Financial ROI & Carbon Impact</div>
+                                    </div>
+                                    <p style="font-size: 0.85rem; color: #94A3B8; margin-top: 8px;">Select a quick query chip below or ask any question about facility operations.</p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- CATEGORIZED QUICK PROMPT CHIPS -->
+                        <div class="chat-quick-queries-wrapper">
+                            <span class="quick-title"><i class="fa-solid fa-bolt text-gold"></i> Quick AI Diagnostic Prompts:</span>
+                            <div class="chat-quick-queries">
+                                <button class="quick-chip" data-query="Why is energy consumption high in Block B Hostel?">
+                                    ⚡ Why is energy high in Block B Hostel?
+                                </button>
+                                <button class="quick-chip" data-query="Which waste bins need immediate collection dispatch?">
+                                    🗑️ Waste Bins Overflow Risk
+                                </button>
+                                <button class="quick-chip" data-query="Simulate reducing HVAC load by 20% and calculate monthly ROI">
+                                    🧪 Simulate 20% HVAC Setback Savings
+                                </button>
+                                <button class="quick-chip" data-query="What is the maintenance risk score for AST_CHILLER_01?">
+                                    ⚙️ AST_CHILLER_01 Vibration Risk
+                                </button>
+                                <button class="quick-chip" data-query="What is our monthly Scope 1 & 2 carbon footprint?">
+                                    🌱 Scope 1 & 2 Emissions Audit
+                                </button>
+                                <button class="quick-chip" data-query="Run a full AI Diagnostic Audit on active backend signals">
+                                    🔍 Run Full Facility AI Audit
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- CHAT INPUT FORM WITH MIC & ATTACHMENT ACCENTS -->
+                        <form class="chat-input-form" id="chatForm">
+                            <div class="input-glow-wrapper">
+                                <input type="text" id="chatInputText" placeholder="Ask EstateIQ AI anything (e.g. 'Why is energy high in Block B Hostel?')..." autocomplete="off">
+                                <div class="input-actions-right">
+                                    <button type="button" class="chat-action-btn" id="voicePromptBtn" title="Voice Input"><i class="fa-solid fa-microphone"></i></button>
+                                    <button type="submit" class="btn btn-primary" id="sendChatBtn">
+                                        <i class="fa-solid fa-paper-plane"></i>
+                                        <span>Ask AI</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- SIGNALS INSPECTION MODAL -->
+    <div class="modal-backdrop" id="signalsModal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <i class="fa-solid fa-bell text-amber"></i>
+                    <h3>Active Facility Signals & Diagnostics</h3>
+                </div>
+                <button class="modal-close" id="closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="signals-list" id="modalSignalsList">
+                    <div class="signal-card high-priority">
+                        <div class="signal-badge">PRIORITY 1</div>
+                        <div class="signal-details">
+                            <h4>HVAC Malfunction / Surge - Block B Hostel</h4>
+                            <p>Actual load 145.2 kWh vs expected 78.0 kWh baseline. High compressor cycle variance detected.</p>
+                            <span class="signal-time">12 mins ago • IoT Telemetry</span>
+                        </div>
+                    </div>
+                    <div class="signal-card medium-priority">
+                        <div class="signal-badge">PRIORITY 2</div>
+                        <div class="signal-details">
+                            <h4>Waste Bin #01 Overflow Risk - Central Cafeteria</h4>
+                            <p>Projected fill capacity >90% within 2 hours based on peak lunch occupancy rate.</p>
+                            <span class="signal-time">35 mins ago • Waste Module</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="dismissModalBtn">Dismiss</button>
+                <button class="btn btn-primary" id="runAiDiagnosticBtn">Run AI Root-Cause Audit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACCESS RESTRICTED MODAL -->
+    <div class="modal-backdrop" id="accessRestrictedModal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <i class="fa-solid fa-lock text-amber"></i>
+                    <h3>Access Restricted</h3>
+                </div>
+                <button class="modal-close" id="closeRestrictedModalBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="restricted-box">
+                    <h4 id="restrictedModuleTitle">Role Permission Required</h4>
+                    <p id="restrictedModuleDesc">Your current active role does not have permission to access this module. Please switch to Administrator or an authorized role.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="dismissRestrictedBtn">Cancel</button>
+                <button class="btn btn-primary" id="switchToAdminBtn">
+                    <i class="fa-solid fa-user-shield"></i> Switch to Administrator (Full Access)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

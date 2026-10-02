@@ -1,0 +1,73 @@
+{
+  "anomalies_enabled": {
+    "energy_hvac_failure": true,
+    "energy_after_hours_usage": true,
+    "water_abnormal_flow": true,
+    "waste_overflow": true,
+    "air_pollution_spike": true,
+    "traffic_congestion": true,
+    "equipment_overheating": true
+  },
+  "scenarios": [
+    {
+      "id": "ANO_E01",
+      "module": "energy",
+      "anomaly_type": "hvac_fault",
+      "affected_entity": "BLD003",
+      "start_time": "2026-02-15 11:00:00",
+      "duration_hours": 6,
+      "severity": "HIGH",
+      "multiplier": 1.95
+    },
+    {
+      "id": "ANO_E02",
+      "module": "energy",
+      "anomaly_type": "after_hours_usage",
+      "affected_entity": "BLD001",
+      "start_time": "2026-03-22 01:00:00",
+      "duration_hours": 4,
+      "severity": "MEDIUM",
+      "multiplier": 2.80
+    },
+    {
+      "id": "ANO_W01",
+      "module": "water",
+      "anomaly_type": "abnormal_consumption",
+      "affected_entity": "BLD006",
+      "start_time": "2026-04-10 02:00:00",
+      "duration_hours": 8,
+      "severity": "HIGH",
+      "multiplier": 3.40
+    },
+    {
+      "id": "ANO_WST01",
+      "module": "waste",
+      "anomaly_type": "rapid_fill_overflow",
+      "affected_entity": "BIN_CANTEEN_01",
+      "start_time": "2026-05-05 12:00:00",
+      "duration_hours": 3,
+      "severity": "HIGH",
+      "multiplier": 2.50
+    },
+    {
+      "id": "ANO_AIR01",
+      "module": "air",
+      "anomaly_type": "pollution_spike",
+      "affected_entity": "LOC_GATE_MAIN",
+      "start_time": "2026-01-20 08:30:00",
+      "duration_hours": 3,
+      "severity": "HIGH",
+      "multiplier": 2.20
+    },
+    {
+      "id": "ANO_EQ01",
+      "module": "equipment",
+      "anomaly_type": "bearing_wear_overheating",
+      "affected_entity": "AST_CHILLER_01",
+      "start_time": "2026-06-01 09:00:00",
+      "duration_hours": 12,
+      "severity": "HIGH",
+      "multiplier": 2.10
+    }
+  ]
+}

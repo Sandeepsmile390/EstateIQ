@@ -1,0 +1,12 @@
+{
+  "weights": {
+    "energy_efficiency": 0.20,
+    "water_efficiency": 0.15,
+    "waste_management": 0.15,
+    "air_quality": 0.15,
+    "renewable_energy": 0.10,
+    "emissions": 0.15,
+    "occupancy_efficiency": 0.10
+  },
+  "disclaimer": "Internal composite facility performance index. Not an official government GRI or LEED rating."
+}

@@ -142,5 +142,22 @@ python -m unittest discover tests
 
 ---
 
+## 📚 Complete Documentation Suite
+
+All detailed system specs and guides are organized under the [`docs/`](docs/) directory:
+
+| Document | Description |
+|---|---|
+| 📐 [**Architecture Guide**](docs/ARCHITECTURE.md) | Technical stack, components, state management & design system |
+| 🤖 [**AI Pipeline**](docs/AI_PIPELINE.md) | 11-step Decision Trace engine, SHAP & Co-Pilot NLP architecture |
+| 📊 [**ML Pipeline**](docs/ML_PIPELINE.md) | Multi-model ML training, CatBoost, Random Forest & Isolation Forest |
+| 🌐 [**API Documentation**](docs/API_DOCUMENTATION.md) | FastAPI REST endpoints specification & MongoDB connector schemas |
+| 📖 [**Data Dictionary**](docs/DATA_DICTIONARY.md) | Telemetry features, MongoDB schemas, and Data Provenance badges |
+| 🎮 [**Demo Guide**](docs/DEMO_GUIDE.md) | Step-by-step hackathon demonstration walkthrough & scenarios |
+| 📑 [**Final Implementation Report**](docs/FINAL_IMPLEMENTATION_REPORT.md) | Executive summary, technical audit, and verification metrics |
+| ⚠️ [**Known Limitations**](docs/KNOWN_LIMITATIONS.md) | Simulated IoT telemetry, model estimate bounds, and disclaimers |
+
+---
+
 ## 📜 License
 Licensed under the [MIT License](LICENSE).

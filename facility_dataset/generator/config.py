@@ -15,9 +15,9 @@ import pandas as pd
 SEED = 42
 np.random.seed(SEED)
 
-# Time Range: 180 Days at 15-minute resolution
+# Time Range: 365 Days at 15-minute resolution (35,040 intervals per continuous entity)
 START_TIME = pd.Timestamp("2026-01-01 00:00:00", tz="Asia/Kolkata")
-END_TIME = pd.Timestamp("2026-06-29 23:45:00", tz="Asia/Kolkata")
+END_TIME = pd.Timestamp("2026-12-31 23:45:00", tz="Asia/Kolkata")
 FREQ = "15min"
 
 # Paths

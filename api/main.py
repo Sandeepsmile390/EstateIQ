@@ -982,3 +982,142 @@ def get_device_health(device_id: str):
         "power_factor": 0.94,
         "quality": "OK"
     }
+
+# --- Facility State & Dataset Management Endpoints ---
+@app.get("/api/v1/facility/state")
+def get_facility_state(facility_id: str = "FAC_GEC_CAMPUS"):
+    from src.ai.backend_services import EstateIQBackendServices
+    svc = EstateIQBackendServices()
+    return svc.get_facility_overview(facility_id=facility_id)
+
+@app.get("/api/v1/dataset/info")
+def get_dataset_info():
+    from src.data.dataset_manager import GLOBAL_DATASET_MANAGER
+    return GLOBAL_DATASET_MANAGER.get_dataset_info()
+
+@app.post("/api/v1/dataset/reload")
+def reload_dataset():
+    from src.data.dataset_manager import GLOBAL_DATASET_MANAGER
+    return GLOBAL_DATASET_MANAGER.reload_dataset()
+
+@app.post("/api/v1/dataset/switch")
+def switch_dataset(preset: str = "dataset_b"):
+    from src.data.dataset_manager import GLOBAL_DATASET_MANAGER
+    return GLOBAL_DATASET_MANAGER.switch_dataset(target_preset=preset)
+
+# --- Work Orders Endpoints ---
+class WorkOrderCreateRequest(BaseModel):
+    title: str
+    description: str
+    facility_id: str = "FAC_GEC_CAMPUS"
+    building_id: str = "Block B Hostel"
+    location: str = "Block B HVAC Room"
+    priority: str = "P1_CRITICAL"
+    recommendation_id: Optional[str] = None
+    assigned_to: str = "staff@estateiq.in"
+
+@app.get("/api/v1/work-orders")
+def list_work_orders(
+    assigned_to: Optional[str] = None,
+    status: Optional[str] = None
+):
+    from src.decisions.work_orders import GLOBAL_WORK_ORDER_ENGINE
+    orders = GLOBAL_WORK_ORDER_ENGINE.list_work_orders(assigned_to=assigned_to, status=status)
+    return {"count": len(orders), "work_orders": [o.dict() for o in orders]}
+
+@app.post("/api/v1/work-orders")
+def create_work_order(
+    req: WorkOrderCreateRequest,
+    user: Dict[str, Any] = Depends(require_permission("recommendations.execute"))
+):
+    from src.decisions.work_orders import GLOBAL_WORK_ORDER_ENGINE
+    from src.decisions.notifications import GLOBAL_NOTIFICATION_ENGINE
+    
+    order = GLOBAL_WORK_ORDER_ENGINE.create_work_order(
+        title=req.title,
+        description=req.description,
+        facility_id=req.facility_id,
+        building_id=req.building_id,
+        location=req.location,
+        priority=req.priority,
+        recommendation_id=req.recommendation_id,
+        assigned_to=req.assigned_to,
+        assigned_by=user.get("email", "lead@estateiq.in")
+    )
+    
+    # Send Notification to assigned staff
+    GLOBAL_NOTIFICATION_ENGINE.create_notification(
+        recipient_email=req.assigned_to,
+        recipient_role="STAFF",
+        title=f"⚡ New Work Order: {req.title}",
+        message=f"Location: {req.location} | Priority: {req.priority}. Task: {req.description}",
+        priority="HIGH" if "P1" in req.priority else "MEDIUM",
+        related_object_id=order.work_order_id
+    )
+    
+    return order.dict()
+
+@app.get("/api/v1/work-orders/{id}")
+def get_work_order(id: str):
+    from src.decisions.work_orders import GLOBAL_WORK_ORDER_ENGINE
+    order = GLOBAL_WORK_ORDER_ENGINE.get_work_order(id)
+    if not order:
+        raise HTTPException(status_code=404, detail=f"Work order '{id}' not found.")
+    return order.dict()
+
+@app.put("/api/v1/work-orders/{id}/status")
+def update_work_order_status(
+    id: str,
+    req: ActionUpdateRequest,
+    user: Dict[str, Any] = Depends(verify_current_user)
+):
+    from src.decisions.work_orders import GLOBAL_WORK_ORDER_ENGINE
+    from src.decisions.notifications import GLOBAL_NOTIFICATION_ENGINE
+    
+    order = GLOBAL_WORK_ORDER_ENGINE.update_status(
+        work_order_id=id,
+        target_status=req.status,
+        actor=user.get("email", "User"),
+        notes=req.notes,
+        evidence=req.verification_evidence
+    )
+    
+    # Notify Manager if status completed
+    if req.status.upper() in ["COMPLETED", "VERIFIED"]:
+        GLOBAL_NOTIFICATION_ENGINE.create_notification(
+            recipient_email=order.assigned_by,
+            recipient_role="FACILITY_MANAGER",
+            title=f"✅ Work Order {order.status}: {order.title}",
+            message=f"Staff member {user.get('name', order.assigned_to)} updated status to {order.status}. Notes: {req.notes or 'None'}",
+            priority="INFO",
+            related_object_id=id
+        )
+        
+    return order.dict()
+
+# --- Notifications Endpoints ---
+@app.get("/api/v1/notifications")
+def get_notifications(
+    user: Dict[str, Any] = Depends(verify_current_user),
+    unread_only: bool = False
+):
+    from src.decisions.notifications import GLOBAL_NOTIFICATION_ENGINE
+    notifs = GLOBAL_NOTIFICATION_ENGINE.get_user_notifications(
+        recipient_email=user.get("email"),
+        recipient_role=user.get("role"),
+        unread_only=unread_only
+    )
+    return {"count": len(notifs), "notifications": [n.dict() for n in notifs]}
+
+@app.put("/api/v1/notifications/{id}/read")
+def mark_notification_read(id: str):
+    from src.decisions.notifications import GLOBAL_NOTIFICATION_ENGINE
+    success = GLOBAL_NOTIFICATION_ENGINE.mark_read(id)
+    return {"success": success, "notification_id": id}
+
+# --- AI Insights Endpoint ---
+@app.get("/api/v1/ai/insights")
+def get_ai_insights(domain: str = "overview", building_id: Optional[str] = None):
+    from src.ai.insight_service import GLOBAL_AI_INSIGHT_SERVICE
+    insight = GLOBAL_AI_INSIGHT_SERVICE.get_domain_insight(domain=domain, building_id=building_id)
+    return insight.dict()

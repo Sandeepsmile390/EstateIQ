@@ -127,6 +127,9 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
     "MANAGEMENT_VIEWER": [
         "facility.read", "energy.read", "water.read", "waste.read", "air.read", "mobility.read",
         "alerts.read", "recommendations.read", "reports.read"
+    ],
+    "STAFF": [
+        "facility.read", "work_orders.read", "work_orders.update", "notifications.read"
     ]
 }
 
@@ -135,11 +138,12 @@ LEGACY_ROLE_MAP = {
     "admin": "FACILITY_ADMIN",
     "engineer": "OPERATIONS_ENGINEER",
     "auditor": "ESG_AUDITOR",
-    "viewer": "MANAGEMENT_VIEWER"
+    "viewer": "MANAGEMENT_VIEWER",
+    "staff": "STAFF"
 }
 
 # --- User Database (Simulated Production Store with Pre-Hashed Passwords) ---
-# Pre-hash standard passwords: Admin@123456, Lead@123456, Engineer@123, Auditor@123, Viewer@123
+# Pre-hash standard passwords: Admin@123456, Lead@123456, Engineer@123, Auditor@123, Viewer@123, Staff@123
 USERS_DB: Dict[str, Dict[str, Any]] = {
     "admin@estateiq.in": {
         "user_id": "USR_SUPER_00",
@@ -194,6 +198,17 @@ USERS_DB: Dict[str, Dict[str, Any]] = {
         "role": "MANAGEMENT_VIEWER",
         "role_label": "Campus Stakeholder",
         "password_hash": hash_password("Viewer@123", "salt_sam_taylor"),
+        "status": "ACTIVE"
+    },
+    "staff@estateiq.in": {
+        "user_id": "USR_STAFF_05",
+        "email": "staff@estateiq.in",
+        "name": "Arjun Kumar",
+        "initials": "AK",
+        "facility_id": "FAC_GEC_01",
+        "role": "STAFF",
+        "role_label": "Field Maintenance Staff",
+        "password_hash": hash_password("Staff@123", "salt_staff_arjun"),
         "status": "ACTIVE"
     }
 }

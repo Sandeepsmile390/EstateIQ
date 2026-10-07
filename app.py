@@ -43,6 +43,11 @@ from src.ai.exceptions import AIServiceError
 from src.intelligence.types import EventData
 from src.data.geospatial import GeospatialFacilityRepository
 
+from src.data.dataset_manager import GLOBAL_DATASET_MANAGER
+from src.decisions.work_orders import GLOBAL_WORK_ORDER_ENGINE
+from src.decisions.notifications import GLOBAL_NOTIFICATION_ENGINE
+from src.ai.insight_service import GLOBAL_AI_INSIGHT_SERVICE
+
 from src.ui.components import (
     get_icon, inject_custom_css, render_top_bar,
     render_status_banner, render_hero_metrics_grid,
@@ -101,8 +106,10 @@ user_role = st.sidebar.selectbox(
     "Switch User Persona:",
     [
         "RS Administrator (Full Access)",
+        "Rajesh Sharma (Facility Lead & Admin)",
         "Alex Chen (Operations Engineer)",
         "Dr. Priya Sharma (ESG Auditor)",
+        "Arjun Kumar (Field Maintenance Staff)",
         "Sam Taylor (Campus Stakeholder)"
     ],
     index=0,
@@ -118,6 +125,7 @@ st.sidebar.markdown(f'''
 
 web_ui_tabs = [
     "Dashboard Overview",
+    "Staff Work Orders & Tasks",
     "AI Suggestions & ROI",
     "Energy ML",
     "Water Module",
@@ -170,7 +178,14 @@ render_top_bar(campus_name="Main Campus - All Blocks", status="ATTENTION", user_
 render_status_banner(active_role=user_role, suggestions_count=3)
 
 # Render Top Row Hero Metrics Cards
-render_hero_metrics_grid(hero_score=87, energy_val="7.42 MWh", water_val="12,480 kL", aqi_val=68)
+ds_info = GLOBAL_DATASET_MANAGER.get_dataset_info()
+mult = ds_info["multiplier"]
+render_hero_metrics_grid(
+    hero_score=int(87 / mult) if mult > 1.2 else 87,
+    energy_val=f"{round(7.42 * mult, 2)} MWh",
+    water_val=f"{int(12480 * mult):,} L",
+    aqi_val=int(68 * mult) if mult > 1.0 else 68
+)
 
 
 # ==============================================================================
@@ -179,22 +194,51 @@ render_hero_metrics_grid(hero_score=87, energy_val="7.42 MWh", water_val="12,480
 if menu == "Dashboard Overview":
     st.markdown(f"### {get_icon('LayoutDashboard', '#2BB49B', 24)} Dashboard Overview {render_badge('observed')}", unsafe_allow_html=True)
     st.caption("Multi-domain real-time sensor telemetry, multi-line consumption trends, performance metrics breakdown & GIS map")
-    
+
+    # --- ADMIN DATASET MANAGEMENT CONTROL PANEL ---
+    st.markdown("#### 🔄 Dataset Ingestion & Synchronized State Control")
+    ds_c1, ds_c2, ds_c3, ds_c4 = st.columns([1.5, 1, 1, 1])
+    with ds_c1:
+        st.markdown(f"""
+        <div style="background: rgba(43, 180, 155, 0.1); border: 1px solid rgba(43, 180, 155, 0.4); border-radius: 10px; padding: 10px 14px;">
+            <div style="font-size: 0.75rem; color: #A3C9BE; font-weight: 700;">ACTIVE DATASET SOURCE</div>
+            <div style="font-size: 0.95rem; color: #FFFFFF; font-weight: 800;">{ds_info['dataset_id']}</div>
+            <div style="font-size: 0.72rem; color: #00D09C;">Provenance: {ds_info['badge']} | Multiplier: {ds_info['multiplier']}x</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with ds_c2:
+        if st.button("Switch to Dataset A (Standard)"):
+            GLOBAL_DATASET_MANAGER.switch_dataset("dataset_a")
+            st.success("✅ Switched to Dataset A (Standard Baseline)")
+            st.rerun()
+    with ds_c3:
+        if st.button("Switch to Dataset B (High Surge)"):
+            GLOBAL_DATASET_MANAGER.switch_dataset("dataset_b")
+            st.warning("⚡ Switched to Dataset B (High Anomaly Surge)")
+            st.rerun()
+    with ds_c4:
+        if st.button("Reload Dataset"):
+            GLOBAL_DATASET_MANAGER.reload_dataset()
+            st.success("🔄 Active Dataset Reloaded & Caches Invalidated")
+            st.rerun()
+
+    st.markdown("---")
+
     # 3 Summary Cards Row (Matching Web UI middle section)
     sc1, sc2, sc3 = st.columns(3)
     with sc1:
         st.markdown(f"""
         <div style="background:#124B3E; border:1px solid #2BB49B; border-radius:14px; padding:18px;">
             <div style="font-size:0.8rem; color:#A3C9BE; font-weight:700; text-transform:uppercase;">Total Energy</div>
-            <div style="font-size:2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin-top:4px;">7.42 MWh</div>
-            <div style="font-size:0.75rem; color:#4ADE80; margin-top:4px;">● Nominal Demand Horizon</div>
+            <div style="font-size:2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin-top:4px;">{round(7.42 * mult, 2)} MWh</div>
+            <div style="font-size:0.75rem; color:{'#EF4444' if mult > 1.2 else '#4ADE80'}; margin-top:4px;">● {'HIGH SURGE HORIZON' if mult > 1.2 else 'Nominal Demand Horizon'}</div>
         </div>
         """, unsafe_allow_html=True)
     with sc2:
         st.markdown(f"""
         <div style="background:#124B3E; border:1px solid #2BB49B; border-radius:14px; padding:18px;">
             <div style="font-size:0.8rem; color:#A3C9BE; font-weight:700; text-transform:uppercase;">Water Recycled</div>
-            <div style="font-size:2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin-top:4px;">12,480 kL</div>
+            <div style="font-size:2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin-top:4px;">{int(12480 * mult):,} L</div>
             <div style="font-size:0.75rem; color:#2BB49B; margin-top:4px;">● Greywater Treatment Active</div>
         </div>
         """, unsafe_allow_html=True)
@@ -202,12 +246,81 @@ if menu == "Dashboard Overview":
         st.markdown(f"""
         <div style="background:#124B3E; border:1px solid #2BB49B; border-radius:14px; padding:18px;">
             <div style="font-size:0.8rem; color:#A3C9BE; font-weight:700; text-transform:uppercase;">Waste Diverted</div>
-            <div style="font-size:2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin-top:4px;">5,420 kg</div>
+            <div style="font-size:2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin-top:4px;">{int(5420 * mult):,} kg</div>
             <div style="font-size:0.75rem; color:#F5C577; margin-top:4px;">● 61% Compost / Recycling</div>
         </div>
         """, unsafe_allow_html=True)
         
     st.markdown("---")
+    
+    # Render Facility Overview AI Insight
+    ov_insight = GLOBAL_AI_INSIGHT_SERVICE.get_domain_insight("overview")
+    render_ai_insight_card(
+        domain="Facility Overview",
+        observation=ov_insight.what_happened,
+        why_it_matters=ov_insight.why,
+        action=ov_insight.recommended_action,
+        impact=f"Potential Savings: {ov_insight.impact.get('annual_saving', '₹39.7 Lakhs')}",
+        confidence=ov_insight.confidence_percent,
+        data_source=ov_insight.data_source
+    )
+
+
+# ==============================================================================
+# TAB: STAFF WORK ORDERS & TASKS
+# ==============================================================================
+elif menu == "Staff Work Orders & Tasks":
+    st.markdown(f"### {get_icon('ShieldCheck', '#00D09C', 24)} Closed-Loop Field Staff Work Orders & Maintenance Tasks {render_badge('observed')}", unsafe_allow_html=True)
+    st.caption("Assigned maintenance tasks, AI-recommended work orders, notification center, and field completion evidence submission")
+
+    col_w1, col_w2 = st.columns([1.8, 1])
+
+    with col_w1:
+        st.markdown("#### 📋 Active Work Orders")
+        orders = GLOBAL_WORK_ORDER_ENGINE.list_work_orders()
+        for order in orders:
+            prio_cls = "#EF4444" if "P1" in order.priority else "#D97706" if "P2" in order.priority else "#2BB49B"
+            st.markdown(f"""
+            <div style="background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(43, 180, 155, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span style="background:{prio_cls}; color:#FFF; font-weight:700; font-size:0.72rem; padding:3px 8px; border-radius:10px;">{order.priority}</span>
+                    <span style="background:rgba(43,180,155,0.2); color:#2BB49B; font-size:0.75rem; padding:3px 8px; border-radius:6px; font-weight:600;">STATUS: {order.status}</span>
+                </div>
+                <h5 style="color:#FFF; margin:4px 0;">{order.title} ({order.work_order_id})</h5>
+                <p style="font-size:0.85rem; color:#CBD5E1; margin-bottom:6px;"><strong>Location:</strong> {order.location} | <strong>Assigned To:</strong> {order.assigned_to}</p>
+                <p style="font-size:0.82rem; color:#94A3B8;">{order.description}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            btn_c1, btn_c2, btn_c3 = st.columns(3)
+            with btn_c1:
+                if st.button(f"Acknowledge ({order.work_order_id})", key=f"ack_{order.work_order_id}"):
+                    GLOBAL_WORK_ORDER_ENGINE.update_status(order.work_order_id, "ACKNOWLEDGED", actor="Staff")
+                    st.success(f"Work order {order.work_order_id} set to ACKNOWLEDGED")
+                    st.rerun()
+            with btn_c2:
+                if st.button(f"Start Task ({order.work_order_id})", key=f"start_{order.work_order_id}"):
+                    GLOBAL_WORK_ORDER_ENGINE.update_status(order.work_order_id, "IN_PROGRESS", actor="Staff")
+                    st.info(f"Work order {order.work_order_id} set to IN_PROGRESS")
+                    st.rerun()
+            with btn_c3:
+                if st.button(f"Complete ({order.work_order_id})", key=f"comp_{order.work_order_id}"):
+                    GLOBAL_WORK_ORDER_ENGINE.update_status(order.work_order_id, "COMPLETED", actor="Staff", notes="Physical inspection completed; parameters reset.")
+                    st.success(f"Work order {order.work_order_id} marked COMPLETED")
+                    st.rerun()
+
+    with col_w2:
+        st.markdown("#### 🔔 Field Notifications")
+        notifs = GLOBAL_NOTIFICATION_ENGINE.get_user_notifications()
+        for n in notifs[:5]:
+            p_color = "#EF4444" if n.priority == "HIGH" else "#2BB49B"
+            st.markdown(f"""
+            <div style="background: rgba(15, 23, 42, 0.8); border-left: 3px solid {p_color}; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px;">
+                <div style="font-size: 0.85rem; font-weight: 700; color: #F8FAFC;">{n.title}</div>
+                <div style="font-size: 0.78rem; color: #94A3B8; margin-top: 4px;">{n.message}</div>
+                <div style="font-size: 0.7rem; color: #64748B; margin-top: 4px;">{n.timestamp[:19]}</div>
+            </div>
+            """, unsafe_allow_html=True)
     
     col_chart, col_side = st.columns([1.6, 1])
     

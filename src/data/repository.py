@@ -15,6 +15,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DB_PATH = BASE_DIR / "facility_dataset" / "facility.db"
 RAW_DIR = BASE_DIR / "facility_dataset" / "data" / "raw"
 
+from src.data.dataset_manager import GLOBAL_DATASET_MANAGER
+
 class ProvenanceType:
     OBSERVED = "OBSERVED"
     PREDICTED = "PREDICTED"
@@ -42,8 +44,10 @@ class DataRepository:
         return None
 
     def query_table(self, table_name: str, limit: Optional[int] = None) -> pd.DataFrame:
-        """Queries table from SQLite DB if available, else falls back to CSV."""
+        """Queries table from SQLite DB if available, else falls back to CSV, scaling numerical metrics by active dataset multiplier."""
+        multiplier = GLOBAL_DATASET_MANAGER.active_dataset.multiplier
         conn = self._get_connection()
+        df = pd.DataFrame()
         if conn is not None:
             try:
                 query = f"SELECT * FROM {table_name}"
@@ -51,24 +55,27 @@ class DataRepository:
                     query += f" LIMIT {limit}"
                 df = pd.read_sql_query(query, conn)
                 conn.close()
-                if "timestamp" in df.columns:
-                    df["timestamp"] = pd.to_datetime(df["timestamp"])
-                return df
             except Exception:
                 if conn:
                     conn.close()
 
-        # CSV Fallback
-        csv_path = RAW_DIR / f"{table_name}.csv"
-        if csv_path.exists():
-            df = pd.read_csv(csv_path)
-            if limit:
-                df = df.head(limit)
+        if df.empty:
+            csv_path = RAW_DIR / f"{table_name}.csv"
+            if csv_path.exists():
+                df = pd.read_csv(csv_path)
+                if limit:
+                    df = df.head(limit)
+
+        if not df.empty:
             if "timestamp" in df.columns:
                 df["timestamp"] = pd.to_datetime(df["timestamp"])
-            return df
+            if multiplier != 1.0:
+                num_cols = df.select_dtypes(include=[np.number]).columns
+                for col in num_cols:
+                    if col not in ["id", "facility_id", "building_id", "location_id", "bin_id", "hour", "month", "day_of_week", "is_weekend", "is_peak_hour"]:
+                        df[col] = df[col] * multiplier
 
-        return pd.DataFrame()
+        return df
 
     def get_facility_info(self) -> Dict[str, Any]:
         df = self.query_table("facilities")

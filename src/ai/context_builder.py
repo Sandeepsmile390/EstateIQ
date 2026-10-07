@@ -12,6 +12,7 @@ from src.intelligence.types import EventData, DecisionResult
 from src.scenarios.whatif import WhatIfScenarioEngine
 from src.ai.query_router import UniversalQueryRouter, IntentCategory
 from src.ai.data_planner import DataRequirementPlanner
+from src.data.dataset_manager import GLOBAL_DATASET_MANAGER
 
 class AIContextBuilder:
     """Master Dynamic Context Builder for Universal EstateIQ AI Copilot."""
@@ -47,7 +48,7 @@ class AIContextBuilder:
             "facility_id": facility_id,
             "building_id": target_building,
             "analyzed_at": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "data_source": "REAL SENSOR"
+            "data_source": GLOBAL_DATASET_MANAGER.active_dataset.source_type
         }
 
         # Handle Non-Telemetry Intents Directly (System Capabilities & Project Knowledge)
@@ -174,7 +175,8 @@ class AIContextBuilder:
 
         # 4. Energy, Anomaly & General Analytical Questions — Run DIF Engine
         latest_energy = self.repo.get_latest_energy(building_id=target_building)
-        actual_kwh = float(latest_energy.get("energy_kwh", 145.2))
+        mult = GLOBAL_DATASET_MANAGER.active_dataset.multiplier
+        actual_kwh = round(float(latest_energy.get("energy_kwh", 145.2)) * mult, 2)
         temperature = float(latest_energy.get("temperature", 32.0))
         occupancy = int(latest_energy.get("occupancy", 140))
         hvac_load = float(latest_energy.get("hvac_power_kw", 58.0))
@@ -196,7 +198,7 @@ class AIContextBuilder:
 
         decision: DecisionResult = self.dif_engine.analyze(event)
 
-        query_meta["data_source"] = "SIMULATED IoT" if "SIMULATED" in prov_type.upper() else "REAL SENSOR"
+        query_meta["data_source"] = GLOBAL_DATASET_MANAGER.active_dataset.source_type
 
         evidence = {
             "query_meta": query_meta,
@@ -262,4 +264,6 @@ class AIContextBuilder:
 
         return evidence
 
-build_ai_context = AIContextBuilder().build_ai_context
+def build_ai_context(facility_id: str = "FAC_GEC_CAMPUS", user_query: str = "", building_id: Optional[str] = None) -> Dict[str, Any]:
+    builder = AIContextBuilder()
+    return builder.build_ai_context(facility_id=facility_id, user_query=user_query, building_id=building_id)

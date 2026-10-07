@@ -34,12 +34,19 @@ MODEL_CANDIDATE_CHAIN: List[str] = [
     "qwen/qwen3.8-27b"
 ]
 
+from src.data.dataset_manager import GLOBAL_DATASET_MANAGER
+
 class EstateIQAIService:
     """Master AI Service for EstateIQ Copilot and Explainability."""
 
     def __init__(self, config: GroqAIConfig = DEFAULT_AI_CONFIG):
         self.config = config
         self._cache: Dict[str, CopilotQueryResponse] = {}
+        GLOBAL_DATASET_MANAGER.register_cache_invalidation_callback(self.clear_cache)
+
+    def clear_cache(self):
+        """Clears cached Copilot query responses when dataset is reloaded/switched."""
+        self._cache.clear()
 
     def check_health(self) -> AIHealthResponse:
         """Executes lightweight connectivity and configuration health check."""

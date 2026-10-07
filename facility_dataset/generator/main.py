@@ -1,6 +1,6 @@
 """
 Master Facility Dataset Orchestrator.
-Executes end-to-end dataset generation for 180 days (Jan-June 2026) at 15-minute resolution.
+Executes end-to-end dataset generation for 365 days (Jan-Dec 2026) at 15-minute resolution.
 Creates facility.db (SQLite), data_dictionary.csv, and outputs comprehensive summary statistics.
 
 Usage:

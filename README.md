@@ -5,9 +5,53 @@
 [![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-FF4B4B.svg)](https://streamlit.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**EstateIQ** is an explainable, AI-powered decision-support platform designed for institutional and government facilities across India (Engineering Colleges, Universities, Hospitals, Corporate Tech Parks, Municipal Zones, Industrial Estates, and PSUs).
+**EstateIQ** is an AI-powered facility decision intelligence platform that combines specialized machine-learning models with contextual facility intelligence, confidence estimation, business-impact analysis, simulation, and outcome verification to turn facility data into measurable operational decisions.
 
 Repository: [https://github.com/Sandeepsmile390/EstateIQ](https://github.com/Sandeepsmile390/EstateIQ)
+
+---
+
+## 🧠 EstateIQ-DIF — Dynamic Intelligence Fusion Algorithm
+
+The proprietary decision-intelligence layer in EstateIQ is **EstateIQ-DIF** (Dynamic Intelligence Fusion Algorithm), which operates directly **ABOVE** specialized machine-learning models (XGBoost, LightGBM, CatBoost, Random Forest, Prophet, Isolation Forest, LOF, SHAP):
+
+```text
+                  EstateIQ-DIF
+                       │
+        ┌──────────────┼──────────────┐
+        ↓              ↓              ↓
+       ECF            EAE            EAC
+   Context Filter   Adaptive       Anomaly
+                    Ensemble      Consensus
+        │              │              │
+        └──────────────┼──────────────┘
+                       ↓
+                      ECI
+                  Confidence
+                       ↓
+                      EBI
+                Business Impact
+                       ↓
+                  Risk/Opportunity
+                       ↓
+                      EDI
+              Decision Intelligence
+                       ↓
+             Recommendation Ranker
+                       ↓
+                   What-If
+                       ↓
+                  Verification
+                       ↓
+                  Calibration
+```
+
+- **ECF (EstateIQ Context Filter)**: Fast first-stage screening providing $O(1)$ early exit for nominal readings ($<10\%$ deviation).
+- **EAE (EstateIQ Adaptive Ensemble)**: Champion (LightGBM) / Challenger (XGBoost, CatBoost, Prophet) model selection architecture.
+- **EAC (EstateIQ Anomaly Consensus)**: Normalized multi-detector signal fusion across contextual residual, Isolation Forest, LOF, and domain rules ($0–100$).
+- **ECI (EstateIQ Confidence Intelligence)**: Deterministic multi-source confidence calculation ($0–100\%$).
+- **EBI (EstateIQ Business Impact)**: Calculates surge kWh, hourly/daily cost (₹), annual Cost of Inaction (₹/year), and $\text{CO}_2\text{e}$ emissions.
+- **EDI (EstateIQ Decision Intelligence)**: Weighted decision score and priority classifier (`P1_CRITICAL`, `P2_HIGH`, `P3_MEDIUM`, `P4_LOW`).
 
 ---
 
@@ -125,6 +169,7 @@ python -m unittest discover tests
 
 | Document | Description |
 |---|---|
+| 🧠 [**EstateIQ-DIF Specification**](docs/ESTATEIQ_DIF_ALGORITHM.md) | Authoritative 44-point algorithm architecture specification & complexity analysis |
 | 📋 [**Tech Stack Alignment**](docs/TECH_STACK_ALIGNMENT.md) | Problem Statement Technology Audit Matrix & Verification Status |
 | 📐 [**Architecture Guide**](docs/ARCHITECTURE.md) | Technical stack, components, unified service layer & design system |
 | 🤖 [**AI Pipeline**](docs/AI_PIPELINE.md) | 11-step Decision Trace engine, SHAP & Co-Pilot NLP architecture |
@@ -132,7 +177,7 @@ python -m unittest discover tests
 | 🌐 [**API Documentation**](docs/API_DOCUMENTATION.md) | FastAPI REST endpoints specification & MongoDB connector schemas |
 | 📖 [**Data Dictionary**](docs/DATA_DICTIONARY.md) | Telemetry features, MongoDB schemas, and Data Provenance badges |
 | 🎮 [**Demo Guide**](docs/DEMO_GUIDE.md) | Step-by-step hackathon demonstration walkthrough & scenarios |
-| 📋 [**Acceptance Specification**](ACCEPTANCE_SPECIFICATION.md) | Verified phase gates (0–10), 17 product requirements & scorecard |
+| 📋 [**Acceptance Specification**](docs/ACCEPTANCE_SPECIFICATION.md) | Verified phase gates (0–10), 17 product requirements & scorecard |
 
 ---
 

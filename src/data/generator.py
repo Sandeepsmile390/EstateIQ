@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 SYNTHETIC_MARKER = True
 
-def generate_energy_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
+def generate_energy_data(num_days: int = 365, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
     """
     Generates Energy Consumption Dataset.
     Columns: timestamp, facility_id, building_id, temperature, humidity, occupancy,
@@ -78,7 +78,7 @@ def generate_energy_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01"
     return df
 
 
-def generate_water_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
+def generate_water_data(num_days: int = 365, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
     """
     Generates Water Consumption Dataset.
     Columns: timestamp, facility_id, building_id, flow_rate, water_usage_liters, occupancy, temperature, humidity, hour, day_of_week
@@ -130,7 +130,7 @@ def generate_water_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01")
     return pd.DataFrame(records)
 
 
-def generate_waste_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
+def generate_waste_data(num_days: int = 365, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
     """
     Generates Waste Management Dataset.
     Columns: timestamp, facility_id, bin_id, location, fill_level, fill_rate, temperature, occupancy, day_of_week, hour, collection_time, overflow
@@ -186,7 +186,7 @@ def generate_waste_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01")
     return pd.DataFrame(records)
 
 
-def generate_air_quality_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
+def generate_air_quality_data(num_days: int = 365, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
     """
     Generates Air Quality Dataset.
     Columns: timestamp, facility_id, location, PM2_5, PM10, CO2, temperature, humidity, wind_speed, traffic_level, AQI
@@ -233,7 +233,7 @@ def generate_air_quality_data(num_days: int = 60, facility_id: str = "FAC_COLLEG
     return pd.DataFrame(records)
 
 
-def generate_traffic_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
+def generate_traffic_data(num_days: int = 365, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
     """
     Generates Traffic Dataset.
     Columns: timestamp, facility_id, location, vehicle_count, average_speed, pedestrian_count, parking_occupancy, weather, day_of_week, hour, congestion_level
@@ -289,7 +289,7 @@ def generate_traffic_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01
     return pd.DataFrame(records)
 
 
-def generate_parking_data(num_days: int = 60) -> pd.DataFrame:
+def generate_parking_data(num_days: int = 365) -> pd.DataFrame:
     """
     Generates Parking Dataset.
     Columns: timestamp, parking_zone, capacity, occupied_spaces, occupancy_rate, vehicle_arrivals, vehicle_departures, hour, day_of_week, event_flag
@@ -339,7 +339,7 @@ def generate_parking_data(num_days: int = 60) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
-def generate_equipment_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
+def generate_equipment_data(num_days: int = 365, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
     """
     Generates Equipment / Asset Utilization Dataset.
     Columns: timestamp, facility_id, equipment_id, equipment_type, runtime_hours, load, temperature, vibration, power_consumption, maintenance_history, utilization_rate
@@ -394,7 +394,7 @@ def generate_equipment_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_
     return pd.DataFrame(records)
 
 
-def generate_safety_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
+def generate_safety_data(num_days: int = 365, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
     """
     Generates Safety Incidents Dataset.
     Columns: timestamp, facility_id, location, incident_type, severity, weather, occupancy, traffic_level, previous_incidents, time_of_day
@@ -439,7 +439,7 @@ def generate_safety_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01"
     return pd.DataFrame(records)
 
 
-def generate_emissions_data(num_days: int = 60, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
+def generate_emissions_data(num_days: int = 365, facility_id: str = "FAC_COLLEGE_01") -> pd.DataFrame:
     """
     Generates Emissions Dataset.
     Columns: timestamp, facility_id, energy_consumption, fuel_consumption, vehicle_count, production_level, emission_estimate

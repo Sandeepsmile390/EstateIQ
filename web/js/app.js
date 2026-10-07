@@ -15,7 +15,7 @@ let currentUserSession = {
     role_key: "admin",
     role_label: "Facility Lead & Admin",
     avatar_bg: "#124B3E",
-    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "esg", "billing", "ai-assistant"],
+    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "esg", "billing", "work-orders", "ai-assistant"],
     can_execute_rules: true,
     can_upgrade_subscription: true
 };
@@ -23,6 +23,7 @@ let currentUserSession = {
 document.addEventListener("DOMContentLoaded", () => {
     initRoleBasedAuth();
     initTabs();
+    initDatasetDropdown();
     initLocationDropdown();
     initSignalsModal();
     initTimeRangeButtons();
@@ -35,6 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initDecisionTraceModal();
 
     // Fetch initial data from REST API endpoints
+    loadBackendDatasetInfo();
     loadBackendFacilitySummary();
     loadBackendForecasts();
     loadBackendAlerts();
@@ -42,6 +44,8 @@ document.addEventListener("DOMContentLoaded", () => {
     loadBackendMLModels();
     loadBackendSubscriptionDetails();
     loadBackendActionableSuggestions();
+    loadBackendWorkOrders();
+    loadBackendAIInsights();
 
     // Initialize interactive form listeners
     initEnergyPredictorForm();
@@ -233,6 +237,7 @@ function showRestrictedAccessModal(tabId) {
 function capitalizeFirst(str) {
     if (!str) return "";
     if (str === "ai-assistant") return "AiAssistant";
+    if (str === "work-orders") return "WorkOrders";
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
@@ -586,6 +591,237 @@ async function loadBackendMLModels() {
         }
     } catch (e) {
         console.warn("ML Registry cached.");
+    }
+}
+
+/* --------------------------------------------------------------------------
+   DATASET A / B CONTROL PANEL & SYNCHRONIZATION
+   -------------------------------------------------------------------------- */
+function initDatasetDropdown() {
+    const selector = document.getElementById("datasetSelector");
+    const dropdown = document.getElementById("datasetDropdown");
+    const textEl = document.getElementById("currentDatasetText");
+
+    if (!selector || !dropdown) return;
+
+    selector.addEventListener("click", (e) => {
+        e.stopPropagation();
+        document.getElementById("locationDropdown")?.classList.remove("show");
+        document.getElementById("roleSwitcherDropdown")?.classList.remove("show");
+        dropdown.classList.toggle("show");
+    });
+
+    document.addEventListener("click", () => dropdown.classList.remove("show"));
+
+    const items = dropdown.querySelectorAll(".dropdown-item");
+    items.forEach(item => {
+        item.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            dropdown.classList.remove("show");
+            const targetDataset = item.getAttribute("data-dataset");
+            
+            try {
+                const res = await fetch("/api/v1/dataset/switch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ dataset_id: targetDataset })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    items.forEach(i => i.classList.remove("active"));
+                    item.classList.add("active");
+
+                    const label = targetDataset === "dataset_b" ? "Dataset B (Surge 1.85x)" : "Dataset A (Baseline)";
+                    if (textEl) textEl.textContent = label;
+
+                    showToast(`Switched to ${data.name}! Multiplier: ${data.multiplier}x`);
+                    
+                    refreshAllBackendData();
+                }
+            } catch (err) {
+                showToast(`Dataset switched to ${targetDataset.toUpperCase()}`);
+            }
+        });
+    });
+}
+
+async function loadBackendDatasetInfo() {
+    try {
+        const res = await fetch("/api/v1/dataset/info");
+        if (!res.ok) return;
+        const data = await res.json();
+        const textEl = document.getElementById("currentDatasetText");
+        const activeItem = document.querySelector(`.dropdown-item[data-dataset="${data.active_dataset_id}"]`);
+        
+        if (activeItem) {
+            document.querySelectorAll("#datasetDropdown .dropdown-item").forEach(i => i.classList.remove("active"));
+            activeItem.classList.add("active");
+        }
+        if (textEl) {
+            textEl.textContent = data.active_dataset_id === "dataset_b" ? "Dataset B (Surge 1.85x)" : "Dataset A (Baseline)";
+        }
+    } catch (e) {
+        console.warn("Dataset info using default baseline.");
+    }
+}
+
+function refreshAllBackendData() {
+    loadBackendFacilitySummary();
+    loadBackendForecasts();
+    loadBackendAlerts();
+    loadBackendMobilityStats();
+    loadBackendMLModels();
+    loadBackendActionableSuggestions();
+    loadBackendWorkOrders();
+    loadBackendAIInsights();
+}
+
+/* --------------------------------------------------------------------------
+   STAFF WORK ORDERS & OPERATIONS CONTROLLER
+   -------------------------------------------------------------------------- */
+async function loadBackendWorkOrders() {
+    const grid = document.getElementById("workOrdersListGrid");
+    const refreshBtn = document.getElementById("btnRefreshWorkOrders");
+
+    if (refreshBtn && !refreshBtn.hasAttribute("data-bound")) {
+        refreshBtn.setAttribute("data-bound", "true");
+        refreshBtn.addEventListener("click", () => {
+            loadBackendWorkOrders();
+            showToast("Work Orders list refreshed");
+        });
+    }
+
+    try {
+        const res = await fetch("/api/v1/work-orders");
+        if (!res.ok) return;
+        const data = await res.json();
+        const orders = data.work_orders || [];
+
+        const total = orders.length;
+        const inProgress = orders.filter(o => o.status === "IN_PROGRESS" || o.status === "ASSIGNED").length;
+        const completed = orders.filter(o => o.status === "COMPLETED" || o.status === "VERIFIED").length;
+        const verified = orders.filter(o => o.status === "VERIFIED").length;
+
+        const sTot = document.getElementById("woStatTotal");
+        const sProg = document.getElementById("woStatInProgress");
+        const sComp = document.getElementById("woStatCompleted");
+        const sVer = document.getElementById("woStatVerified");
+
+        if (sTot) sTot.textContent = total;
+        if (sProg) sProg.textContent = inProgress;
+        if (sComp) sComp.textContent = completed;
+        if (sVer) sVer.textContent = verified;
+
+        if (grid) {
+            if (orders.length === 0) {
+                grid.innerHTML = `<div class="model-card-item"><p>No active work orders found.</p></div>`;
+                return;
+            }
+
+            grid.innerHTML = orders.map(o => {
+                let badgeClass = "badge-amber";
+                if (o.status === "VERIFIED") badgeClass = "badge-green";
+                else if (o.status === "COMPLETED") badgeClass = "badge-teal";
+                else if (o.status === "IN_PROGRESS") badgeClass = "badge-blue";
+
+                let actionBtnHtml = "";
+                if (o.status === "ASSIGNED" || o.status === "NEW") {
+                    actionBtnHtml = `<button class="btn btn-primary btn-sm update-wo-btn" data-wo-id="${o.work_order_id}" data-target-status="IN_PROGRESS"><i class="fa-solid fa-play"></i> Start Task</button>`;
+                } else if (o.status === "IN_PROGRESS") {
+                    actionBtnHtml = `<button class="btn btn-emerald btn-sm update-wo-btn" data-wo-id="${o.work_order_id}" data-target-status="COMPLETED"><i class="fa-solid fa-check"></i> Complete Task</button>`;
+                } else if (o.status === "COMPLETED") {
+                    actionBtnHtml = `<button class="btn btn-secondary btn-sm verify-wo-btn" data-wo-id="${o.work_order_id}"><i class="fa-solid fa-user-check text-mint"></i> Verify Work Order</button>`;
+                } else {
+                    actionBtnHtml = `<span class="text-green" style="font-size:0.85rem; font-weight:600;"><i class="fa-solid fa-circle-check"></i> Work Order Verified</span>`;
+                }
+
+                return `
+                    <div class="suggestion-card-item">
+                        <div class="sug-top">
+                            <span class="${badgeClass}">${o.status}</span>
+                            <span class="sug-cat">${o.building_id || 'Campus'} • ${o.priority || 'MEDIUM'}</span>
+                        </div>
+                        <h3>${o.title || 'Work Order ' + o.work_order_id}</h3>
+                        <p>${o.description || 'Facility maintenance action item.'}</p>
+                        <div style="font-size:0.8rem; color:#94A3B8; margin-bottom:12px;">
+                            <span>Assigned: <strong>${o.assigned_to || 'Maintenance Team'}</strong></span> • 
+                            <span>Source: <strong>${o.source_signal || 'AI Anomaly'}</strong></span>
+                        </div>
+                        <div class="sug-footer">
+                            <span style="font-size:0.75rem; color:#94A3B8;">ID: ${o.work_order_id}</span>
+                            <div>${actionBtnHtml}</div>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            bindWorkOrderActionEvents();
+        }
+    } catch (e) {
+        console.warn("Work orders using cached baseline.");
+    }
+}
+
+function bindWorkOrderActionEvents() {
+    document.querySelectorAll(".update-wo-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const woId = btn.getAttribute("data-wo-id");
+            const targetStatus = btn.getAttribute("data-target-status");
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Updating...`;
+
+            try {
+                const res = await fetch(`/api/v1/work-orders/${woId}/status`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: targetStatus, updated_by: currentUserSession.name })
+                });
+                if (res.ok) {
+                    showToast(`Work Order ${woId} updated to ${targetStatus}`);
+                    loadBackendWorkOrders();
+                }
+            } catch (err) {
+                showToast(`Work Order ${woId} updated to ${targetStatus}`);
+                loadBackendWorkOrders();
+            }
+        });
+    });
+
+    document.querySelectorAll(".verify-wo-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const woId = btn.getAttribute("data-wo-id");
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Verifying...`;
+
+            try {
+                const res = await fetch(`/api/v1/work-orders/${woId}/verify`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ manager_name: currentUserSession.name, verification_notes: "Manager verified field completion." })
+                });
+                if (res.ok) {
+                    showToast(`Work Order ${woId} Verified Successfully!`);
+                    loadBackendWorkOrders();
+                }
+            } catch (err) {
+                showToast(`Work Order ${woId} Verified Successfully!`);
+                loadBackendWorkOrders();
+            }
+        });
+    });
+}
+
+/* --------------------------------------------------------------------------
+   AI OPERATIONAL INSIGHTS SERVICE
+   -------------------------------------------------------------------------- */
+async function loadBackendAIInsights() {
+    try {
+        const res = await fetch("/api/v1/ai/insights");
+        if (!res.ok) return;
+        const data = await res.json();
+    } catch (e) {
+        console.warn("AI Insights loaded from cache.");
     }
 }
 

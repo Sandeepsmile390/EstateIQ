@@ -90,6 +90,11 @@
                     <span class="nav-label">Subscription & Plans</span>
                     <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
+                <a href="#work-orders" class="nav-item" id="navWorkOrders" data-tab-nav="work-orders" data-tooltip="Staff Work Orders & Operations">
+                    <i class="fa-solid fa-clipboard-check text-blue"></i>
+                    <span class="nav-label">Work Orders</span>
+                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
+                </a>
             </nav>
 
             <div class="sidebar-footer">
@@ -119,6 +124,25 @@
                         <i class="fa-solid fa-crown text-gold"></i>
                         <span class="plan-label" id="headerPlanLabel">Enterprise Pro</span>
                         <span class="upgrade-link">Upgrade</span>
+                    </div>
+
+                    <!-- Dataset Switcher Control -->
+                    <div class="location-dropdown-wrapper" id="datasetSelector" style="margin-right: 8px;">
+                        <div class="location-pill" style="border: 1px solid rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.08);">
+                            <i class="fa-solid fa-database text-mint"></i>
+                            <span class="loc-text" id="currentDatasetText">Dataset A (Baseline)</span>
+                            <i class="fa-solid fa-chevron-down arrow-icon"></i>
+                        </div>
+                        <div class="dropdown-menu" id="datasetDropdown">
+                            <div class="dropdown-item active" data-dataset="dataset_a">
+                                <strong>Dataset A (Baseline)</strong>
+                                <span style="display:block; font-size:0.75rem; opacity:0.75;">Normal Campus Operating Data (1.0x)</span>
+                            </div>
+                            <div class="dropdown-item" data-dataset="dataset_b">
+                                <strong>Dataset B (HVAC Surge)</strong>
+                                <span style="display:block; font-size:0.75rem; opacity:0.75;">Heatwave Peak Occupancy (1.85x)</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Location Selector -->
@@ -240,6 +264,13 @@
                                 <div class="r-info">
                                     <strong>Sam Taylor</strong>
                                     <span>Campus Stakeholder (View Only)</span>
+                                </div>
+                            </div>
+                            <div class="role-option" data-role="staff">
+                                <div class="r-avatar" style="background:#2563EB;">FM</div>
+                                <div class="r-info">
+                                    <strong>Facility Maintenance Staff</strong>
+                                    <span>Field Operations & Work Orders</span>
                                 </div>
                             </div>
                         </div>
@@ -391,6 +422,11 @@
                     <button class="tab-btn" data-tab="billing" id="tabBilling">
                         <i class="fa-solid fa-crown text-gold"></i>
                         <span>Subscription & Billing</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="work-orders" id="tabWorkOrders">
+                        <i class="fa-solid fa-clipboard-check text-blue"></i>
+                        <span>Work Orders</span>
                         <div class="tab-indicator"></div>
                     </button>
                     <button class="tab-btn" data-tab="ai-assistant" id="tabAiAssistant">
@@ -1504,6 +1540,70 @@
                             </div>
                         </form>
 
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT: STAFF WORK ORDERS & OPERATIONS -->
+                <div class="tab-content" id="contentWorkOrders">
+                    <div class="tab-header-banner">
+                        <div class="banner-title-group">
+                            <i class="fa-solid fa-clipboard-check text-blue"></i>
+                            <div>
+                                <h2>Staff Operations & Closed-Loop Work Orders</h2>
+                                <p>Manage facility dispatch, assign maintenance tasks, track lifecycle status, and verify operational completion.</p>
+                            </div>
+                        </div>
+                        <div class="banner-actions">
+                            <button class="btn btn-primary" id="btnRefreshWorkOrders">
+                                <i class="fa-solid fa-rotate"></i> Refresh Work Orders
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- WORK ORDER METRIC CARDS -->
+                    <div class="metrics-grid-four" style="margin-bottom: 24px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                        <div class="metric-card interactive-card">
+                            <span class="card-tag">Active Work Orders</span>
+                            <div class="score-display">
+                                <div class="main-score text-gold" id="woStatTotal">--</div>
+                            </div>
+                            <span class="subtext">Total Facility Orders</span>
+                        </div>
+                        <div class="metric-card interactive-card">
+                            <span class="card-tag">In Progress</span>
+                            <div class="score-display">
+                                <div class="main-score text-blue" id="woStatInProgress">--</div>
+                            </div>
+                            <span class="subtext">Assigned & Active</span>
+                        </div>
+                        <div class="metric-card interactive-card">
+                            <span class="card-tag">Completed</span>
+                            <div class="score-display">
+                                <div class="main-score text-green" id="woStatCompleted">--</div>
+                            </div>
+                            <span class="subtext">Tasks Resolved</span>
+                        </div>
+                        <div class="metric-card interactive-card">
+                            <span class="card-tag">Verified</span>
+                            <div class="score-display">
+                                <div class="main-score text-mint" id="woStatVerified">--</div>
+                            </div>
+                            <span class="subtext">Manager Signed Off</span>
+                        </div>
+                    </div>
+
+                    <!-- WORK ORDERS LIST CONTAINER -->
+                    <div class="suggestions-list-container">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <h3 style="font-size:1.1rem; font-weight:700;"><i class="fa-solid fa-list-check text-mint"></i> Active Facility Work Orders</h3>
+                            <div class="pill-badge badge-teal" id="woRolePill">Active Role: Facility Staff</div>
+                        </div>
+
+                        <div class="suggestions-grid" id="workOrdersListGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+                            <div class="model-card-item">
+                                <p><i class="fa-solid fa-circle-notch fa-spin"></i> Loading Work Orders from REST API...</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

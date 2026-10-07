@@ -89,12 +89,15 @@ def build_sqlite_database():
     conn.close()
     logger.info("SQLite database built successfully at facility.db.")
 
-def run_master_generation():
+def run_master_generation(days: int = 365, start_date: str = "2026-01-01", frequency: str = "15min", seed: int = 42):
+    import argparse
     start_time_sec = time.time()
     
     print("\n==================================================")
     print("  GEC SMART CAMPUS IOT SYNTHETIC DATASET GENERATOR")
     print("==================================================\n")
+    
+    logger.info(f"Running master generation with parameters: days={days}, start_date={start_date}, frequency={frequency}, seed={seed}")
     
     # 1. Metadata & Events
     generate_facility_metadata()
@@ -134,7 +137,7 @@ def run_master_generation():
     print("\n==============================")
     print("FACILITY DATASET GENERATED")
     print("==============================")
-    print(f"Date range: 2026-01-01 00:00:00 to 2026-06-29 23:45:00 (180 Days @ 15-min)")
+    print(f"Time resolution: {frequency} | Seed: {seed}")
     print(f"Buildings: 10")
     print(f"Assets: 35")
     print(f"Waste bins: 32")
@@ -164,4 +167,13 @@ def run_master_generation():
     print("==============================\n")
 
 if __name__ == "__main__":
-    run_master_generation()
+    import argparse
+    parser = argparse.ArgumentParser(description="Master Facility Dataset Orchestrator")
+    parser.add_argument("--days", type=int, default=365, help="Number of days to generate telemetry for")
+    parser.add_argument("--start", type=str, default="2026-01-01", help="Start date (YYYY-MM-DD)")
+    parser.add_argument("--frequency", type=str, default="15min", help="Data sampling frequency")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    args = parser.parse_args()
+    
+    run_master_generation(days=args.days, start_date=args.start, frequency=args.frequency, seed=args.seed)
+

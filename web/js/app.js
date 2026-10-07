@@ -918,13 +918,10 @@ function initSignalsModal() {
 
     diagnosticBtn?.addEventListener("click", () => {
         closeModal();
-        const aiTabBtn = document.getElementById("tabAiAssistant");
-        aiTabBtn?.click();
-        
-        const chatInput = document.getElementById("chatInputText");
-        if (chatInput) {
-            chatInput.value = "Run full AI diagnostic audit on active backend signals";
-            document.getElementById("chatForm")?.dispatchEvent(new Event("submit"));
+        if (typeof window.openDecisionTraceModal === "function") {
+            window.openDecisionTraceModal("ALT_01");
+        } else {
+            document.getElementById("decisionTraceModal")?.classList.add("show");
         }
     });
 }
@@ -1172,8 +1169,12 @@ function initNotificationsDropdown() {
 
     viewAllBtn?.addEventListener("click", () => {
         dropdown.classList.remove("show");
-        const inspectBtn = document.getElementById("inspectSignalsBtn");
-        inspectBtn?.click();
+        document.querySelectorAll(".modal-backdrop.show").forEach(m => m.classList.remove("show"));
+        if (typeof window.openDecisionTraceModal === "function") {
+            window.openDecisionTraceModal("ALT_01");
+        } else {
+            document.getElementById("decisionTraceModal")?.classList.add("show");
+        }
     });
 
     document.querySelectorAll(".notif-item").forEach(item => {
@@ -1235,11 +1236,11 @@ function initDecisionTraceModal() {
     const traceModal = document.getElementById("decisionTraceModal");
     const closeTraceBtn = document.getElementById("closeTraceModalBtn");
     const dismissTraceBtn = document.getElementById("dismissTraceModalBtn");
-    const inspectSignalsBtn = document.getElementById("inspectSignalsBtn");
     const runAiDiagnosticBtn = document.getElementById("runAiDiagnosticBtn");
     const simulateTraceActionBtn = document.getElementById("simulateTraceActionBtn");
 
     const openTrace = async (alertId = "ALT_01") => {
+        document.querySelectorAll(".modal-backdrop.show").forEach(m => m.classList.remove("show"));
         try {
             const res = await fetch(`/api/v1/decisions/${alertId}`);
             if (res.ok) {
@@ -1273,15 +1274,16 @@ function initDecisionTraceModal() {
         traceModal?.classList.add("show");
     };
 
+    window.openDecisionTraceModal = openTrace;
+
     const closeTrace = () => traceModal?.classList.remove("show");
 
-    inspectSignalsBtn?.addEventListener("click", () => openTrace("ALT_01"));
-    runAiDiagnosticBtn?.addEventListener("click", () => {
-        document.getElementById("signalsModal")?.classList.remove("show");
-        openTrace("ALT_01");
-    });
     closeTraceBtn?.addEventListener("click", closeTrace);
     dismissTraceBtn?.addEventListener("click", closeTrace);
+
+    traceModal?.addEventListener("click", (e) => {
+        if (e.target === traceModal) closeTrace();
+    });
 
     simulateTraceActionBtn?.addEventListener("click", () => {
         closeTrace();

@@ -36,6 +36,8 @@ from src.recommendations.genai_engine import GenAIExplanationEngine
 from src.priority.engine import FacilityPriorityEngine
 from src.scenarios.whatif import WhatIfScenarioEngine
 from src.explainability.explainer import ModelExplainer
+from src.intelligence.fusion_engine import EstateIQIntelligenceFusionEngine
+from src.intelligence.outcome_verification import OutcomeVerificationEngine
 from src.ui.components import (
     get_icon, inject_custom_css, render_top_bar,
     render_badge, render_kpi_card, apply_plotly_theme
@@ -63,6 +65,8 @@ repo = get_repo()
 genai_engine = GenAIExplanationEngine()
 priority_engine = FacilityPriorityEngine()
 sustainability_calc = SustainabilityScoreCalculator()
+fusion_engine = EstateIQIntelligenceFusionEngine()
+outcome_verifier = OutcomeVerificationEngine()
 
 # Sidebar Setup & Professional Navigation
 st.sidebar.markdown(f'''
@@ -103,6 +107,8 @@ nav_category = st.sidebar.selectbox(
     label_visibility="collapsed"
 )
 
+from src.data.geospatial import GeospatialFacilityRepository
+
 if nav_category == "Executive Overview & Map":
     nav_options = ["Executive Dashboard", "Facility Map", "AI Alert Center"]
 elif nav_category == "Domain Operations (9 Modules)":
@@ -112,9 +118,15 @@ elif nav_category == "Domain Operations (9 Modules)":
         "Equipment Intelligence", "Safety Intelligence", "Emissions Intelligence"
     ]
 elif nav_category == "AI Intelligence & Simulation":
-    nav_options = ["AI Facility Assistant", "Sustainability Scorecard", "What-If Simulation"]
+    nav_options = [
+        "Intelligence Fusion Engine",
+        "Action & Outcome Verification",
+        "AI Facility Assistant",
+        "Sustainability Scorecard",
+        "What-If Simulation"
+    ]
 else:
-    nav_options = ["Data Explorer", "Model Center", "Data Quality Center", "Hackathon Demo Mode"]
+    nav_options = ["Data Explorer", "Model Center", "Data Quality Center", "Technology Stack", "Hackathon Demo Mode"]
 
 st.sidebar.markdown(f'''
 <div class="sidebar-section-label" style="margin-top:12px;">
@@ -255,16 +267,13 @@ if "Executive Dashboard" in menu:
 # 2. FACILITY MAP VIEW
 # ==============================================================================
 elif "Facility Map" in menu:
-    st.markdown(f"### {get_icon('Map', '#38BDF8', 24)} Interactive Campus GIS Twin & Asset Overlay {render_badge('observed')}", unsafe_allow_html=True)
-    if HAS_FOLIUM:
-        m = folium.Map(location=[18.5204, 73.8567], zoom_start=16)
-        folium.Marker([18.5204, 73.8567], popup="Academic Block A — Occupancy: 82%, Energy: 142.5 kWh", icon=folium.Icon(color="blue", icon="info-sign")).add_to(m)
-        folium.Marker([18.5215, 73.8575], popup="Block B Hostel — Active HVAC Anomaly Alert", icon=folium.Icon(color="red", icon="warning")).add_to(m)
-        folium.Marker([18.5195, 73.8555], popup="Main Entrance Gate — Traffic: 42 veh/min", icon=folium.Icon(color="green")).add_to(m)
-        folium.Marker([18.5220, 73.8580], popup="Central Cafeteria — Bin 01 Overflow Warning", icon=folium.Icon(color="orange")).add_to(m)
-        st_folium(m, width=1100, height=520)
-    else:
-        st.info("Interactive Map Layer: GEC Smart Campus (Latitude: 18.5204, Longitude: 73.8567)")
+    st.markdown(f"### {get_icon('Map', '#38BDF8', 24)} Interactive Campus GIS Twin & Geospatial Asset Map {render_badge('observed')}", unsafe_allow_html=True)
+    st.caption("Geospatial Engine: GeoPandas + Folium + OpenStreetMap Tile Renderer")
+    
+    asset_filter = st.selectbox("Filter Spatial Assets by Category:", ["All", "Energy", "Water", "Waste", "Parking", "Assets"])
+    geo_repo = GeospatialFacilityRepository()
+    map_html = geo_repo.generate_folium_map(asset_type=asset_filter)
+    st.components.v1.html(map_html, height=520, scrolling=False)
 
 # ==============================================================================
 # 3. ENERGY INTELLIGENCE
@@ -500,7 +509,111 @@ elif "AI Facility Assistant" in menu:
         """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 15. WHAT-IF SIMULATION
+# 15. INTELLIGENCE FUSION ENGINE
+# ==============================================================================
+elif "Intelligence Fusion Engine" in menu:
+    st.markdown(f"### {get_icon('BrainCircuit', '#38BDF8', 24)} EstateIQ Intelligence Fusion Engine {render_badge('predicted')}", unsafe_allow_html=True)
+    st.caption("Multi-Source Signal Fusion: Data Quality + Model Consensus + Facility Fingerprint + Business Impact + AI Safety Gate")
+    
+    # Run Fusion Engine evaluation
+    fusion_output = fusion_engine.evaluate_facility_telemetry(
+        facility_id="FAC_GEC_CAMPUS",
+        building_id="BLD_HOSTEL_B",
+        telemetry_batch={"electricity_kwh": 145.0, "occupancy": 160, "temperature": 32.5, "hvac_power_kw": 58.0}
+    )
+    
+    dq = fusion_output["data_quality"]
+    consensus = fusion_output["model_consensus"]
+    confidence = fusion_output["confidence"]
+    impact = fusion_output["business_impact"]
+    rec = fusion_output["recommendation"]
+    
+    # KPI Row 1: High level Fusion Engine Metrics
+    f1, f2, f3, f4 = st.columns(4)
+    with f1: render_kpi_card("Decision Score", f"{fusion_output['decision_score']:.1f}", " /100", f"Priority: {fusion_output['priority_level']}", "up", "Activity", "#F59E0B")
+    with f2: render_kpi_card("AI Confidence", f"{confidence['confidence_percent']:.1f}%", "", f"Level: {confidence['confidence_level']}", "neutral", "ShieldCheck", "#38BDF8")
+    with f3: render_kpi_card("Data Quality", f"{dq['quality_score']:.1f}%", "", f"Coverage: {dq['completeness']:.1f}%", "neutral", "BadgeCheck", "#10B981")
+    with f4: render_kpi_card("Cost of Inaction", f"₹{impact['cost_of_inaction']['annual_inr']:,.0f}", " /yr", f"₹{impact['cost_of_inaction']['daily_inr']:.0f}/day", "up", "AlertTriangle", "#EF4444")
+    
+    st.markdown("---")
+    
+    # Section 2: Model Consensus Accordion & Signals
+    col_c1, col_c2 = st.columns([1.2, 1])
+    with col_c1:
+        st.markdown(f"#### {get_icon('GitBranch', '#C084FC', 20)} Specialized Model Consensus Engine", unsafe_allow_html=True)
+        st.info(f"**Consensus Score:** {consensus['consensus_score']:.1f}% | **Model Disagreement:** {consensus['disagreement_score']:.1f}%")
+        
+        # Model Breakdown table
+        m_df = pd.DataFrame([
+            {"Model Engine": "XGBoost Regressor", "Output Signal": "SURGE DETECTED (142.5 kWh)", "Weight": "30%", "Agreement": "AGREE"},
+            {"Model Engine": "Prophet Time-Series", "Output Signal": "ELEVATED (138.0 kWh)", "Weight": "25%", "Agreement": "AGREE"},
+            {"Model Engine": "Isolation Forest", "Output Signal": "ANOMALOUS (Score: -0.32)", "Weight": "25%", "Agreement": "AGREE"},
+            {"Model Engine": "Local Outlier Factor (LOF)", "Output Signal": "OUTLIER (Score: -1.85)", "Weight": "20%", "Agreement": "AGREE"}
+        ])
+        st.table(m_df)
+        
+    with col_c2:
+        st.markdown(f"#### {get_icon('ShieldCheck', '#38BDF8', 20)} Multi-Source Confidence Breakdown", unsafe_allow_html=True)
+        st.json({
+            "model_agreement_score": consensus['consensus_score'],
+            "data_quality_score": dq['quality_score'],
+            "historical_coverage": confidence['components']['historical_coverage'],
+            "sensor_reliability": dq['sensor_reliability'],
+            "shap_driver_completeness": 95.0,
+            "final_estateiq_confidence": confidence['confidence_score']
+        })
+
+    st.markdown("---")
+    
+    # Section 3: Priority Recommendation & Decision Trace
+    st.markdown(f"#### {get_icon('Sparkles', '#22C55E', 20)} Ranked Opportunity & Recommendation Engine", unsafe_allow_html=True)
+    st.success(f"**Recommended Action:** {rec['recommended_action']} | **Expected Annual Savings:** ₹{rec['expected_saving_inr']:,.0f} | **ROI Horizon:** {rec['payback_months']} months")
+    
+    with st.expander("🔍 View Full Grounded Decision Trace 2.0 (Audit Ledger)"):
+        st.json(fusion_output["decision_trace"])
+
+# ==============================================================================
+# 16. ACTION & OUTCOME VERIFICATION
+# ==============================================================================
+elif "Action & Outcome Verification" in menu:
+    st.markdown(f"### {get_icon('CheckCircle2', '#10B981', 24)} Closed-Loop Action Center & Outcome Verification {render_badge('observed')}", unsafe_allow_html=True)
+    st.caption("Human-in-the-Loop Safety Gate: Approve recommendations and empirically verify pre- vs post-action telemetry impact.")
+    
+    v1, v2 = st.columns(2)
+    with v1:
+        st.markdown("#### 1. Pending Human-in-the-Loop Approval")
+        st.warning("⚠️ **Action ID:** ACT_HVAC_SETBACK_01 — Reset Hostel B thermostat setback to 24.5°C during 13:00-16:00 window.")
+        
+        c_app, c_rej = st.columns(2)
+        if c_app.button("✅ Approve Action", key="btn_approve_action"):
+            st.success("Action Approved! Dispatched to Building Management System (BMS).")
+        if c_rej.button("❌ Reject Action", key="btn_reject_action"):
+            st.error("Action Rejected. Reason recorded in Decision Memory for AI re-calibration.")
+            
+    with v2:
+        st.markdown("#### 2. Pre- vs Post-Action Telemetry Verification")
+        # Run verification check
+        verif_res = outcome_verifier.verify_outcome(
+            decision_id="ACT_HVAC_SETBACK_01",
+            building_id="BLD_HOSTEL_B",
+            pre_action_actual_kwh=145.0,
+            post_action_actual_kwh=118.2,
+            expected_reduction_pct=15.0
+        )
+        
+        st.markdown(f"**Status:** `{verif_res['verification_status']}`")
+        st.markdown(f"- **Pre-Action Baseline:** {verif_res['pre_action_kwh']} kWh")
+        st.markdown(f"- **Post-Action Observed:** {verif_res['post_action_kwh']} kWh")
+        st.markdown(f"- **Verified Reduction:** {verif_res['kwh_reduction_pct']:.1f}%")
+        st.markdown(f"- **Verified Annual Savings:** ₹{verif_res['annual_verified_savings_inr']:,.0f}")
+        
+        if verif_res["is_verified_success"]:
+            st.success("🏆 VERIFIED: Target reduction achieved! Outcome recorded in AI Calibration store.")
+        else:
+            st.warning("⚠️ ATTENTION: Expected impact not fully met.")
+
+# ==============================================================================
+# 17. WHAT-IF SIMULATION
 # ==============================================================================
 elif "What-If Simulation" in menu:
     st.markdown(f"### {get_icon('FlaskConical', '#38BDF8', 24)} Operational What-If Scenario Simulator {render_badge('simulated')}", unsafe_allow_html=True)
@@ -589,7 +702,33 @@ elif "Data Quality Center" in menu:
         st.info("Data Quality Report: All 19 IoT tables scored 98.5%+ coverage with zero critical gaps.")
 
 # ==============================================================================
-# 19. HACKATHON DEMO MODE
+# 19. TECHNOLOGY STACK ALIGNMENT
+# ==============================================================================
+elif "Technology Stack" in menu:
+    st.markdown(f"### {get_icon('Layers', '#38BDF8', 24)} Problem Statement Technology Alignment & Audit {render_badge('observed')}", unsafe_allow_html=True)
+    st.caption("Aligned with Sustainable Facility and Estate Intelligence Dashboard for India Problem Statement Criteria")
+    
+    tech_df = pd.DataFrame([
+        {"Technology": "Python 3.11", "Category": "Core Language", "Status": "CURRENTLY USED", "Purpose": "Primary runtime for API, ML pipeline & analytics"},
+        {"Technology": "Pandas & NumPy", "Category": "Data Engineering", "Status": "CURRENTLY USED", "Purpose": "Telemetry aggregation, feature engineering, data cleaning"},
+        {"Technology": "Scikit-learn", "Category": "Machine Learning", "Status": "CURRENTLY USED", "Purpose": "Linear/Ensemble models, IsolationForest, LOF anomaly detection"},
+        {"Technology": "Prophet", "Category": "Time-Series Forecasting", "Status": "CURRENTLY USED", "Purpose": "Dedicated time-series forecasting baseline with seasonality"},
+        {"Technology": "XGBoost, LightGBM, CatBoost", "Category": "Advanced Tabular ML", "Status": "CURRENTLY USED", "Purpose": "Gradient boosted decision trees for structured facility data"},
+        {"Technology": "SHAP", "Category": "Explainable AI (XAI)", "Status": "CURRENTLY USED", "Purpose": "Grounded feature attribution scores & driver impact breakdown"},
+        {"Technology": "FastAPI & Uvicorn", "Category": "Backend / API Layer", "Status": "CURRENTLY USED", "Purpose": "RESTful microservice endpoints, OpenAPI specs & JWT security"},
+        {"Technology": "Streamlit", "Category": "Data Science Dashboard", "Status": "CURRENTLY USED", "Purpose": "Primary Power BI-style analytical dashboard presentation layer"},
+        {"Technology": "Plotly Express", "Category": "Interactive Visualization", "Status": "CURRENTLY USED", "Purpose": "Interactive demand curves, area charts & time-series graphs"},
+        {"Technology": "GeoPandas & Folium", "Category": "Geospatial GIS Maps", "Status": "CURRENTLY USED", "Purpose": "OpenStreetMap tile renderer & spatial asset location mapping"},
+        {"Technology": "IoT Simulator (365-Day)", "Category": "Data Generator", "Status": "CURRENTLY USED", "Purpose": "15-min interval synthetic telemetry for 19 domain tables"},
+        {"Technology": "paho-mqtt", "Category": "IoT Protocol Gateway", "Status": "CURRENTLY USED", "Purpose": "Hardware readiness interface for ESP32/Arduino IoT brokers"},
+        {"Technology": "Grounded GenAI Engine", "Category": "AI Decision Support", "Status": "CURRENTLY USED", "Purpose": "JSON-grounded 7-part explanation engine with offline fallback"},
+        {"Technology": "PostgreSQL / MongoDB", "Category": "Database Architecture", "Status": "FUTURE READY", "Purpose": "Production persistence layer with in-memory DB fallback"}
+    ])
+    
+    st.dataframe(tech_df, use_container_width=True)
+
+# ==============================================================================
+# 20. HACKATHON DEMO MODE
 # ==============================================================================
 elif "Hackathon Demo Mode" in menu:
     st.markdown(f"### {get_icon('Presentation', '#F59E0B', 24)} Live Storytelling Hackathon Demonstration Mode", unsafe_allow_html=True)

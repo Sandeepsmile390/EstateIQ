@@ -1,113 +1,90 @@
 # 🏛️ EstateIQ System Architecture
 
-Comprehensive architecture reference for **EstateIQ — Sustainable Facility and Estate Intelligence Platform**.
+Comprehensive architecture reference for **EstateIQ — Sustainable Facility and Estate Intelligence Platform for India**.
 
 ---
 
 ## 📐 Target System Architecture
 
 ```text
-                    ┌─────────────────────────┐
-                    │      DATA SOURCES       │
-                    │ Smart Meters / Sensors  │
-                    │ Occupancy / Weather     │
-                    │ HVAC / Water / Waste    │
-                    │ Traffic / Parking       │
-                    │ Equipment / Safety      │
-                    │ Synthetic IoT Simulator  │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │     INGESTION LAYER     │
-                    │ REST / CSV / MQTT-ready  │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │   DATA QUALITY LAYER    │
-                    │ Range validation        │
-                    │ Missing value impute    │
-                    │ Sensor health audit     │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │    DATA REPOSITORY      │
-                    │ SQLite (PostgreSQL-ready)│
-                    │ Data Provenance Badges  │
-                    └────────────┬────────────┘
-                                 │
-             ┌───────────────────┼───────────────────┐
-             ▼                   ▼                   ▼
-       FORECASTING         ANOMALY ENGINE       ML MODELS
-       (1h, 4h, 24h, 7d)   (Isolation Forest)   (CatBoost/XGB)
-             │                   │                   │
-             └───────────────────┼───────────────────┘
-                                 ▼
-                    ┌─────────────────────────┐
-                    │   SHAP EXPLAINABILITY   │
-                    │   (Tree/Kernel SHAP)    │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │ 11-STEP DECISION TRACE  │
-                    │ Audit Ledger (TRC_01)   │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │ RECOMMENDATION ENGINE   │
-                    │ Rules + Grounded GenAI  │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │   WHAT-IF SIMULATOR     │
-                    │ 4-Slider Model Engine   │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │   FASTAPI & SECURITY    │
-                    │ OAuth2 / JWT / RBAC     │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │      ESTATEIQ UI        │
-                    │ Liquid Glass Dashboard  │
-                    └─────────────────────────┘
+                         ESTATEIQ
+                            │
+        ┌───────────────────┼──────────────────┐
+        │                   │                  │
+       DATA                AI/ML            UI
+        │                   │                  │
+        ▼                   ▼                  ▼
+    IoT Simulator       sklearn            Streamlit
+    MQTT Consumer       Prophet             Dashboard
+    Pandas              XGBoost             Folium GIS
+    NumPy               LightGBM            Plotly
+                        CatBoost
+                        SHAP
+        │                   │                  │
+        └───────────────────┼──────────────────┘
+                            ▼
+                    Unified Services
+                  (`src/services/`)
+                            │
+        ┌───────────────────┴───────────────────┐
+        ▼                                       ▼
+  FastAPI REST Server                   Streamlit Dashboard
+  (`api/main.py`)                       (`app.py`)
+        │                                       │
+        └───────────────────┬───────────────────┘
+                            ▼
+                     GenAI Decision
+                      Trace Engine
+                            │
+                            ▼
+                     Action Center &
+                       Verification
 ```
 
 ---
 
-## 🧩 Architectural Layers & Modules
+## 🧩 Unified Service Layer (`src/services/`)
 
-1. **Ingestion & Data Quality Layer (`src/data/quality.py` & `src/data/repository.py`)**:
-   - Ingests SQLite `facility.db` (16 normalized tables, 180 days at 15-min resolution) and CSV feeds.
-   - Evaluates data completeness (Energy 98.2%, Occupancy 94.1%, Weather 99.8%) and flags out-of-range sensor values.
-   - Attaches Data Provenance badges (`[SYNTHETIC IoT DATA]`, `[OBSERVED]`, `[ML FORECAST]`, `[SIMULATED]`, `[DERIVED]`).
+To eliminate duplicate business logic between the REST API and Streamlit presentation layers, **EstateIQ** routes all operational computations through a unified Service Layer:
 
-2. **Contextual Baseline & Anomaly Engine (`src/anomaly/detector.py`)**:
-   - Calculates expected contextual energy baselines:
-     $$\text{Expected Energy} = f(\text{building}, \text{hour}, \text{occupancy}, \text{temperature}, \text{HVAC})$$
-   - Computes percentage deviation ($\text{Deviation \%}$) and Isolation Forest anomaly scores ($0.05$ to $0.99$).
+1. **`FacilityService` (`src/services/facility_service.py`)**:
+   - Manages campus overview metrics, building baseline expectations, and Folium GIS map generation.
+2. **`EnergyService` (`src/services/energy_service.py`)**:
+   - Manages energy demand forecasting, contextual thermal baselines, SHAP feature attributions, and financial surge impact calculations.
+3. **`SimulationService` (`src/services/simulation_service.py`)**:
+   - Executes What-If scenario simulations (HVAC setback, solar PV addition, tariff rate shifts) and returns predicted kWh, ₹ cost savings, and CO₂e carbon reduction.
 
-3. **Machine Learning & Model Registry (`src/models/` & `models/`)**:
-   - Automated 21-step model selector (`src/models/selector.py`) benchmarking Baselines, Linear Models, Random Forest, Gradient Boosting, XGBoost, and CatBoost.
-   - Serialized joblib artifacts in `models/` versioned with metadata.
+```text
+FastAPI Endpoints  ─────┐
+                        ├───► Unified Services ───► Core AI / ML / Repositories
+Streamlit Dashboard ────┘
+```
 
-4. **SHAP Explainability & Decision Trace (`src/explainability/explainer.py` & `src/decisions/trace.py`)**:
-   - Quantifies positive/negative feature attributions via SHAP.
-   - Assembles the **11-Step Decision Trace Audit Ledger** linking observed telemetry to baseline deviation, ML prediction, anomaly score, SHAP attribution, priority rank, grounded recommendation, system assumptions, What-If simulation impact, and simulated action execution.
+---
 
-5. **Security & RBAC Layer (`src/auth/security.py`)**:
-   - Enforces 4-tier Role-Based Access Control (**RS Administrator**, **Alex Chen - Operations Engineer**, **Dr. Priya Sharma - ESG Auditor**, **Sam Taylor - Viewer**).
-   - Protects action endpoints (`/api/v1/recommendations/apply`, `/api/v1/subscription/upgrade`).
+## 🛠️ Technology Stack & Selection Justification (Teacher & Examiner Reference)
 
-6. **Service & Presentation Layer (`api/main.py` & `web/`)**:
-   - `api/main.py`: FastAPI backend REST API serving JSON endpoints and static assets.
-   - `web/index.html`, `web/js/app.js`, `web/js/charts.js`, `web/css/styles.css`: Liquid Glass design system.
-   - `app.py`: Streamlit operational dashboard.
+| Technology | Role | Justification / Problem Statement Alignment |
+|---|---|---|
+| **Python 3.11+** | Primary Language | Recommended by problem statement; standard for data science and AI. |
+| **Pandas & NumPy** | Data Engineering | Time-series 15-minute interval aggregation, feature engineering, and data cleaning. |
+| **Scikit-learn** | Machine Learning | Standard baseline regressors, classifiers, IsolationForest, and LOF anomaly detection. |
+| **Prophet** | Forecasting Baseline | Problem-statement-recommended time-series forecasting library modeling multi-seasonality. |
+| **XGBoost, LightGBM, CatBoost** | Advanced Tabular ML | Gradient boosted decision trees optimized for structured non-linear facility telemetry. |
+| **SHAP** | Explainable AI (XAI) | Game-theoretic local feature attribution scores (+42% HVAC, +18% Occupancy). |
+| **Streamlit** | Analytical Dashboard | Primary data-science presentation layer recommended by problem statement for Power BI-style UIs. |
+| **FastAPI & Uvicorn** | Backend Microservices | High-performance REST API service layer with OpenAPI specs and JWT authorization. |
+| **GeoPandas & Folium** | Geospatial GIS Maps | OpenStreetMap rendering & spatial asset coordinate mapping across campus blocks. |
+| **IoT Simulator & paho-mqtt** | Hardware Telemetry | 365-day 15-min synthetic generator (`facility_dataset/generator/`) + MQTT broker consumer interface. |
+| **Grounded GenAI Engine** | Decision Support | JSON-grounded 7-part explanation engine with `OFFLINE AI INSIGHT ENGINE` fallback. |
+
+---
+
+## 🔒 Security & Role-Based Access Control (RBAC)
+
+- **4-Tier Security Personas**:
+  - `FACILITY_ADMIN`: Full operational, configuration, and model management access.
+  - `OPERATIONS_TECH`: Maintenance work orders, asset vibration telemetry, and thermostat overrides.
+  - `SUSTAINABILITY_OFFICER`: ESG sustainability scorecards, Scope 1 & 2 carbon accounting, UN SDG compliance.
+  - `CAMPUS_VIEWER`: Read-only access to executive KPI cards and GIS maps.
+- **Server-Side Authorization**: Enforced on all action endpoints (`/api/v1/recommendations/apply`, `/api/v1/subscription/upgrade`) via JWT dependencies in `src/auth/security.py`.

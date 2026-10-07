@@ -532,3 +532,73 @@ def apply_plotly_theme(fig: go.Figure) -> go.Figure:
         )
     )
     return fig
+
+def render_recommendation_card(
+    priority: str = "P1 HIGH IMPACT",
+    problem: str = "Unnecessary overnight HVAC operation in Block B Hostel",
+    action: str = "Reset setback schedule to 24.5°C between 23:00-06:00",
+    why: str = "Consumption is 50% above contextual baseline during low occupancy.",
+    benefit: str = "~48.4 kWh / day energy savings",
+    cost: str = "₹14,520 / month",
+    co2: str = "38.7 kg CO2e / day",
+    confidence: float = 87.0,
+    data_source: str = "Real Sensor",
+    status: str = "NEW"
+):
+    """Renders reusable Recommendation Card Component (Section 21)."""
+    prio_color = "#EF4444" if "P1" in priority or "HIGH" in priority else "#D97706" if "P2" in priority else "#2BB49B"
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(43, 180, 155, 0.3); border-radius: 12px; padding: 16px 20px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="background: {prio_color}; color: #FFFFFF; font-weight: 700; font-size: 0.72rem; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.5px;">{priority}</span>
+            <span style="background: rgba(43, 180, 155, 0.15); color: #2BB49B; border: 1px solid rgba(43, 180, 155, 0.3); font-size: 0.72rem; padding: 2px 8px; border-radius: 8px;">STATUS: {status}</span>
+        </div>
+        <div style="font-size: 1.05rem; font-weight: 700; color: #F8FAFC; margin-bottom: 6px;">{action}</div>
+        <div style="font-size: 0.85rem; color: #94A3B8; margin-bottom: 12px;"><strong style="color: #CBD5E1;">Problem:</strong> {problem}</div>
+        <div style="background: rgba(15, 23, 42, 0.6); border-left: 3px solid #2BB49B; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; font-size: 0.82rem; color: #E2E8F0;">
+            <strong>Why:</strong> {why}
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+            <div><span style="color: #64748B; display: block;">Expected Benefit</span><strong style="color: #00D09C;">{benefit}</strong></div>
+            <div><span style="color: #64748B; display: block;">Estimated Saving</span><strong style="color: #F5C577;">{cost}</strong></div>
+            <div><span style="color: #64748B; display: block;">Carbon Impact</span><strong style="color: #38BDF8;">{co2}</strong></div>
+            <div><span style="color: #64748B; display: block;">AI Confidence</span><strong style="color: #A78BFA;">{confidence}% [{data_source}]</strong></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_ai_insight_card(
+    domain: str = "Energy",
+    observation: str = "Electricity consumption is 50% above baseline in Block B Hostel.",
+    why_it_matters: str = "Represents ~₹14,520/mo in unnecessary energy expenditure.",
+    action: str = "Review thermostat setback schedule and chiller staging.",
+    impact: str = "Est. ₹14,520 / mo savings & 38.7 kg CO2e / day reduction.",
+    confidence: float = 87.0,
+    data_source: str = "Real Sensor"
+):
+    """Renders reusable AI Insight Card Component across domain dashboards (Section 44)."""
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, rgba(14, 61, 50, 0.6), rgba(15, 23, 42, 0.85)); border: 1px solid rgba(0, 208, 156, 0.3); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #00D09C; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.8px;">🤖 AI INSIGHT ({domain})</span>
+            </div>
+            <span style="background: rgba(0, 208, 156, 0.15); color: #00D09C; font-size: 0.72rem; padding: 2px 10px; border-radius: 10px; border: 1px solid rgba(0, 208, 156, 0.4);">
+                Confidence: {confidence}% | {data_source}
+            </span>
+        </div>
+        <div style="font-size: 0.92rem; color: #F8FAFC; margin-bottom: 8px; font-weight: 600;">
+            📊 Observation: <span style="font-weight: 400; color: #E2E8F0;">{observation}</span>
+        </div>
+        <div style="font-size: 0.85rem; color: #CBD5E1; margin-bottom: 8px;">
+            💡 Why It Matters: <span style="color: #F5C577;">{why_it_matters}</span>
+        </div>
+        <div style="font-size: 0.85rem; color: #CBD5E1; margin-bottom: 8px;">
+            🎯 Recommended Action: <span style="color: #38BDF8; font-weight: 600;">{action}</span>
+        </div>
+        <div style="font-size: 0.82rem; color: #94A3B8; background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 6px;">
+            🌱 Potential Impact: <strong style="color: #00D09C;">{impact}</strong>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+

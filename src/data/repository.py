@@ -98,14 +98,26 @@ class DataRepository:
     def get_weather_data(self, limit: Optional[int] = None) -> pd.DataFrame:
         return self.query_table("weather_readings", limit=limit)
 
-    def get_occupancy_data(self, limit: Optional[int] = None) -> pd.DataFrame:
-        return self.query_table("occupancy_readings", limit=limit)
+    def get_occupancy_data(self, limit: Optional[int] = None, building_id: Optional[str] = None) -> pd.DataFrame:
+        df = self.query_table("occupancy_readings", limit=limit)
+        if building_id and not df.empty and "building_id" in df.columns:
+            b_df = df[df["building_id"].str.contains(building_id, case=False, na=False)]
+            if not b_df.empty:
+                return b_df
+        return df
 
-    def get_energy_data(self, limit: Optional[int] = None) -> pd.DataFrame:
-        return self.query_table("energy_readings", limit=limit)
+    def get_energy_data(self, limit: Optional[int] = None, building_id: Optional[str] = None) -> pd.DataFrame:
+        df = self.query_table("energy_readings", limit=limit)
+        if building_id and not df.empty:
+            for col in ["building_id", "building_name", "building"]:
+                if col in df.columns:
+                    b_df = df[df[col].astype(str).str.contains(building_id, case=False, na=False)]
+                    if not b_df.empty:
+                        return b_df
+        return df
 
     def get_latest_energy(self, building_id: Optional[str] = None) -> Dict[str, Any]:
-        df = self.get_energy_data(limit=50)
+        df = self.get_energy_data(limit=50, building_id=building_id)
         if not df.empty and "building_name" in df.columns and building_id:
             b_df = df[df["building_name"].str.contains(building_id, case=False, na=False)]
             if not b_df.empty:
@@ -121,8 +133,15 @@ class DataRepository:
             "provenance_badge": "[SYNTHETIC IoT DATA]"
         }
 
-    def get_water_data(self, limit: Optional[int] = None) -> pd.DataFrame:
-        return self.query_table("water_readings", limit=limit)
+    def get_water_data(self, limit: Optional[int] = None, building_id: Optional[str] = None) -> pd.DataFrame:
+        df = self.query_table("water_readings", limit=limit)
+        if building_id and not df.empty:
+            for col in ["building_id", "building_name", "building"]:
+                if col in df.columns:
+                    b_df = df[df[col].astype(str).str.contains(building_id, case=False, na=False)]
+                    if not b_df.empty:
+                        return b_df
+        return df
 
     def get_latest_water(self) -> Dict[str, Any]:
         df = self.get_water_data(limit=50)
@@ -137,8 +156,15 @@ class DataRepository:
             "provenance_badge": "[SYNTHETIC IoT DATA]"
         }
 
-    def get_waste_data(self, limit: Optional[int] = None) -> pd.DataFrame:
-        return self.query_table("waste_readings", limit=limit)
+    def get_waste_data(self, limit: Optional[int] = None, building_id: Optional[str] = None) -> pd.DataFrame:
+        df = self.query_table("waste_readings", limit=limit)
+        if building_id and not df.empty:
+            for col in ["building_id", "building_name", "location_id"]:
+                if col in df.columns:
+                    b_df = df[df[col].astype(str).str.contains(building_id, case=False, na=False)]
+                    if not b_df.empty:
+                        return b_df
+        return df
 
     def get_latest_waste(self) -> Dict[str, Any]:
         df = self.get_waste_data(limit=50)
@@ -154,8 +180,15 @@ class DataRepository:
             "provenance_badge": "[SYNTHETIC IoT DATA]"
         }
 
-    def get_air_quality_data(self, limit: Optional[int] = None) -> pd.DataFrame:
-        return self.query_table("air_quality_readings", limit=limit)
+    def get_air_quality_data(self, limit: Optional[int] = None, building_id: Optional[str] = None) -> pd.DataFrame:
+        df = self.query_table("air_quality_readings", limit=limit)
+        if building_id and not df.empty:
+            for col in ["building_id", "location_id", "location"]:
+                if col in df.columns:
+                    b_df = df[df[col].astype(str).str.contains(building_id, case=False, na=False)]
+                    if not b_df.empty:
+                        return b_df
+        return df
 
     def get_latest_air_quality(self) -> Dict[str, Any]:
         df = self.get_air_quality_data(limit=50)

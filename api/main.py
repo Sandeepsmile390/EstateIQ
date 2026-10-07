@@ -874,6 +874,7 @@ class AITestRequest(BaseModel):
     prompt: Optional[str] = "Respond with exactly: ESTATEIQ_GROQ_CONNECTION_OK"
 
 @app.post("/api/v1/ai/copilot")
+@app.post("/api/v1/ai/analyze")
 def query_ai_copilot(req: CopilotQueryRequest, user: Dict[str, Any] = Depends(require_permission("facility.read"))):
     record_audit_event("AI_COPILOT_QUERY", user, "COPILOT", "copilot", metadata={"query": req.user_query})
     return ai_service.query_copilot(
@@ -889,6 +890,65 @@ def get_ai_health():
 @app.post("/api/v1/ai/test")
 def test_ai_connection(req: AITestRequest = AITestRequest()):
     return ai_service.test_connection(prompt=req.prompt)
+
+@app.get("/api/v1/ai/capabilities")
+def get_ai_capabilities():
+    from src.ai.domain_registry import DOMAIN_REGISTRY
+    from src.ai.query_router import UniversalQueryRouter
+    return {
+        "status": "SUCCESS",
+        "supported_domains": list(DOMAIN_REGISTRY.keys()),
+        "supported_intents": UniversalQueryRouter.SUPPORTED_INTENTS,
+        "capabilities": [
+            "Facility multi-domain performance analysis",
+            "Contextual anomaly detection & SHAP explainability",
+            "Cross-domain executive summarization",
+            "Evidence-grounded recommendation generation",
+            "What-If scenario simulation",
+            "Data quality & IoT sensor health auditing"
+        ],
+        "sample_questions": [
+            "What can you do?",
+            "What is our electricity consumption today?",
+            "What is the water situation?",
+            "What are our biggest problems?",
+            "What should I fix first?",
+            "What if I reduce HVAC runtime by 1 hour?"
+        ]
+    }
+
+@app.post("/api/v1/ai/summary")
+def get_facility_executive_summary(facility_id: str = "FAC_GEC_CAMPUS"):
+    from src.ai.backend_services import EstateIQBackendServices
+    return EstateIQBackendServices.get_facility_overview(facility_id)
+
+@app.post("/api/v1/ai/what-if")
+def run_ai_what_if_scenario(
+    hvac_reduction_pct: float = 20.0,
+    temp_setback_delta: float = 2.0,
+    facility_id: str = "FAC_GEC_CAMPUS"
+):
+    from src.ai.backend_services import EstateIQBackendServices
+    return EstateIQBackendServices.run_what_if(
+        facility_id=facility_id,
+        scenario_params={"hvac_reduction_pct": hvac_reduction_pct, "temp_setback_delta": temp_setback_delta}
+    )
+
+@app.get("/api/v1/ai/opportunities")
+def get_ai_opportunities(domain: Optional[str] = None):
+    from src.ai.backend_services import EstateIQBackendServices
+    return {
+        "status": "SUCCESS",
+        "opportunities": EstateIQBackendServices.get_top_opportunities(domain=domain)
+    }
+
+@app.get("/api/v1/ai/recommendations")
+def get_ai_recommendations(domain: Optional[str] = None):
+    from src.ai.backend_services import EstateIQBackendServices
+    return {
+        "status": "SUCCESS",
+        "recommendations": EstateIQBackendServices.get_recommendations(domain=domain)
+    }
 
 
 @app.post("/api/v1/ingestion/telemetry")

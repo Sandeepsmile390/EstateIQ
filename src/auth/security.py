@@ -97,7 +97,8 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "models.read", "models.manage",
         "reports.read", "reports.export",
         "audit.read", "users.read", "users.manage", "settings.read", "settings.manage",
-        "billing.read", "billing.manage", "iot.read", "iot.manage"
+        "billing.read", "billing.manage", "iot.read", "iot.manage",
+        "work_orders.read", "work_orders.create", "work_orders.update", "work-orders"
     ],
     "FACILITY_ADMIN": [
         "facility.read", "facility.manage",
@@ -107,7 +108,8 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "recommendations.read", "recommendations.approve", "recommendations.execute",
         "simulation.read", "simulation.run",
         "models.read", "reports.read", "reports.export",
-        "audit.read", "users.read", "settings.read", "billing.read"
+        "audit.read", "users.read", "settings.read", "billing.read",
+        "work_orders.read", "work_orders.create", "work_orders.update", "work-orders"
     ],
     "OPERATIONS_ENGINEER": [
         "facility.read",
@@ -116,7 +118,8 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "alerts.read", "alerts.manage",
         "recommendations.read", "recommendations.execute",
         "simulation.read", "simulation.run",
-        "models.read", "reports.read"
+        "models.read", "reports.read",
+        "work_orders.read", "work_orders.create", "work_orders.update", "work-orders"
     ],
     "ESG_AUDITOR": [
         "facility.read",

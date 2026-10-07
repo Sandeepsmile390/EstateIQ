@@ -952,51 +952,59 @@ body {
    -------------------------------------------------------------------------- */
 .dashboard-tabs {
     display: flex;
-    gap: 20px;
-    border-bottom: 2px solid #E2E6DF;
-    padding-bottom: 2px;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #0A2E26 0%, #061D17 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    padding: 8px 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.dashboard-tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .tab-btn {
-    background: none;
-    border: none;
-    font-size: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    font-size: 12.5px;
     font-weight: 600;
-    color: var(--text-muted);
-    padding: 10px 0;
+    color: #A3C9BE;
+    padding: 8px 14px;
     cursor: pointer;
     position: relative;
-    transition: color var(--transition-fast);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     white-space: nowrap;
 }
 
 .tab-btn:hover {
-    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.09);
+    color: #FFFFFF;
+    border-color: rgba(0, 208, 156, 0.35);
+    transform: translateY(-1px);
 }
 
 .tab-btn.active {
-    color: var(--brand-teal);
-    font-weight: 700;
+    background: linear-gradient(135deg, #00D09C 0%, #2BB49B 100%);
+    color: #0E3D32;
+    font-weight: 800;
+    border-color: #00D09C;
+    box-shadow: 0 4px 14px rgba(0, 208, 156, 0.4);
+}
+
+.tab-btn.active i {
+    color: #0E3D32 !important;
 }
 
 .tab-btn .tab-indicator {
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background-color: var(--brand-teal);
-    border-radius: 3px;
-    transform: scaleX(0);
-    transition: transform var(--transition-smooth);
-}
-
-.tab-btn.active .tab-indicator {
-    transform: scaleX(1);
+    display: none;
 }
 
 .text-accent {

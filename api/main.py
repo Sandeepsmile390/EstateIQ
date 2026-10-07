@@ -218,20 +218,32 @@ def auth_login(req: LoginRequest):
     if req.email and req.password:
         user = authenticate_user(req.email, req.password)
     elif req.role:
-        # Legacy role lookup with explicit notice
         role_key = req.role.lower()
-        matching_user = None
-        for u in USER_ROLES_DB.values():
-            if u["role"].lower() == role_key or u.get("role_key", "").lower() == role_key:
-                matching_user = u
-                break
-        if not matching_user:
-            matching_user = USER_ROLES_DB["lead@estateiq.in"]
-        user = matching_user
+        if role_key in USER_ROLES_DB:
+            user = USER_ROLES_DB[role_key]
+        else:
+            user = get_user_by_role(role_key)
     else:
         user = USER_ROLES_DB["lead@estateiq.in"]
 
     token = create_user_token(user)
+    permissions = ROLE_PERMISSIONS.get(user["role"], [])
+    
+    # Map permission list for frontend UI tabs & capabilities
+    role_key_norm = req.role.lower() if req.role else "admin"
+    if user["role"] in ["SUPER_ADMIN", "FACILITY_ADMIN"]:
+        tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "esg", "billing", "ai-assistant"]
+        avatar_bg = "#124B3E"
+    elif user["role"] == "OPERATIONS_ENGINEER":
+        tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "ai-assistant"]
+        avatar_bg = "#1E7A68"
+    elif user["role"] == "ESG_AUDITOR":
+        tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "esg", "simulator", "ai-assistant"]
+        avatar_bg = "#D97706"
+    else:  # MANAGEMENT_VIEWER
+        tab_permissions = ["overview", "energy", "water", "waste", "mobility", "esg", "ai-assistant"]
+        avatar_bg = "#4B5563"
+
     record_audit_event("LOGIN_SUCCESS", user, "LOGIN", "auth", result="SUCCESS")
     
     return {
@@ -242,9 +254,15 @@ def auth_login(req: LoginRequest):
             "user_id": user["user_id"],
             "email": user["email"],
             "name": user["name"],
+            "initials": user.get("initials", user["name"][:2].upper()),
             "role": user["role"],
+            "role_key": role_key_norm,
             "role_label": user["role_label"],
-            "facility_id": user["facility_id"]
+            "avatar_bg": avatar_bg,
+            "facility_id": user["facility_id"],
+            "permissions": tab_permissions,
+            "can_execute_rules": "recommendations.execute" in permissions,
+            "can_upgrade_subscription": "billing.manage" in permissions
         }
     }
 

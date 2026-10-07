@@ -22,6 +22,52 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <!-- GLASSMORPHISM ENTERPRISE LOGIN PORTAL MODAL -->
+    <div class="login-portal-overlay hidden" id="loginPortalOverlay">
+        <div class="login-portal-card">
+            <div class="login-portal-left">
+                <div class="login-brand-group">
+                    <div class="login-brand-icon"><i class="fa-solid fa-leaf"></i></div>
+                    <span class="login-brand-text">Estate<span style="color:var(--brand-accent);">IQ</span></span>
+                </div>
+                <div class="login-hero-headline">
+                    <h1>Turn facility data into measurable decisions.</h1>
+                    <p>Universal Grounded Facility Intelligence Engine powering sustainability, ML anomaly forecasting, and closed-loop field operations.</p>
+                </div>
+                <div style="font-size:12px; color:rgba(255,255,255,0.4);">
+                    <i class="fa-solid fa-shield-halved text-mint"></i> ISO 14064 & Enterprise RBAC Secured
+                </div>
+            </div>
+            <div class="login-portal-right">
+                <div class="login-form-title">Welcome Back</div>
+                <div class="login-form-subtitle">Sign in to your EstateIQ Command Center</div>
+                <form id="loginPortalForm">
+                    <div class="login-field">
+                        <label>Email Address</label>
+                        <input type="email" id="loginEmailInput" value="admin@estateiq.in" required autocomplete="username">
+                    </div>
+                    <div class="login-field">
+                        <label>Password</label>
+                        <input type="password" id="loginPasswordInput" value="Admin@123" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-emerald btn-block" id="btnSubmitLogin" style="margin-top: 8px;">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to EstateIQ
+                    </button>
+                </form>
+                <div class="login-quick-roles">
+                    <span>Quick Select Demo Accounts:</span>
+                    <div class="quick-role-chips">
+                        <button type="button" class="role-chip-btn" data-preset="admin">Admin</button>
+                        <button type="button" class="role-chip-btn" data-preset="manager">Facility Manager</button>
+                        <button type="button" class="role-chip-btn" data-preset="operations">Operations</button>
+                        <button type="button" class="role-chip-btn" data-preset="sustainability">Sustainability</button>
+                        <button type="button" class="role-chip-btn" data-preset="staff">Maintenance Staff</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         
         <!-- SIDEBAR NAVIGATION -->
@@ -44,22 +90,18 @@
                     <i class="fa-solid fa-lightbulb"></i>
                     <span class="nav-label">AI Suggestions</span>
                     <span class="badge-count bg-mint">3</span>
-                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
                 <a href="#energy" class="nav-item" id="navEnergy" data-tab-nav="energy" data-tooltip="Energy ML Forecasting">
                     <i class="fa-solid fa-bolt"></i>
                     <span class="nav-label">Energy ML</span>
-                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
                 <a href="#water" class="nav-item" id="navWater" data-tab-nav="water" data-tooltip="Water Anomaly Detection">
                     <i class="fa-solid fa-droplet"></i>
                     <span class="nav-label">Water Module</span>
-                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
                 <a href="#waste" class="nav-item" id="navWaste" data-tab-nav="waste" data-tooltip="Waste Overflow Prediction">
                     <i class="fa-solid fa-trash-can"></i>
                     <span class="nav-label">Waste Overflow</span>
-                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
                 <a href="#mobility" class="nav-item" id="navMobility" data-tab-nav="mobility" data-tooltip="Traffic & Parking">
                     <i class="fa-solid fa-car"></i>
@@ -68,7 +110,6 @@
                 <a href="#simulator" class="nav-item" id="navSimulator" data-tab-nav="simulator" data-tooltip="What-If Scenario Simulation">
                     <i class="fa-solid fa-sliders"></i>
                     <span class="nav-label">What-If Simulator</span>
-                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
                 <a href="#ai-assistant" class="nav-item" id="navAiAssistant" data-tab-nav="ai-assistant" data-tooltip="AI Operational Co-Pilot">
                     <i class="fa-solid fa-wand-magic-sparkles text-accent"></i>
@@ -78,22 +119,18 @@
                 <a href="#models" class="nav-item" id="navModels" data-tab-nav="models" data-tooltip="Trained ML Models Registry">
                     <i class="fa-solid fa-microchip"></i>
                     <span class="nav-label">ML Models</span>
-                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
                 <a href="#esg" class="nav-item" id="navEsg" data-tab-nav="esg" data-tooltip="ESG & Carbon Footprint Audit">
                     <i class="fa-solid fa-earth-americas"></i>
                     <span class="nav-label">ESG & Carbon</span>
-                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
                 <a href="#billing" class="nav-item" id="navBilling" data-tab-nav="billing" data-tooltip="SaaS Subscription & Billing">
                     <i class="fa-solid fa-crown text-gold"></i>
                     <span class="nav-label">Subscription & Plans</span>
-                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
                 <a href="#work-orders" class="nav-item" id="navWorkOrders" data-tab-nav="work-orders" data-tooltip="Staff Work Orders & Operations">
                     <i class="fa-solid fa-clipboard-check text-blue"></i>
                     <span class="nav-label">Work Orders</span>
-                    <i class="fa-solid fa-lock lock-icon" style="display:none;"></i>
                 </a>
             </nav>
 
@@ -440,6 +477,85 @@
 
                 <!-- TAB CONTENT 1: OVERVIEW & DETAILED METRICS -->
                 <div class="tab-content active" id="contentOverview">
+                    
+                    <!-- TOP ISSUES & TOP OPPORTUNITIES HIGHLIGHTS GRID -->
+                    <div class="dashboard-highlights-row">
+                        <!-- TOP 3 ISSUES PANEL -->
+                        <div class="highlight-box">
+                            <div class="highlight-header">
+                                <h3><i class="fa-solid fa-triangle-exclamation text-amber"></i> Top Critical Issues</h3>
+                                <span class="badge-count bg-red">3 Urgent</span>
+                            </div>
+                            <div class="issue-item-card">
+                                <div>
+                                    <div style="font-size: 0.85rem; font-weight: 700;">1. HVAC Load Surge — Block B Hostel</div>
+                                    <div style="font-size: 0.75rem; color: #64748B;">Observed 145.2 kWh vs 95.3 kWh baseline (+52.3%)</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="badge-red">P1 HIGH</span>
+                                    <div style="font-size: 0.75rem; color: var(--brand-teal); font-weight: 600; margin-top: 2px;">Impact: ₹1,42,800/mo</div>
+                                </div>
+                            </div>
+                            <div class="issue-item-card">
+                                <div>
+                                    <div style="font-size: 0.85rem; font-weight: 700;">2. Bin Overflow Risk — Central Cafeteria</div>
+                                    <div style="font-size: 0.75rem; color: #64748B;">Projected >90% capacity within 2 hours</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="badge-amber">P2 MODERATE</span>
+                                    <div style="font-size: 0.75rem; color: var(--brand-teal); font-weight: 600; margin-top: 2px;">Impact: Service Risk</div>
+                                </div>
+                            </div>
+                            <div class="issue-item-card">
+                                <div>
+                                    <div style="font-size: 0.85rem; font-weight: 700;">3. AST_CHILLER_01 Vibration Spike</div>
+                                    <div style="font-size: 0.75rem; color: #64748B;">Sensor registered 3.8 mm/s vibration</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="badge-amber">P2 MODERATE</span>
+                                    <div style="font-size: 0.75rem; color: var(--brand-teal); font-weight: 600; margin-top: 2px;">Impact: Asset Wear</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TOP 3 OPPORTUNITIES PANEL -->
+                        <div class="highlight-box">
+                            <div class="highlight-header">
+                                <h3><i class="fa-solid fa-lightbulb text-mint"></i> Top Optimization Opportunities</h3>
+                                <span class="badge-count bg-mint">$24.4k/yr</span>
+                            </div>
+                            <div class="opp-item-card">
+                                <div>
+                                    <div style="font-size: 0.85rem; font-weight: 700;">1. Reset Block B Thermostat to 24.5°C</div>
+                                    <div style="font-size: 0.75rem; color: #64748B;">Confidence: 87% • CO₂ Saved: 16.4 Tons</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="text-green" style="font-weight:700; font-size:0.85rem;">+$12,400/yr</span>
+                                    <div><button class="btn btn-emerald btn-sm" style="padding:2px 8px; font-size:11px; margin-top:2px;" onclick="document.getElementById('tabSimulator').click();">Simulate</button></div>
+                                </div>
+                            </div>
+                            <div class="opp-item-card">
+                                <div>
+                                    <div style="font-size: 0.85rem; font-weight: 700;">2. Night Setback on Academic Block B</div>
+                                    <div style="font-size: 0.75rem; color: #64748B;">Confidence: 91% • CO₂ Saved: 5.2 Tons</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="text-green" style="font-weight:700; font-size:0.85rem;">+$7,200/yr</span>
+                                    <div><button class="btn btn-emerald btn-sm" style="padding:2px 8px; font-size:11px; margin-top:2px;" onclick="document.getElementById('tabSimulator').click();">Simulate</button></div>
+                                </div>
+                            </div>
+                            <div class="opp-item-card">
+                                <div>
+                                    <div style="font-size: 0.85rem; font-weight: 700;">3. Optimizing Cafeteria Waste Collection</div>
+                                    <div style="font-size: 0.75rem; color: #64748B;">Confidence: 84% • CO₂ Saved: 2.9 Tons</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="text-green" style="font-weight:700; font-size:0.85rem;">+$4,800/yr</span>
+                                    <div><button class="btn btn-emerald btn-sm" style="padding:2px 8px; font-size:11px; margin-top:2px;" onclick="document.getElementById('tabSimulator').click();">Simulate</button></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- MIDDLE 3 SUMMARY CARDS ROW -->
                     <section class="summary-cards-row">

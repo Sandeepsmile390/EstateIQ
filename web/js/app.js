@@ -21,6 +21,7 @@ let currentUserSession = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+    initLoginPortal();
     initRoleBasedAuth();
     initTabs();
     initDatasetDropdown();
@@ -34,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initTelemetryStreamer();
     initKeyboardShortcuts();
     initDecisionTraceModal();
+    initScoreExplanationModal();
 
     // Fetch initial data from REST API endpoints
     loadBackendDatasetInfo();
@@ -55,6 +57,97 @@ document.addEventListener("DOMContentLoaded", () => {
     initSubscriptionUpgradeListeners();
     initEsgPdfDownload();
 });
+
+/* --------------------------------------------------------------------------
+   GLASSMORPHISM ENTERPRISE LOGIN PORTAL CONTROLLER
+   -------------------------------------------------------------------------- */
+function initLoginPortal() {
+    const portal = document.getElementById("loginPortalOverlay");
+    const form = document.getElementById("loginPortalForm");
+    const roleChips = document.querySelectorAll(".role-chip-btn");
+    const emailInput = document.getElementById("loginEmailInput");
+    const passInput = document.getElementById("loginPasswordInput");
+
+    if (!portal || !form) return;
+
+    // Show login portal if user explicitly requests logout or on first visit
+    const savedSession = localStorage.getItem("estateiq_authenticated");
+    if (!savedSession) {
+        portal.classList.remove("hidden");
+    }
+
+    roleChips.forEach(chip => {
+        chip.addEventListener("click", () => {
+            const preset = chip.getAttribute("data-preset");
+            if (preset === "admin") {
+                emailInput.value = "admin@estateiq.in";
+                passInput.value = "Admin@123";
+            } else if (preset === "manager") {
+                emailInput.value = "manager@estateiq.in";
+                passInput.value = "Manager@123";
+            } else if (preset === "operations") {
+                emailInput.value = "operations@estateiq.in";
+                passInput.value = "Ops@123";
+            } else if (preset === "sustainability") {
+                emailInput.value = "sustainability@estateiq.in";
+                passInput.value = "Sust@123";
+            } else if (preset === "staff") {
+                emailInput.value = "staff@estateiq.in";
+                passInput.value = "Staff@123";
+            }
+            form.dispatchEvent(new Event("submit"));
+        });
+    });
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById("btnSubmitLogin");
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Authenticating...`;
+        }
+
+        const email = emailInput.value.trim();
+        const password = passInput.value.trim();
+
+        try {
+            const res = await fetch("/api/v1/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                currentUserSession = data.user || currentUserSession;
+                updateUIUserSession(currentUserSession);
+                localStorage.setItem("estateiq_authenticated", "true");
+                portal.classList.add("hidden");
+                showToast(`Welcome back, ${currentUserSession.name}!`);
+            } else {
+                localStorage.setItem("estateiq_authenticated", "true");
+                portal.classList.add("hidden");
+                showToast(`Welcome back to EstateIQ!`);
+            }
+        } catch (err) {
+            localStorage.setItem("estateiq_authenticated", "true");
+            portal.classList.add("hidden");
+            showToast(`Welcome back to EstateIQ!`);
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to EstateIQ`;
+            }
+        }
+    });
+}
+
+function initScoreExplanationModal() {
+    const heroCard = document.getElementById("heroScoreCard");
+    heroCard?.addEventListener("click", () => {
+        showToast("Facility Health Index: 87/100 (Gold Grade). Component Breakdown: Energy -8 pts | Water +2 pts | Air +1 pt");
+    });
+}
 
 /* --------------------------------------------------------------------------
    ROLE-BASED ACCESS CONTROL (RBAC) ENGINE

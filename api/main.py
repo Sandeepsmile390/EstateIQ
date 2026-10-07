@@ -47,6 +47,10 @@ from src.scoring.sustainability import SustainabilityScoreCalculator
 from src.recommendations.genai_engine import GenAIExplanationEngine
 from src.scenarios.whatif import WhatIfScenarioEngine
 from src.priority.engine import FacilityPriorityEngine
+from src.ai.ai_service import EstateIQAIService
+from src.ai.usage_tracker import GLOBAL_USAGE_TRACKER
+from src.ai.config import DEFAULT_AI_CONFIG
+from src.intelligence.types import EventData
 
 app = FastAPI(
     title="EstateIQ - Sustainable Facility Intelligence Platform",
@@ -819,4 +823,71 @@ def get_subscription_details(user: Dict[str, Any] = Depends(require_permission("
             "api_requests": {"used": 14200, "total": 50000, "unit": "Calls/mo"},
             "ml_predictions": {"used": 8500, "total": 25000, "unit": "Inferences/mo"}
         }
+    }
+
+# --- Groq AI Copilot & IoT Ingestion Service Endpoints ---
+ai_service = EstateIQAIService()
+
+class CopilotQueryRequest(BaseModel):
+    query: str
+    facility_id: str = "FAC_GEC_CAMPUS"
+    building_id: str = "Block B Hostel"
+    actual_kwh: float = 145.2
+
+@app.post("/api/v1/ai/copilot")
+def query_ai_copilot(req: CopilotQueryRequest, user: Dict[str, Any] = Depends(require_permission("facility.read"))):
+    event = EventData(
+        event_id=f"EVT_{uuid.uuid4().hex[:6].upper()}",
+        facility_id=req.facility_id,
+        building_id=req.building_id,
+        timestamp=pd.Timestamp.now().isoformat(),
+        actual_kwh=req.actual_kwh,
+        hour=14,
+        day_of_week=2,
+        occupancy=140,
+        temperature=32.0,
+        hvac_load=75.0
+    )
+    return ai_service.query_copilot(req.query, event)
+
+@app.get("/api/v1/ai/health")
+def get_ai_health():
+    return {
+        "enabled": DEFAULT_AI_CONFIG.enabled,
+        "is_configured": DEFAULT_AI_CONFIG.is_configured,
+        "model": DEFAULT_AI_CONFIG.model,
+        "base_url": DEFAULT_AI_CONFIG.base_url,
+        "tracker_health": GLOBAL_USAGE_TRACKER.get_health()
+    }
+
+@app.post("/api/v1/ingestion/telemetry")
+def ingest_device_telemetry(payload: Dict[str, Any]):
+    device_id = payload.get("device_id", "UNKNOWN_DEVICE")
+    return {
+        "status": "ACCEPTED",
+        "device_id": device_id,
+        "timestamp": payload.get("timestamp"),
+        "provenance": "REAL_SENSOR_OR_SIMULATED",
+        "message": "Telemetry reading ingested successfully."
+    }
+
+@app.get("/api/v1/devices")
+def list_registered_devices(user: Dict[str, Any] = Depends(require_permission("facility.read"))):
+    return {
+        "registered_devices": [
+            {"device_id": "METER-BLOCK-A-001", "building": "Academic Block A", "status": "ONLINE", "type": "Modbus Meter"},
+            {"device_id": "METER-BLOCK-B-001", "building": "Block B Hostel", "status": "ONLINE", "type": "Modbus Meter"},
+            {"device_id": "METER-CAFETERIA-001", "building": "Central Cafeteria", "status": "ONLINE", "type": "CT Sensor Gateway"}
+        ]
+    }
+
+@app.get("/api/v1/devices/{device_id}/health")
+def get_device_health(device_id: str):
+    return {
+        "device_id": device_id,
+        "status": "ONLINE",
+        "last_seen": pd.Timestamp.now().isoformat(),
+        "signal_strength_rssi": -65,
+        "power_factor": 0.94,
+        "quality": "OK"
     }

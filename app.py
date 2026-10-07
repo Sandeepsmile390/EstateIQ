@@ -38,6 +38,8 @@ from src.scenarios.whatif import WhatIfScenarioEngine
 from src.explainability.explainer import ModelExplainer
 from src.intelligence.fusion_engine import EstateIQIntelligenceFusionEngine
 from src.intelligence.outcome_verification import OutcomeVerificationEngine
+from src.ai.ai_service import EstateIQAIService
+from src.intelligence.types import EventData
 from src.ui.components import (
     get_icon, inject_custom_css, render_top_bar,
     render_badge, render_kpi_card, apply_plotly_theme
@@ -67,6 +69,7 @@ priority_engine = FacilityPriorityEngine()
 sustainability_calc = SustainabilityScoreCalculator()
 fusion_engine = EstateIQIntelligenceFusionEngine()
 outcome_verifier = OutcomeVerificationEngine()
+ai_copilot_service = EstateIQAIService()
 
 # Sidebar Setup & Professional Navigation
 st.sidebar.markdown(f'''
@@ -486,25 +489,34 @@ elif "AI Facility Assistant" in menu:
     query_input = st.text_input("Ask a question about facility operations:", value=st.session_state["ai_query"])
     
     if st.button("Submit Query", type="primary") or st.session_state.get("btn_p1") or st.session_state.get("btn_p2") or st.session_state.get("btn_p3"):
-        rec = genai_engine.generate_recommendation({
-            "issue": "energy_anomaly",
-            "building": "Block B Hostel",
-            "actual": 145.0,
-            "expected": 78.0,
-            "deviation_percent": 85.8,
-            "important_features": ["occupancy", "temperature", "hvac_load"]
-        })
+        event = EventData(
+            event_id="EVT_HOSTEL_B_01",
+            facility_id="FAC_GEC_CAMPUS",
+            building_id="Block B Hostel",
+            timestamp="2026-10-07T10:00:00",
+            actual_kwh=145.0,
+            hour=14,
+            day_of_week=2,
+            occupancy=140,
+            temperature=32.0,
+            hvac_load=75.0
+        )
+        copilot_resp = ai_copilot_service.query_copilot(query_input, event)
+
         st.markdown(f"""
         <div class="ai-insight-box">
             <div class="ai-insight-header">
                 {get_icon('Sparkles', '#C084FC', 20)}
-                <span>{rec['title']} (Query: "{query_input}")</span>
+                <span>EstateIQ AI Copilot Response {render_badge('predicted')}</span>
             </div>
-            <p><b>What Happened?:</b> {rec['1_what_happened']}</p>
-            <p><b>What is Predicted?:</b> {rec['2_what_is_predicted']}</p>
-            <p><b>Why Flagged?:</b> {rec['3_why_was_it_flagged']}</p>
-            <p><b>Recommended Action:</b> {rec['5_recommended_action']}</p>
-            <p style="font-size:0.8rem; color:#94A3B8;"><b>Limitation Disclaimer:</b> {rec['7_limitations']}</p>
+            <p><b>Executive Summary:</b> {copilot_resp.summary}</p>
+            <p><b>What Happened?:</b> {copilot_resp.what_happened}</p>
+            <p><b>Why Flagged?:</b> {copilot_resp.why_it_happened}</p>
+            <p><b>Business Impact:</b> {copilot_resp.business_impact}</p>
+            <p><b>AI Decision Confidence:</b> {copilot_resp.confidence_percent:.1f}% (Data Status: {copilot_resp.data_status})</p>
+            <p><b>Recommended Action:</b> {", ".join(copilot_resp.recommended_actions)}</p>
+            <p style="font-size:0.8rem; color:#94A3B8;"><b>What-If Interpretation:</b> {copilot_resp.what_if_interpretation}</p>
+            <p style="font-size:0.78rem; color:#64748B;"><b>Provenance / Mode:</b> {copilot_resp.provenance} | Verification Status: {copilot_resp.verification_status}</p>
         </div>
         """, unsafe_allow_html=True)
 

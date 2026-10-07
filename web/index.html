@@ -20,10 +20,192 @@
     <!-- Custom Design System & App CSS -->
     <link rel="stylesheet" href="css/design-system.css">
     <link rel="stylesheet" href="css/styles.css">
+
+    <!-- CRITICAL STANDALONE LOGIN PAGE FIRST STYLES -->
+    <style>
+        .login-portal-overlay {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            background: #061D17 !important;
+            z-index: 2147483647 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 24px !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            transition: opacity 0.3s ease, visibility 0.3s ease !important;
+        }
+
+        .login-portal-overlay.hidden {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+
+        .login-portal-card {
+            display: flex !important;
+            flex-direction: row !important;
+            width: 960px !important;
+            max-width: 95vw !important;
+            height: 560px !important;
+            max-height: 90vh !important;
+            background: #0E3D32 !important;
+            border: 1px solid rgba(255, 255, 255, 0.18) !important;
+            border-radius: 24px !important;
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.85) !important;
+            overflow: hidden !important;
+            color: #FFFFFF !important;
+        }
+
+        .login-portal-left {
+            flex: 1.1 !important;
+            background: linear-gradient(135deg, #0A2E26, #124B3E) !important;
+            padding: 44px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
+        }
+
+        .login-portal-right {
+            flex: 1 !important;
+            padding: 44px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            background: #09241E !important;
+        }
+
+        .login-brand-group {
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+        }
+
+        .login-brand-icon {
+            width: 44px !important;
+            height: 44px !important;
+            background: #00D09C !important;
+            border-radius: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            color: #0E3D32 !important;
+            font-size: 22px !important;
+        }
+
+        .login-brand-text {
+            font-size: 26px !important;
+            font-weight: 800 !important;
+            color: #FFFFFF !important;
+        }
+
+        .login-hero-headline h1 {
+            font-size: 30px !important;
+            font-weight: 800 !important;
+            color: #FFFFFF !important;
+            line-height: 1.25 !important;
+            margin-bottom: 12px !important;
+        }
+
+        .login-hero-headline p {
+            font-size: 14px !important;
+            color: #A3C9BE !important;
+            line-height: 1.5 !important;
+        }
+
+        .login-form-title {
+            font-size: 24px !important;
+            font-weight: 800 !important;
+            color: #FFFFFF !important;
+            margin-bottom: 6px !important;
+        }
+
+        .login-form-subtitle {
+            font-size: 13px !important;
+            color: #94A3B8 !important;
+            margin-bottom: 24px !important;
+        }
+
+        .login-field {
+            margin-bottom: 16px !important;
+        }
+
+        .login-field label {
+            display: block !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            color: #A3C9BE !important;
+            margin-bottom: 6px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+
+        .login-field input {
+            width: 100% !important;
+            background: rgba(255, 255, 255, 0.08) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 10px !important;
+            padding: 12px 16px !important;
+            color: #FFFFFF !important;
+            font-size: 14px !important;
+            outline: none !important;
+        }
+
+        .login-field input:focus {
+            border-color: #00D09C !important;
+            box-shadow: 0 0 0 3px rgba(0, 208, 156, 0.2) !important;
+        }
+
+        .login-quick-roles {
+            margin-top: 20px !important;
+            padding-top: 16px !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .login-quick-roles span {
+            font-size: 11px !important;
+            color: #94A3B8 !important;
+            display: block !important;
+            margin-bottom: 8px !important;
+            font-weight: 600 !important;
+        }
+
+        .quick-role-chips {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+        }
+
+        .role-chip-btn {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 6px !important;
+            color: #FFFFFF !important;
+            padding: 6px 12px !important;
+            font-size: 11.5px !important;
+            font-weight: 600 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .role-chip-btn:hover {
+            background: #00D09C !important;
+            color: #0E3D32 !important;
+            border-color: #00D09C !important;
+        }
+    </style>
 </head>
 <body>
     <!-- GLASSMORPHISM ENTERPRISE LOGIN PORTAL MODAL -->
-    <div class="login-portal-overlay hidden" id="loginPortalOverlay">
+    <div class="login-portal-overlay" id="loginPortalOverlay">
         <div class="login-portal-card">
             <div class="login-portal-left">
                 <div class="login-brand-group">
@@ -309,6 +491,9 @@
                                     <strong>Facility Maintenance Staff</strong>
                                     <span>Field Operations & Work Orders</span>
                                 </div>
+                            </div>
+                            <div class="role-dropdown-header" id="btnSignOut" style="cursor: pointer; border-top: 1px solid rgba(0,0,0,0.06); color: #C5221F; padding: 12px 16px; margin-top: 4px; border-radius: 8px;">
+                                <i class="fa-solid fa-arrow-right-from-bracket"></i> <strong>Sign Out of Session</strong>
                             </div>
                         </div>
                     </div>

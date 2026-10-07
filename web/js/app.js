@@ -67,14 +67,25 @@ function initLoginPortal() {
     const roleChips = document.querySelectorAll(".role-chip-btn");
     const emailInput = document.getElementById("loginEmailInput");
     const passInput = document.getElementById("loginPasswordInput");
+    const signOutBtn = document.getElementById("btnSignOut");
 
     if (!portal || !form) return;
 
-    // Show login portal if user explicitly requests logout or on first visit
+    // LOGIN FIRST POLICY: Show login portal unless explicit authenticated flag exists
     const savedSession = localStorage.getItem("estateiq_authenticated");
-    if (!savedSession) {
+    if (savedSession === "true") {
+        portal.classList.add("hidden");
+    } else {
         portal.classList.remove("hidden");
     }
+
+    signOutBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        document.getElementById("roleSwitcherDropdown")?.classList.remove("show");
+        localStorage.removeItem("estateiq_authenticated");
+        portal.classList.remove("hidden");
+        showToast("Signed out of EstateIQ Session");
+    });
 
     roleChips.forEach(chip => {
         chip.addEventListener("click", () => {
@@ -121,19 +132,13 @@ function initLoginPortal() {
                 const data = await res.json();
                 currentUserSession = data.user || currentUserSession;
                 updateUIUserSession(currentUserSession);
-                localStorage.setItem("estateiq_authenticated", "true");
-                portal.classList.add("hidden");
-                showToast(`Welcome back, ${currentUserSession.name}!`);
-            } else {
-                localStorage.setItem("estateiq_authenticated", "true");
-                portal.classList.add("hidden");
-                showToast(`Welcome back to EstateIQ!`);
             }
         } catch (err) {
+            console.warn("Using offline authentication fallback.");
+        } finally {
             localStorage.setItem("estateiq_authenticated", "true");
             portal.classList.add("hidden");
-            showToast(`Welcome back to EstateIQ!`);
-        } finally {
+            showToast(`Welcome to EstateIQ, ${currentUserSession.name}!`);
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = `<i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to EstateIQ`;

@@ -50,6 +50,7 @@ from src.priority.engine import FacilityPriorityEngine
 from src.ai.ai_service import EstateIQAIService
 from src.ai.usage_tracker import GLOBAL_USAGE_TRACKER
 from src.ai.config import DEFAULT_AI_CONFIG
+from src.ai.exceptions import AIServiceError
 from src.intelligence.types import EventData
 
 app = FastAPI(
@@ -57,6 +58,19 @@ app = FastAPI(
     description="AI-powered decision-support dashboard for government, university, PSU, and enterprise campuses in India.",
     version="1.0.0"
 )
+
+@app.exception_handler(AIServiceError)
+def ai_service_exception_handler(request: Request, exc: AIServiceError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": f"AI SERVICE ERROR: {exc.error_code} - {exc.message}",
+            "error_code": exc.error_code,
+            "status": "error",
+            "retryable": exc.retryable
+        }
+    )
+
 
 # --- Security Headers & CORS Middleware ---
 app.add_middleware(
@@ -703,9 +717,9 @@ def ai_copilot_chat(
     req: ChatRequest,
     user: Dict[str, Any] = Depends(require_permission("energy.read"))
 ):
-    res = copilot_engine.process_query(req.user_query)
     record_audit_event("AI_COPILOT_QUERY", user, "CHAT", "copilot", metadata={"query": req.user_query})
-    return res
+    return ai_service.query_copilot(user_query=req.user_query)
+
 
 # --- Digital Twin & Benchmarking Endpoints ---
 @app.get("/api/v1/digital-twin")
@@ -829,36 +843,35 @@ def get_subscription_details(user: Dict[str, Any] = Depends(require_permission("
 ai_service = EstateIQAIService()
 
 class CopilotQueryRequest(BaseModel):
-    query: str
+    query: Optional[str] = None
+    message: Optional[str] = None
     facility_id: str = "FAC_GEC_CAMPUS"
-    building_id: str = "Block B Hostel"
-    actual_kwh: float = 145.2
+    building_id: Optional[str] = "Block B Hostel"
+
+    @property
+    def user_query(self) -> str:
+        return self.query or self.message or "Why is electricity consumption high?"
+
+class AITestRequest(BaseModel):
+    prompt: Optional[str] = "Respond with exactly: ESTATEIQ_GROQ_CONNECTION_OK"
 
 @app.post("/api/v1/ai/copilot")
 def query_ai_copilot(req: CopilotQueryRequest, user: Dict[str, Any] = Depends(require_permission("facility.read"))):
-    event = EventData(
-        event_id=f"EVT_{uuid.uuid4().hex[:6].upper()}",
+    record_audit_event("AI_COPILOT_QUERY", user, "COPILOT", "copilot", metadata={"query": req.user_query})
+    return ai_service.query_copilot(
+        user_query=req.user_query,
         facility_id=req.facility_id,
-        building_id=req.building_id,
-        timestamp=pd.Timestamp.now().isoformat(),
-        actual_kwh=req.actual_kwh,
-        hour=14,
-        day_of_week=2,
-        occupancy=140,
-        temperature=32.0,
-        hvac_load=75.0
+        building_id=req.building_id
     )
-    return ai_service.query_copilot(req.query, event)
 
 @app.get("/api/v1/ai/health")
 def get_ai_health():
-    return {
-        "enabled": DEFAULT_AI_CONFIG.enabled,
-        "is_configured": DEFAULT_AI_CONFIG.is_configured,
-        "model": DEFAULT_AI_CONFIG.model,
-        "base_url": DEFAULT_AI_CONFIG.base_url,
-        "tracker_health": GLOBAL_USAGE_TRACKER.get_health()
-    }
+    return ai_service.check_health()
+
+@app.post("/api/v1/ai/test")
+def test_ai_connection(req: AITestRequest = AITestRequest()):
+    return ai_service.test_connection(prompt=req.prompt)
+
 
 @app.post("/api/v1/ingestion/telemetry")
 def ingest_device_telemetry(payload: Dict[str, Any]):

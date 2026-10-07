@@ -5,6 +5,7 @@ FastAPI Endpoints & Decision Trace Integration Tests
 import unittest
 from pathlib import Path
 import sys
+from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -82,16 +83,54 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("sustainability_score", res.json())
 
     def test_ai_chat_query_matching(self):
+        mock_groq = MagicMock()
+        mock_completion = MagicMock()
+        
+        def mock_chat_create(*args, **kwargs):
+            messages = kwargs.get("messages", [])
+            user_msg = messages[-1]["content"].lower() if messages else ""
+            
+            if "bins" in user_msg or "waste" in user_msg or "collection" in user_msg:
+                resp_text = "Bin 01 at Central Cafeteria requires collection dispatch."
+            elif "chiller" in user_msg or "vibration" in user_msg:
+                resp_text = "AST_CHILLER_01 vibration risk score is elevated."
+            elif "water" in user_msg or "leak" in user_msg:
+                resp_text = "Hostel A water telemetry indicates low leak risk."
+            else:
+                resp_text = "Block B Hostel energy demand is 145.2 kWh vs baseline."
+                
+            mock_res_json = {
+                "summary": resp_text,
+                "what_happened": resp_text,
+                "why_it_happened": "Grounded cause.",
+                "evidence": ["Evidence point"],
+                "confidence_percent": 90.0,
+                "business_impact": "Impact summary",
+                "recommended_actions": ["Recommended Action"],
+                "what_if_interpretation": "",
+                "assumptions": [],
+                "limitations": [],
+                "data_status": "SUCCESS",
+                "verification_status": "PENDING",
+                "provenance": "GROQ_LLM_INTERPRETATION"
+            }
+            res_obj = MagicMock()
+            res_obj.choices[0].message.content = str(mock_res_json).replace("'", '"')
+            return res_obj
+
+        mock_groq.chat.completions.create.side_effect = mock_chat_create
+
         queries = [
             ("Why is energy high in Block B?", "Block B"),
             ("Which waste bins need collection?", "Bin 01"),
             ("What is chiller vibration status?", "AST_CHILLER_01"),
             ("What is water leak risk?", "Hostel A")
         ]
-        for q, expected in queries:
-            res = self.client.post("/api/v1/ai/chat", json={"user_query": q})
-            self.assertEqual(res.status_code, 200)
-            self.assertIn(expected, res.json()["response"])
+        with patch("src.ai.ai_service.get_groq_client", return_value=mock_groq):
+            for q, expected in queries:
+                res = self.client.post("/api/v1/ai/chat", json={"user_query": q})
+                self.assertEqual(res.status_code, 200)
+                self.assertIn(expected, res.json()["response"])
 
     def test_models_registry_endpoint(self):
         res = self.client.get("/models")

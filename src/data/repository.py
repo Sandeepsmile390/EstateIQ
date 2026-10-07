@@ -104,10 +104,14 @@ class DataRepository:
     def get_energy_data(self, limit: Optional[int] = None) -> pd.DataFrame:
         return self.query_table("energy_readings", limit=limit)
 
-    def get_latest_energy(self) -> Dict[str, Any]:
+    def get_latest_energy(self, building_id: Optional[str] = None) -> Dict[str, Any]:
         df = self.get_energy_data(limit=50)
+        if not df.empty and "building_name" in df.columns and building_id:
+            b_df = df[df["building_name"].str.contains(building_id, case=False, na=False)]
+            if not b_df.empty:
+                df = b_df
         if not df.empty and "energy_kwh" in df.columns:
-            val = round(float(df["energy_kwh"].mean()), 2)
+            val = round(float(df["energy_kwh"].iloc[0] if "energy_kwh" in df.columns else df["energy_kwh"].mean()), 2)
         else:
             val = 145.2
         return {

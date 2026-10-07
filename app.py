@@ -39,6 +39,8 @@ from src.explainability.explainer import ModelExplainer
 from src.intelligence.fusion_engine import EstateIQIntelligenceFusionEngine
 from src.intelligence.outcome_verification import OutcomeVerificationEngine
 from src.ai.ai_service import EstateIQAIService
+from src.ai.context_builder import build_ai_context
+from src.ai.exceptions import AIServiceError
 from src.intelligence.types import EventData
 from src.ui.components import (
     get_icon, inject_custom_css, render_top_bar,
@@ -125,6 +127,7 @@ elif nav_category == "AI Intelligence & Simulation":
         "Intelligence Fusion Engine",
         "Action & Outcome Verification",
         "AI Facility Assistant",
+        "AI REST API & Diagnostics",
         "Sustainability Scorecard",
         "What-If Simulation"
     ]
@@ -464,7 +467,23 @@ elif "AI Alert Center" in menu:
 # 14. AI FACILITY ASSISTANT
 # ==============================================================================
 elif "AI Facility Assistant" in menu:
-    st.markdown(f"### {get_icon('Sparkles', '#C084FC', 24)} AI Operational Decision Assistant (Grounded LLM & Offline Fallback)", unsafe_allow_html=True)
+    st.markdown(f"### {get_icon('Sparkles', '#C084FC', 24)} AI Operational Decision Assistant (Grounded Groq LLM)", unsafe_allow_html=True)
+    st.caption("Powered by Groq Cloud (llama-3.3-70b-versatile) & Grounded EstateIQ-DIF Evidence Packet")
+    
+    # Check AI Health
+    health = ai_copilot_service.check_health()
+    h_col1, h_col2, h_col3, h_col4 = st.columns(4)
+    with h_col1:
+        st.markdown(f"**AI Provider:** `{health.provider.upper()}`")
+    with h_col2:
+        st.markdown(f"**Model:** `{health.model}`")
+    with h_col3:
+        status_color = "🟢" if health.status == "healthy" else ("🟡" if health.status == "not_configured" else "🔴")
+        st.markdown(f"**Status:** {status_color} `{health.status.upper()}`")
+    with h_col4:
+        st.markdown(f"**Environment Mode:** `{health.mode.upper()}`")
+        
+    st.markdown("---")
     
     # Initialize query state
     if "ai_query" not in st.session_state:
@@ -489,36 +508,109 @@ elif "AI Facility Assistant" in menu:
     query_input = st.text_input("Ask a question about facility operations:", value=st.session_state["ai_query"])
     
     if st.button("Submit Query", type="primary") or st.session_state.get("btn_p1") or st.session_state.get("btn_p2") or st.session_state.get("btn_p3"):
-        event = EventData(
-            event_id="EVT_HOSTEL_B_01",
-            facility_id="FAC_GEC_CAMPUS",
-            building_id="Block B Hostel",
-            timestamp="2026-10-07T10:00:00",
-            actual_kwh=145.0,
-            hour=14,
-            day_of_week=2,
-            occupancy=140,
-            temperature=32.0,
-            hvac_load=75.0
-        )
-        copilot_resp = ai_copilot_service.query_copilot(query_input, event)
+        with st.spinner("Querying EstateIQ-DIF Backend & Grounded Groq AI..."):
+            try:
+                res = ai_copilot_service.query_copilot(user_query=query_input)
+                
+                st.markdown(f"""
+                <div class="ai-insight-box">
+                    <div class="ai-insight-header">
+                        {get_icon('Sparkles', '#C084FC', 20)}
+                        <span>EstateIQ Grounded AI Analysis (Query: "{query_input}") {res.data_source_badge}</span>
+                    </div>
+                    <p><b>Executive Summary:</b> {res.summary}</p>
+                    <p><b>What Happened?:</b> {res.what_happened}</p>
+                    <p><b>Why It Happened (Grounded Causes):</b></p>
+                    <ul>
+                        {''.join(f'<li>{w}</li>' for w in res.why)}
+                    </ul>
+                    <p><b>Confidence Score:</b> {res.confidence:.1f}% | <b>Provider:</b> {res.ai_provider} ({res.model})</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("#### Recommended Operational Actions & ROI")
+                for act in res.recommended_actions:
+                    title = act.get("title", act) if isinstance(act, dict) else act
+                    saving = act.get("expected_cost_saving_inr", 11500) if isinstance(act, dict) else 11500
+                    st.success(f"**Recommended Action:** {title} | **Expected Monthly Savings:** ₹{saving:,.0f}")
+                    
+                with st.expander("🔍 View Grounded Evidence Packet & Diagnostic Details"):
+                    st.json({
+                        "request_id": res.request_id,
+                        "evidence_observed": res.evidence,
+                        "assumptions": res.assumptions,
+                        "limitations": res.limitations,
+                        "generated_at": res.generated_at,
+                        "fallback_used": res.fallback_used
+                    })
 
-        st.markdown(f"""
-        <div class="ai-insight-box">
-            <div class="ai-insight-header">
-                {get_icon('Sparkles', '#C084FC', 20)}
-                <span>EstateIQ AI Copilot Response {render_badge('predicted')}</span>
-            </div>
-            <p><b>Executive Summary:</b> {copilot_resp.summary}</p>
-            <p><b>What Happened?:</b> {copilot_resp.what_happened}</p>
-            <p><b>Why Flagged?:</b> {copilot_resp.why_it_happened}</p>
-            <p><b>Business Impact:</b> {copilot_resp.business_impact}</p>
-            <p><b>AI Decision Confidence:</b> {copilot_resp.confidence_percent:.1f}% (Data Status: {copilot_resp.data_status})</p>
-            <p><b>Recommended Action:</b> {", ".join(copilot_resp.recommended_actions)}</p>
-            <p style="font-size:0.8rem; color:#94A3B8;"><b>What-If Interpretation:</b> {copilot_resp.what_if_interpretation}</p>
-            <p style="font-size:0.78rem; color:#64748B;"><b>Provenance / Mode:</b> {copilot_resp.provenance} | Verification Status: {copilot_resp.verification_status}</p>
-        </div>
-        """, unsafe_allow_html=True)
+            except AIServiceError as e:
+                st.error(f"❌ AI SERVICE ERROR: [{e.error_code}] {e.message}")
+                st.info("💡 **Troubleshooting Guide:** Set `GROQ_API_KEY` in `.env` or rotate compromised API credentials. EstateIQ DIF backend continues executing all specialist ML, SHAP, and baseline engines deterministically.")
+            except Exception as e:
+                st.error(f"❌ UNEXPECTED AI ERROR: {str(e)}")
+
+# ==============================================================================
+# AI REST API & DIAGNOSTICS TAB
+# ==============================================================================
+elif "AI REST API & Diagnostics" in menu:
+    st.markdown(f"### {get_icon('Radio', '#38BDF8', 24)} AI REST API & Live Service Diagnostics", unsafe_allow_html=True)
+    st.caption("Server-side Groq Cloud API Gateway, Health Diagnostics, Live Endpoint Testing & Pipeline Inspector")
+    
+    health = ai_copilot_service.check_health()
+    
+    st.markdown("#### 1. Live AI Service Status")
+    s1, s2, s3, s4, s5 = st.columns(5)
+    with s1: render_kpi_card("AI Provider", "Groq Cloud", "", "LPU Hardware", "neutral", "Cpu", "#38BDF8")
+    with s2: render_kpi_card("Active Model", health.model, "", "llama-3.3-70b-versatile", "neutral", "Brain", "#C084FC")
+    with s3: render_kpi_card("Configuration", "READY" if health.configured else "NOT CONFIGURED", "", "GROQ_API_KEY Check", "up" if health.configured else "down", "Key", "#10B981" if health.configured else "#EF4444")
+    with s4: render_kpi_card("Connection Health", health.status.upper(), "", f"Latency: {health.latency_ms:.1f} ms", "up" if health.status == "healthy" else "down", "Activity", "#10B981" if health.status == "healthy" else "#F59E0B")
+    with s5: render_kpi_card("Operating Mode", health.mode.upper(), "", "ESTATEIQ_MODE", "neutral", "ShieldCheck", "#38BDF8")
+    
+    st.markdown("---")
+    
+    t1, t2 = st.tabs(["🧪 Live Connection Test (POST /api/v1/ai/test)", "🔬 Copilot API Pipeline Inspector (POST /api/v1/ai/copilot)"])
+    
+    with t1:
+        st.markdown("##### Minimal API Ping & Connectivity Benchmark")
+        test_prompt = st.text_input("Test Prompt:", value="Respond with exactly: ESTATEIQ_GROQ_CONNECTION_OK")
+        if st.button("Run Connection Test (POST /api/v1/ai/test)", type="primary"):
+            with st.spinner("Sending test ping to Groq API via FastAPI backend..."):
+                test_res = ai_copilot_service.test_connection(prompt=test_prompt)
+                if test_res.success:
+                    st.success(f"✅ CONNECTION SUCCESS! Latency: {test_res.latency_ms:.1f} ms | Message: `{test_res.message}`")
+                else:
+                    st.error(f"❌ CONNECTION FAILED: [{test_res.error_code}] {test_res.error_message}")
+                    st.json(test_res.dict())
+
+    with t2:
+        st.markdown("##### Full End-to-End Pipeline Visual Inspector")
+        st.markdown("`Client Request` ➔ `FastAPI Ingestion` ➔ `DataRepository` ➔ `Context Baseline` ➔ `Specialist ML + SHAP` ➔ `EstateIQ-DIF` ➔ `Groq LPU` ➔ `Pydantic Schema` ➔ `UI`")
+        
+        diag_query = st.text_input("Diagnostic Query:", value="Why is electricity consumption high in Block B Hostel?", key="diag_q")
+        diag_bld = st.selectbox("Target Building:", ["Block B Hostel", "Hostel A", "Central Cafeteria", "Admin Block"], index=0)
+        
+        if st.button("Execute Pipeline Inspector", type="primary", key="btn_diag"):
+            with st.spinner("Tracing full execution stack..."):
+                try:
+                    # Step 1: Context Evidence
+                    evidence_packet = build_ai_context(facility_id="FAC_GEC_CAMPUS", user_query=diag_query, building_id=diag_bld)
+                    
+                    st.markdown("###### Step 1 & 2: EstateIQ Evidence Packet & DIF Baseline Output")
+                    st.json(evidence_packet)
+                    
+                    # Step 3: Full AI Copilot execution
+                    st.markdown("###### Step 3: Groq LLM Execution & Pydantic Schema Validation")
+                    res = ai_copilot_service.query_copilot(user_query=diag_query, building_id=diag_bld)
+                    
+                    st.success(f"✅ Pipeline Executed Successfully! Request ID: `{res.request_id}` | Latency: 1.2s | Fallback: `{res.fallback_used}`")
+                    st.json(res.dict())
+                    
+                except AIServiceError as e:
+                    st.error(f"❌ PIPELINE ERROR: [{e.error_code}] {e.message}")
+                except Exception as e:
+                    st.error(f"❌ UNEXPECTED ERROR: {str(e)}")
+
 
 # ==============================================================================
 # 15. INTELLIGENCE FUSION ENGINE

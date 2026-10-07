@@ -985,23 +985,32 @@ function initChatEngine() {
         const typingId = appendTypingIndicator();
 
         try {
-            const response = await fetch("/api/v1/ai/chat", {
+            const response = await fetch("/api/v1/ai/copilot", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ user_query: userText })
+                body: JSON.stringify({ query: userText })
             });
 
             removeChatMessage(typingId);
 
             if (response.ok) {
                 const data = await response.json();
-                appendChatMessage("bot", data.response || "Analysis complete based on live backend context.");
+                const badge = data.data_source_badge || "[SIMULATED IoT]";
+                const formattedHtml = `
+                    <div style="margin-bottom:8px;"><span class="pill-badge badge-teal">${badge}</span></div>
+                    <div>${data.response || data.summary}</div>
+                    ${data.what_happened ? `<div style="margin-top:8px; font-size:0.9rem;"><strong>What Happened:</strong> ${data.what_happened}</div>` : ''}
+                    ${data.why && data.why.length ? `<div style="margin-top:6px; font-size:0.9rem;"><strong>Why:</strong> ${data.why.join(', ')}</div>` : ''}
+                `;
+                appendChatMessage("bot", formattedHtml);
             } else {
-                handleGroundedChatFallback(userText);
+                const errData = await response.json().catch(() => ({ detail: "AI SERVICE ERROR" }));
+                const errMsg = errData.detail || "AI SERVICE ERROR: Service unavailable.";
+                appendChatMessage("bot", `<div class="alert-box error" style="background:#450A0A; border:1px solid #EF4444; padding:12px; border-radius:6px; color:#FCA5A5;">⚠️ <strong>AI SERVICE ERROR:</strong> ${escapeHtml(errMsg)}</div>`);
             }
         } catch (err) {
             removeChatMessage(typingId);
-            handleGroundedChatFallback(userText);
+            appendChatMessage("bot", `<div class="alert-box error" style="background:#450A0A; border:1px solid #EF4444; padding:12px; border-radius:6px; color:#FCA5A5;">⚠️ <strong>AI SERVICE ERROR:</strong> Could not connect to FastAPI AI Gateway at /api/v1/ai/copilot.</div>`);
         }
     });
 }
@@ -1055,48 +1064,6 @@ function removeChatMessage(elementId) {
     if (el) el.remove();
 }
 
-function handleGroundedChatFallback(queryText) {
-    const q = queryText.toLowerCase();
-    let reply = `Logged in under persona: ${currentUserSession.role_label}. Overall facility status is OPTIMAL (87/100 Gold Grade). All 9 domain models operational.`;
-
-    if (q.includes("energy") || q.includes("hostel") || q.includes("block b")) {
-        reply = `⚡ <strong>Block B Hostel Energy Surge Analysis:</strong><br><br>
-        • <strong>Observed Load:</strong> 145.2 kWh vs Baseline: 78.0 kWh (+86.1% surge).<br>
-        • <strong>Primary Drivers (SHAP XAI):</strong> Ambient Temperature (32.5°C), HVAC Setpoint Override (55 kW continuous).<br>
-        • <strong>Recommended Action:</strong> Reset thermostat setback schedule to 24.5°C.<br>
-        • <strong>Financial Impact:</strong> Saves ₹11,500/month (~$140/mo) and 1.2 Tons CO₂e/mo.`;
-    } else if (q.includes("waste") || q.includes("bin") || q.includes("empty")) {
-        reply = `🗑️ <strong>Smart Waste Bin Overflow Advisory:</strong><br><br>
-        • <strong>Bin Monitored:</strong> Bin #01 (Central Cafeteria).<br>
-        • <strong>Current Fill:</strong> 78.5% | 2-Hour Fill Rate: +4.2%/hr.<br>
-        • <strong>Overflow Risk:</strong> HIGH (88.4% probability within 2 hours).<br>
-        • <strong>Advisory:</strong> Dispatch sanitation crew before 13:30 PM peak.`;
-    } else if (q.includes("hvac") || q.includes("simulate") || q.includes("setback")) {
-        reply = `🧪 <strong>What-If HVAC Setback Simulation:</strong><br><br>
-        • <strong>HVAC Load Mod:</strong> 20% Reduction (0.80 multiplier).<br>
-        • <strong>Demand Impact:</strong> Reduces peak demand by -18.5 kWh/hr.<br>
-        • <strong>Annual ROI:</strong> ₹1,71,360/yr ($2,090/yr) & 16.4 Tons CO₂e saved.`;
-    } else if (q.includes("chiller") || q.includes("vibration") || q.includes("maintenance")) {
-        reply = `⚙️ <strong>Asset Health Audit - AST_CHILLER_01:</strong><br><br>
-        • <strong>Telemetry:</strong> Vibration 3.8 mm/s, Motor Temp 64°C, Current 42A.<br>
-        • <strong>Maintenance Risk Score:</strong> 0.82 (ELEVATED RISK).<br>
-        • <strong>Action:</strong> Scheduled preventive bearing lubrication within 24 hours.`;
-    } else if (q.includes("carbon") || q.includes("scope") || q.includes("emissions")) {
-        reply = `🌱 <strong>Scope 1 & 2 Carbon Footprint Audit:</strong><br><br>
-        • <strong>Scope 1 (Boilers & Generators):</strong> 84.2 tCO₂e/yr.<br>
-        • <strong>Scope 2 (Grid Power 0.82 kg/kWh):</strong> 340.8 tCO₂e/yr.<br>
-        • <strong>Rooftop Solar Offset:</strong> -164.2 tCO₂e/yr.<br>
-        • <strong>Net Campus Emissions:</strong> 318.2 tCO₂e/yr (ISO 14064 Compliant).`;
-    } else if (q.includes("diagnostic") || q.includes("audit") || q.includes("signals")) {
-        reply = `🔍 <strong>Full Facility Diagnostic Audit Complete:</strong><br><br>
-        1. <strong>Energy:</strong> 1 High-Priority HVAC surge in Block B Hostel.<br>
-        2. <strong>Waste:</strong> 1 Bin overflow risk at Central Cafeteria.<br>
-        3. <strong>Water:</strong> 68% recycling rate, zero active pipe leaks.<br>
-        4. <strong>Equipment:</strong> AST_CHILLER_01 maintenance flagged for servicing.`;
-    }
-
-    appendChatMessage("bot", reply);
-}
 
 /* --------------------------------------------------------------------------
    LIVE TELEMETRY STREAM SIMULATION

@@ -22,16 +22,28 @@ class GroqClientManager:
             cls._instance = super(GroqClientManager, cls).__new__(cls)
             cls._instance.config = config
             cls._instance._init_client()
+        else:
+            cls._instance.config = config
+            cls._instance._init_client()
         return cls._instance
 
     def _init_client(self):
         if self.config.is_configured:
             try:
-                self._client = Groq(
-                    api_key=self.config.api_key,
-                    timeout=self.config.timeout_seconds,
-                    max_retries=self.config.max_retries
-                )
+                client_kwargs = {
+                    "api_key": self.config.api_key,
+                    "timeout": self.config.timeout_seconds,
+                    "max_retries": self.config.max_retries
+                }
+                # Groq Python SDK v0.18+ uses base_url="https://api.groq.com"
+                # Strip trailing /openai/v1 if present to avoid SDK double-prefixing
+                if self.config.base_url:
+                    base_clean = self.config.base_url.rstrip("/")
+                    if base_clean.endswith("/openai/v1"):
+                        base_clean = base_clean[:-10]
+                    client_kwargs["base_url"] = base_clean
+
+                self._client = Groq(**client_kwargs)
                 logger.info("Groq API client initialized successfully with model %s", self.config.model)
             except Exception as e:
                 logger.warning("Failed to initialize Groq API client: %s", str(e))

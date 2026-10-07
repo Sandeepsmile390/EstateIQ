@@ -23,7 +23,7 @@ class AIUsageTracker:
             "total_latency_ms": 0.0
         }
 
-    def log_request(self, model: str, duration_ms: float, success: bool, fallback_used: bool, error_msg: str = ""):
+    def log_request(self, model: str, duration_ms: float, success: bool, fallback_used: bool = False, error_msg: str = ""):
         self.stats["total_ai_requests"] += 1
         self.stats["total_latency_ms"] += duration_ms
 

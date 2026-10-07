@@ -15,14 +15,19 @@ class GroqAIConfig:
 
     api_key: str = os.getenv("GROQ_API_KEY", "")
     model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-    base_url: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+    base_url: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com")
     timeout_seconds: int = int(os.getenv("GROQ_TIMEOUT_SECONDS", "30"))
     max_retries: int = int(os.getenv("GROQ_MAX_RETRIES", "2"))
     enabled: bool = os.getenv("GROQ_ENABLED", "true").lower() in ["true", "1", "yes"]
+    mode: str = os.getenv("ESTATEIQ_MODE", "production").lower()
     prompt_version: str = "estateiq-copilot-v1"
 
     @property
     def is_configured(self) -> bool:
         return bool(self.api_key and self.enabled)
+
+    @property
+    def is_production(self) -> bool:
+        return self.mode == "production"
 
 DEFAULT_AI_CONFIG = GroqAIConfig()

@@ -663,80 +663,189 @@
                 <!-- TAB CONTENT 1: OVERVIEW & DETAILED METRICS -->
                 <div class="tab-content active" id="contentOverview">
                     
-                    <!-- TOP ISSUES & TOP OPPORTUNITIES HIGHLIGHTS GRID -->
+                    <!-- TOP ISSUES & TOP OPPORTUNITIES EXECUTIVE WIDGETS GRID -->
                     <div class="dashboard-highlights-row">
-                        <!-- TOP 3 ISSUES PANEL -->
-                        <div class="highlight-box">
-                            <div class="highlight-header">
-                                <h3><i class="fa-solid fa-triangle-exclamation text-amber"></i> Top Critical Issues</h3>
-                                <span class="badge-count bg-red">3 Urgent</span>
+                        <!-- WIDGET 1: TOP CRITICAL ISSUES PANEL -->
+                        <div class="executive-widget-card widget-critical-issues">
+                            <div class="executive-widget-header">
+                                <div class="widget-title-group">
+                                    <div class="widget-icon-beacon icon-red">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                        <span class="beacon-pulse red"></span>
+                                    </div>
+                                    <div>
+                                        <h3 class="widget-title">Top Critical Issues</h3>
+                                        <span class="widget-subtitle">Live Anomaly & Threshold Violations</span>
+                                    </div>
+                                </div>
+                                <span class="widget-badge badge-red-glow"><i class="fa-solid fa-circle-exclamation"></i> 3 Urgent</span>
                             </div>
-                            <div class="issue-item-card">
-                                <div>
-                                    <div style="font-size: 0.85rem; font-weight: 700;">1. HVAC Load Surge — Block B Hostel</div>
-                                    <div style="font-size: 0.75rem; color: #64748B;">Observed 145.2 kWh vs 95.3 kWh baseline (+52.3%)</div>
+
+                            <div class="widget-items-container">
+                                <!-- ITEM 1: HVAC SURGE -->
+                                <div class="executive-item-card accent-red">
+                                    <div class="item-header-row">
+                                        <div class="item-domain-chip domain-red">
+                                            <i class="fa-solid fa-bolt"></i> ENERGY SURGE • BLOCK B HOSTEL
+                                        </div>
+                                        <div class="item-priority-badge priority-p1">P1 HIGH</div>
+                                    </div>
+                                    <div class="item-body">
+                                        <h4 class="item-headline">HVAC Load Surge — Block B Hostel</h4>
+                                        <p class="item-subtext">Observed 145.2 kWh vs 95.3 kWh baseline (<span class="text-red-light font-semibold">+52.3% surge</span>)</p>
+                                    </div>
+                                    <div class="item-footer-row">
+                                        <div class="item-impact-tag impact-red">
+                                            <i class="fa-solid fa-indian-rupee-sign"></i> Impact: ₹1,42,800/mo
+                                        </div>
+                                        <div class="item-actions">
+                                            <button class="widget-btn btn-ghost-mint" onclick="document.getElementById('tabSuggestions').click();" title="View AI Diagnosis">
+                                                <i class="fa-solid fa-wand-magic-sparkles"></i> AI Diagnosis
+                                            </button>
+                                            <button class="widget-btn btn-solid-red" onclick="document.getElementById('tabWorkOrders').click();" title="Dispatch Work Order">
+                                                <i class="fa-solid fa-wrench"></i> Dispatch
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div style="text-align: right;">
-                                    <span class="badge-red">P1 HIGH</span>
-                                    <div style="font-size: 0.75rem; color: var(--brand-teal); font-weight: 600; margin-top: 2px;">Impact: ₹1,42,800/mo</div>
+
+                                <!-- ITEM 2: BIN OVERFLOW -->
+                                <div class="executive-item-card accent-amber">
+                                    <div class="item-header-row">
+                                        <div class="item-domain-chip domain-amber">
+                                            <i class="fa-solid fa-trash-can"></i> WASTE OVERFLOW • CAFETERIA
+                                        </div>
+                                        <div class="item-priority-badge priority-p2">P2 MODERATE</div>
+                                    </div>
+                                    <div class="item-body">
+                                        <h4 class="item-headline">Bin Overflow Risk — Central Cafeteria</h4>
+                                        <p class="item-subtext">Bin #01 capacity fill rate projected <span class="text-amber-light font-semibold">>90% in 2 hrs</span></p>
+                                    </div>
+                                    <div class="item-footer-row">
+                                        <div class="item-impact-tag impact-amber">
+                                            <i class="fa-solid fa-triangle-exclamation"></i> Impact: Service Risk
+                                        </div>
+                                        <div class="item-actions">
+                                            <button class="widget-btn btn-ghost-mint" onclick="document.getElementById('tabWaste').click();" title="View Waste Analytics">
+                                                <i class="fa-solid fa-chart-pie"></i> View Module
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="issue-item-card">
-                                <div>
-                                    <div style="font-size: 0.85rem; font-weight: 700;">2. Bin Overflow Risk — Central Cafeteria</div>
-                                    <div style="font-size: 0.75rem; color: #64748B;">Projected >90% capacity within 2 hours</div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <span class="badge-amber">P2 MODERATE</span>
-                                    <div style="font-size: 0.75rem; color: var(--brand-teal); font-weight: 600; margin-top: 2px;">Impact: Service Risk</div>
-                                </div>
-                            </div>
-                            <div class="issue-item-card">
-                                <div>
-                                    <div style="font-size: 0.85rem; font-weight: 700;">3. AST_CHILLER_01 Vibration Spike</div>
-                                    <div style="font-size: 0.75rem; color: #64748B;">Sensor registered 3.8 mm/s vibration</div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <span class="badge-amber">P2 MODERATE</span>
-                                    <div style="font-size: 0.75rem; color: var(--brand-teal); font-weight: 600; margin-top: 2px;">Impact: Asset Wear</div>
+
+                                <!-- ITEM 3: CHILLER VIBRATION -->
+                                <div class="executive-item-card accent-amber">
+                                    <div class="item-header-row">
+                                        <div class="item-domain-chip domain-amber">
+                                            <i class="fa-solid fa-gears"></i> ASSET HEALTH • MAIN PLANT
+                                        </div>
+                                        <div class="item-priority-badge priority-p2">P2 MODERATE</div>
+                                    </div>
+                                    <div class="item-body">
+                                        <h4 class="item-headline">AST_CHILLER_01 Vibration Spike</h4>
+                                        <p class="item-subtext">Telemetry sensor registered <span class="text-amber-light font-semibold">3.8 mm/s vibration peak</span></p>
+                                    </div>
+                                    <div class="item-footer-row">
+                                        <div class="item-impact-tag impact-amber">
+                                            <i class="fa-solid fa-screwdriver-wrench"></i> Impact: Asset Wear
+                                        </div>
+                                        <div class="item-actions">
+                                            <button class="widget-btn btn-ghost-mint" onclick="document.getElementById('tabEnergy').click();" title="View Equipment Diagnostics">
+                                                <i class="fa-solid fa-microchip"></i> Diagnostics
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- TOP 3 OPPORTUNITIES PANEL -->
-                        <div class="highlight-box">
-                            <div class="highlight-header">
-                                <h3><i class="fa-solid fa-lightbulb text-mint"></i> Top Optimization Opportunities</h3>
-                                <span class="badge-count bg-mint">$24.4k/yr</span>
+                        <!-- WIDGET 2: TOP OPTIMIZATION OPPORTUNITIES PANEL -->
+                        <div class="executive-widget-card widget-opportunities">
+                            <div class="executive-widget-header">
+                                <div class="widget-title-group">
+                                    <div class="widget-icon-beacon icon-mint">
+                                        <i class="fa-solid fa-lightbulb"></i>
+                                        <span class="beacon-pulse mint"></span>
+                                    </div>
+                                    <div>
+                                        <h3 class="widget-title">Top Optimization Opportunities</h3>
+                                        <span class="widget-subtitle">AI ROI Recommendations & Setbacks</span>
+                                    </div>
+                                </div>
+                                <span class="widget-badge badge-mint-glow"><i class="fa-solid fa-arrow-trend-up"></i> +₹20,25,200/yr ROI</span>
                             </div>
-                            <div class="opp-item-card">
-                                <div>
-                                    <div style="font-size: 0.85rem; font-weight: 700;">1. Reset Block B Thermostat to 24.5°C</div>
-                                    <div style="font-size: 0.75rem; color: #64748B;">Confidence: 87% • CO₂ Saved: 16.4 Tons</div>
+
+                            <div class="widget-items-container">
+                                <!-- ITEM 1: THERMOSTAT RESET -->
+                                <div class="executive-item-card accent-mint">
+                                    <div class="item-header-row">
+                                        <div class="item-domain-chip domain-mint">
+                                            <i class="fa-solid fa-temperature-arrow-down"></i> HVAC OPTIMIZATION
+                                        </div>
+                                        <div class="item-savings-pill">+₹10,29,200/yr</div>
+                                    </div>
+                                    <div class="item-body">
+                                        <h4 class="item-headline">Reset Block B Thermostat to 24.5°C</h4>
+                                        <p class="item-subtext">AI Confidence: <strong class="text-mint-light">87%</strong> • CO₂ Saved: <strong class="text-mint-light">16.4 Tons/yr</strong></p>
+                                    </div>
+                                    <div class="item-footer-row">
+                                        <div class="item-impact-tag impact-mint">
+                                            <i class="fa-solid fa-leaf"></i> 16.4T Carbon Offset
+                                        </div>
+                                        <div class="item-actions">
+                                            <button class="widget-btn btn-solid-mint" onclick="document.getElementById('tabSimulator').click();" title="Simulate ROI Scenario">
+                                                <i class="fa-solid fa-sliders"></i> Simulate ROI
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div style="text-align: right;">
-                                    <span class="text-green" style="font-weight:700; font-size:0.85rem;">+$12,400/yr</span>
-                                    <div><button class="btn btn-emerald btn-sm" style="padding:2px 8px; font-size:11px; margin-top:2px;" onclick="document.getElementById('tabSimulator').click();">Simulate</button></div>
+
+                                <!-- ITEM 2: NIGHT SETBACK -->
+                                <div class="executive-item-card accent-mint">
+                                    <div class="item-header-row">
+                                        <div class="item-domain-chip domain-mint">
+                                            <i class="fa-solid fa-moon"></i> SCHEDULED SETBACK
+                                        </div>
+                                        <div class="item-savings-pill">+₹5,97,600/yr</div>
+                                    </div>
+                                    <div class="item-body">
+                                        <h4 class="item-headline">Night Setback on Academic Block B</h4>
+                                        <p class="item-subtext">AI Confidence: <strong class="text-mint-light">91%</strong> • CO₂ Saved: <strong class="text-mint-light">5.2 Tons/yr</strong></p>
+                                    </div>
+                                    <div class="item-footer-row">
+                                        <div class="item-impact-tag impact-mint">
+                                            <i class="fa-solid fa-leaf"></i> 5.2T Carbon Offset
+                                        </div>
+                                        <div class="item-actions">
+                                            <button class="widget-btn btn-solid-mint" onclick="document.getElementById('tabSimulator').click();" title="Simulate ROI Scenario">
+                                                <i class="fa-solid fa-sliders"></i> Simulate ROI
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="opp-item-card">
-                                <div>
-                                    <div style="font-size: 0.85rem; font-weight: 700;">2. Night Setback on Academic Block B</div>
-                                    <div style="font-size: 0.75rem; color: #64748B;">Confidence: 91% • CO₂ Saved: 5.2 Tons</div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <span class="text-green" style="font-weight:700; font-size:0.85rem;">+$7,200/yr</span>
-                                    <div><button class="btn btn-emerald btn-sm" style="padding:2px 8px; font-size:11px; margin-top:2px;" onclick="document.getElementById('tabSimulator').click();">Simulate</button></div>
-                                </div>
-                            </div>
-                            <div class="opp-item-card">
-                                <div>
-                                    <div style="font-size: 0.85rem; font-weight: 700;">3. Optimizing Cafeteria Waste Collection</div>
-                                    <div style="font-size: 0.75rem; color: #64748B;">Confidence: 84% • CO₂ Saved: 2.9 Tons</div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <span class="text-green" style="font-weight:700; font-size:0.85rem;">+$4,800/yr</span>
-                                    <div><button class="btn btn-emerald btn-sm" style="padding:2px 8px; font-size:11px; margin-top:2px;" onclick="document.getElementById('tabSimulator').click();">Simulate</button></div>
+
+                                <!-- ITEM 3: WASTE COLLECTION OPTIMIZATION -->
+                                <div class="executive-item-card accent-mint">
+                                    <div class="item-header-row">
+                                        <div class="item-domain-chip domain-mint">
+                                            <i class="fa-solid fa-truck-ramp-box"></i> LOGISTICS ROUTING
+                                        </div>
+                                        <div class="item-savings-pill">+₹3,98,400/yr</div>
+                                    </div>
+                                    <div class="item-body">
+                                        <h4 class="item-headline">Optimizing Cafeteria Waste Collection</h4>
+                                        <p class="item-subtext">AI Confidence: <strong class="text-mint-light">84%</strong> • CO₂ Saved: <strong class="text-mint-light">2.9 Tons/yr</strong></p>
+                                    </div>
+                                    <div class="item-footer-row">
+                                        <div class="item-impact-tag impact-mint">
+                                            <i class="fa-solid fa-leaf"></i> 2.9T Carbon Offset
+                                        </div>
+                                        <div class="item-actions">
+                                            <button class="widget-btn btn-solid-mint" onclick="document.getElementById('tabSimulator').click();" title="Simulate ROI Scenario">
+                                                <i class="fa-solid fa-sliders"></i> Simulate ROI
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -878,7 +987,7 @@
                         <div class="roi-summary-card">
                             <div class="roi-left">
                                 <span class="roi-subtitle">Total Actionable AI Potential Savings</span>
-                                <h1 class="roi-value" id="roiTotalVal">$24,400 / yr <span class="roi-inr">(₹19.8 Lakhs/yr)</span></h1>
+                                <h1 class="roi-value" id="roiTotalVal">₹20,25,200 / yr <span class="roi-inr">(₹20.25 Lakhs/yr)</span></h1>
                                 <p class="roi-desc">Executing all 3 AI automated optimization rules will reduce campus carbon footprint by <strong>24.5 Tons CO₂e / yr</strong>.</p>
                             </div>
                             <div class="roi-right">
@@ -899,7 +1008,7 @@
                                 <h3>HVAC Thermostat Setpoint Reset in Block B</h3>
                                 <p>Automated ML detection flags continuous compressor load surge. Resetting setpoint saves 18.2 Tons CO₂e annually.</p>
                                 <div class="sug-footer">
-                                    <div class="sug-savings text-green">+$14,200 / yr (₹11.5L)</div>
+                                    <div class="sug-savings text-green">+₹11,78,600 / yr (₹11.78L)</div>
                                     <button class="btn btn-primary btn-sm apply-rule-btn" data-rule="REC_HVAC_01" data-building="Block_B_Hostel">
                                         <i class="fa-solid fa-play"></i> Apply Automated Rule
                                     </button>
@@ -1642,7 +1751,7 @@
                             <div class="sub-hero-left">
                                 <span class="sub-badge-gold"><i class="fa-solid fa-crown"></i> PRO ACTIVE PLAN</span>
                                 <h1 class="sub-plan-name" id="billingCurrentPlanTitle">Enterprise Pro Tier</h1>
-                                <p class="sub-plan-price">$1,499 / month <span class="inr-sub">(₹1,19,999 / mo)</span> • Billed Annually (20% Savings)</p>
+                                <p class="sub-plan-price">₹1,19,999 / month <span class="inr-sub">(₹11.99 Lakhs / yr)</span> • Billed Annually (20% Savings)</p>
                             </div>
                             <div class="sub-hero-right">
                                 <div class="usage-meter-group">
@@ -1690,7 +1799,7 @@
                                     <p>Ideal for single buildings or small college campuses.</p>
                                 </div>
                                 <div class="p-price">
-                                    <span class="p-amount" id="priceStarter">$499</span>
+                                    <span class="p-amount" id="priceStarter">₹39,999</span>
                                     <span class="p-period">/ month</span>
                                 </div>
                                 <ul class="p-features">
@@ -1710,7 +1819,7 @@
                                     <p>Full ML intelligence, IoT streaming, and AI suggestions.</p>
                                 </div>
                                 <div class="p-price">
-                                    <span class="p-amount" id="pricePro">$1,499</span>
+                                    <span class="p-amount" id="pricePro">₹1,19,999</span>
                                     <span class="p-period">/ month</span>
                                 </div>
                                 <ul class="p-features">

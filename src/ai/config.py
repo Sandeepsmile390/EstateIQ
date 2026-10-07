@@ -14,7 +14,7 @@ class GroqAIConfig:
     """Configuration parameters for Groq AI Service."""
 
     api_key: str = os.getenv("GROQ_API_KEY", "")
-    model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    model: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
     base_url: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com")
     timeout_seconds: int = int(os.getenv("GROQ_TIMEOUT_SECONDS", "30"))
     max_retries: int = int(os.getenv("GROQ_MAX_RETRIES", "2"))

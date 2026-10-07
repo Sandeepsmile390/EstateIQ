@@ -471,49 +471,42 @@ body {
 .user-profile-wrapper {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
     background-color: #FFFFFF;
-    padding: 6px 14px 6px 8px;
-    border-radius: 24px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     cursor: pointer;
     position: relative;
     transition: all var(--transition-fast);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .user-profile-wrapper:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
     transform: translateY(-1px);
+    border-color: var(--brand-teal);
 }
 
 .profile-avatar {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     background: #124B3E;
     color: #FFFFFF;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     transition: background var(--transition-fast);
 }
 
-.profile-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.profile-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-main);
-}
-
-.profile-role {
-    font-size: 11px;
-    color: var(--text-muted);
+.user-profile-wrapper .profile-info,
+.user-profile-wrapper .arrow-icon {
+    display: none !important;
 }
 
 .role-switcher-dropdown {

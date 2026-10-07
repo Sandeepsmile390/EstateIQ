@@ -1,16 +1,15 @@
 """
-Facility Intelligence AI - Master Streamlit Command Center Application.
+EstateIQ Facility Intelligence - Master Streamlit Command Center Application.
 Sustainable Facility and Estate Intelligence Dashboard for India.
 
-Complete Professional Command Center UI/UX Redesign:
-- Dark Navy Professional Command Center Design System
-- Lucide SVG Icon System (Zero Raw Emojis)
-- Top Bar Application Shell with Real-Time Status & Role View
-- Grounded Trust Badges ([Observed], [ML Prediction], [Simulated], [Synthetic IoT])
-- Multi-Zone Thermal & Energy Coupling Matrix (Discover Sustainability 2026)
-- Paired Decision-Effectiveness Benchmarking (With-XAI 10.9% vs Without-XAI 3.9%)
-- OpenStreetMap Folium Campus GIS Integration
-- Grounded SHAP + GenAI 7-Part Action Engine (Elsevier & IET 2026)
+Exact Web UI Implementation in Streamlit:
+- Liquid-Glass Canva Design System (Dark Forest Green #124B3E & Vibrant Mint #2BB49B)
+- Top Bar Application Shell with Logo, SaaS Plan Pill, and Role Switcher
+- Operational Status Banner & Notice System
+- Hero Metrics Grid (Overall Score 87/100, Energy Target 7.42 MWh, Water/Air Split, Weekly Load)
+- 12 Exact Web UI Navigation Tabs (Overview, Suggestions & ROI, Energy ML, Water, Waste,
+  Mobility & Air, What-If Simulator, AI Co-Pilot, ML Registry, ESG & Carbon, Subscription, REST API)
+- Grounded Groq Cloud LLM (llama-3.3-70b-versatile) & EstateIQ-DIF Evidence Packets
 """
 
 import os
@@ -42,14 +41,17 @@ from src.ai.ai_service import EstateIQAIService
 from src.ai.context_builder import build_ai_context
 from src.ai.exceptions import AIServiceError
 from src.intelligence.types import EventData
+from src.data.geospatial import GeospatialFacilityRepository
+
 from src.ui.components import (
     get_icon, inject_custom_css, render_top_bar,
+    render_status_banner, render_hero_metrics_grid,
     render_badge, render_kpi_card, apply_plotly_theme
 )
 
 # Page Setup
 st.set_page_config(
-    page_title="Facility Intelligence Command Center (India)",
+    page_title="EstateIQ - Multi-Role Facility Intelligence Platform",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -73,104 +75,80 @@ fusion_engine = EstateIQIntelligenceFusionEngine()
 outcome_verifier = OutcomeVerificationEngine()
 ai_copilot_service = EstateIQAIService()
 
-# Sidebar Setup & Professional Navigation
+# ==============================================================================
+# SIDEBAR NAVIGATION & PERSONA ROLE SWITCHER
+# ==============================================================================
 st.sidebar.markdown(f'''
-<div class="sidebar-header">
-    {get_icon("ShieldCheck", "#38BDF8", 22)}
-    <span>FACILITY INTELLIGENCE</span>
+<div style="display:flex; align-items:center; gap:10px; padding:12px 0 16px 0; border-bottom:1px solid rgba(43, 180, 155, 0.25);">
+    <div style="width:36px; height:36px; background:linear-gradient(135deg, #2BB49B 0%, #104F40 100%); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff;">
+        {get_icon("Leaf", "#FFFFFF", 20)}
+    </div>
+    <span style="font-family:'Plus Jakarta Sans', sans-serif; font-weight:800; font-size:1.3rem; color:#FFFFFF;">
+        Estate<span style="color:#2BB49B;">IQ</span>
+    </span>
 </div>
 ''', unsafe_allow_html=True)
-st.sidebar.caption("Government & Institutional Estate Management (India)")
 
-# User Role View Switcher
+# Role Switcher
 st.sidebar.markdown(f'''
-<div class="sidebar-section-label">
-    {get_icon("UserCheck", "#38BDF8", 14)} ACTIVE USER ROLE
+<div style="font-size:0.75rem; font-weight:700; color:#A3C9BE; text-transform:uppercase; letter-spacing:0.8px; margin-top:16px; margin-bottom:6px;">
+    {get_icon("UserCheck", "#2BB49B", 14)} ACTIVE USER ROLE
 </div>
 ''', unsafe_allow_html=True)
+
 user_role = st.sidebar.selectbox(
-    "User Role View:",
-    ["Administrator View", "Operations Technician View", "Sustainability Officer View"],
-    label_visibility="collapsed"
-)
-
-# Sidebar Grouped Menu Header
-st.sidebar.markdown(f'''
-<div class="sidebar-section-label">
-    {get_icon("LayoutDashboard", "#38BDF8", 14)} MODULE CATEGORIES
-</div>
-''', unsafe_allow_html=True)
-
-nav_category = st.sidebar.selectbox(
-    "Select Category:",
+    "Switch User Persona:",
     [
-        "Executive Overview & Map",
-        "Domain Operations (9 Modules)",
-        "AI Intelligence & Simulation",
-        "Data, Models & Demo"
+        "RS Administrator (Full Access)",
+        "Alex Chen (Operations Engineer)",
+        "Dr. Priya Sharma (ESG Auditor)",
+        "Sam Taylor (Campus Stakeholder)"
     ],
+    index=0,
     label_visibility="collapsed"
 )
 
-from src.data.geospatial import GeospatialFacilityRepository
-
-if nav_category == "Executive Overview & Map":
-    nav_options = ["Executive Dashboard", "Facility Map", "AI Alert Center"]
-elif nav_category == "Domain Operations (9 Modules)":
-    nav_options = [
-        "Energy Intelligence", "Water Intelligence", "Waste Intelligence",
-        "Air Quality Intelligence", "Traffic Intelligence", "Parking Intelligence",
-        "Equipment Intelligence", "Safety Intelligence", "Emissions Intelligence"
-    ]
-elif nav_category == "AI Intelligence & Simulation":
-    nav_options = [
-        "Intelligence Fusion Engine",
-        "Action & Outcome Verification",
-        "AI Facility Assistant",
-        "AI REST API & Diagnostics",
-        "Sustainability Scorecard",
-        "What-If Simulation"
-    ]
-else:
-    nav_options = ["Data Explorer", "Model Center", "Data Quality Center", "Technology Stack", "Hackathon Demo Mode"]
-
+# Sidebar Tabs Menu
 st.sidebar.markdown(f'''
-<div class="sidebar-section-label" style="margin-top:12px;">
-    {get_icon("Activity", "#38BDF8", 14)} ACTIVE MODULE PAGE
+<div style="font-size:0.75rem; font-weight:700; color:#A3C9BE; text-transform:uppercase; letter-spacing:0.8px; margin-top:16px; margin-bottom:8px;">
+    {get_icon("LayoutDashboard", "#2BB49B", 14)} MAIN NAVIGATION TABS
 </div>
 ''', unsafe_allow_html=True)
 
-menu = st.sidebar.radio("Navigation Menu:", nav_options, label_visibility="collapsed")
+web_ui_tabs = [
+    "Dashboard Overview",
+    "AI Suggestions & ROI",
+    "Energy ML",
+    "Water Module",
+    "Waste Overflow",
+    "Mobility & Air",
+    "What-If Simulator",
+    "AI Operational Co-Pilot",
+    "ML Models Registry",
+    "ESG & Carbon Audit",
+    "Subscription & Plans",
+    "AI REST API & Diagnostics",
+    "Data Explorer & Tools"
+]
 
-# Live IoT Streaming Controls in Sidebar
-st.sidebar.markdown(f'''
-<div class="sidebar-section-label">
-    {get_icon("Radio", "#38BDF8", 14)} LIVE IoT TELEMETRY
-</div>
-''', unsafe_allow_html=True)
-live_sim = st.sidebar.checkbox("Enable Live IoT Stream", value=False)
-live_status = "ATTENTION"
-if live_sim:
-    sim_speed = st.sidebar.select_slider("Playback Speed:", options=["1x", "5x", "20x"], value="5x")
-    st.sidebar.success(f"Streaming Active ({sim_speed})")
-    live_status = f"LIVE STREAMING ({sim_speed})"
+menu = st.sidebar.radio("Navigation Tabs:", web_ui_tabs, label_visibility="collapsed")
 
 # System Quick Stats Widget Footer
 st.sidebar.markdown(f'''
-<div style="background: #151E33; border: 1px solid #2A3857; border-radius: 10px; padding: 12px; margin-top: 15px;">
-    <div style="font-size: 0.78rem; font-weight: 700; color: #38BDF8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-        {get_icon("Activity", "#38BDF8", 14)} Telemetry Status
+<div style="background: #124B3E; border: 1px solid #2BB49B; border-radius: 12px; padding: 14px; margin-top: 20px;">
+    <div style="font-size: 0.78rem; font-weight: 800; color: #2BB49B; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+        {get_icon("Activity", "#2BB49B", 14)} Telemetry Status
     </div>
-    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #94A3B8; margin-bottom: 4px;">
-        <span>Active Buildings:</span> <b style="color: #F8FAFC;">10</b>
+    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #A3C9BE; margin-bottom: 4px;">
+        <span>Active Buildings:</span> <b style="color: #FFFFFF;">10</b>
     </div>
-    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #94A3B8; margin-bottom: 4px;">
-        <span>Sensors Monitored:</span> <b style="color: #F8FAFC;">245</b>
+    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #A3C9BE; margin-bottom: 4px;">
+        <span>Sensors Monitored:</span> <b style="color: #FFFFFF;">245</b>
     </div>
-    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #94A3B8; margin-bottom: 4px;">
-        <span>Active Alerts:</span> <b style="color: #F87171;">2 High</b>
+    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #A3C9BE; margin-bottom: 4px;">
+        <span>Active Signals:</span> <b style="color: #F87171;">2 High</b>
     </div>
-    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #94A3B8;">
+    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #A3C9BE;">
         <span>Sampling Rate:</span> <b style="color: #4ADE80;">15-min</b>
     </div>
 </div>
@@ -184,129 +162,214 @@ def load_model(task_name: str):
         return joblib.load(m_path), joblib.load(meta_path)
     return None, None
 
-# Render Top Bar Application Shell on every page
-render_top_bar(campus_name="GEC Smart Campus", status=live_status, user_role=user_role)
+# Render Top Header Application Shell
+render_top_bar(campus_name="Main Campus - All Blocks", status="ATTENTION", user_role=user_role.split(" (")[0])
 
-# Role Context Banner Banner
-if user_role == "Administrator View":
-    role_banner = """<div style="background: rgba(56, 189, 248, 0.1); border: 1px solid #38BDF8; border-radius: 8px; padding: 8px 14px; margin-bottom: 16px; font-size: 0.82rem; color: #38BDF8; display: flex; align-items: center; gap: 8px;">
-        <span>🛡️ <b>ADMINISTRATOR PERSONA ACTIVE:</b> Full access to Policy Directives, Budgeting Controls, Model Registry, and Raw System Data.</span>
-    </div>"""
-elif user_role == "Operations Technician View":
-    role_banner = """<div style="background: rgba(245, 158, 11, 0.1); border: 1px solid #F59E0B; border-radius: 8px; padding: 8px 14px; margin-bottom: 16px; font-size: 0.82rem; color: #F59E0B; display: flex; align-items: center; gap: 8px;">
-        <span>🔧 <b>OPERATIONS TECHNICIAN PERSONA ACTIVE:</b> Focused on Asset Vibration Telemetry, Thermostat Overrides, Maintenance Work Orders, & Sensor Coverage.</span>
-    </div>"""
-else:
-    role_banner = """<div style="background: rgba(34, 197, 94, 0.1); border: 1px solid #22C55E; border-radius: 8px; padding: 8px 14px; margin-bottom: 16px; font-size: 0.82rem; color: #22C55E; display: flex; align-items: center; gap: 8px;">
-        <span>🌿 <b>SUSTAINABILITY OFFICER PERSONA ACTIVE:</b> Focused on ESG Sustainability Scores, Scope 1 & 2 Carbon Footprint, UN SDG 7/11 Indicators, & Renewable Offsets.</span>
-    </div>"""
-st.markdown(role_banner, unsafe_allow_html=True)
+# Render Operational Status Banner
+render_status_banner(active_role=user_role, suggestions_count=3)
+
+# Render Top Row Hero Metrics Cards
+render_hero_metrics_grid(hero_score=87, energy_val="7.42 MWh", water_val="12,480 kL", aqi_val=68)
+
 
 # ==============================================================================
-# 1. EXECUTIVE DASHBOARD COMMAND CENTER
+# TAB 1: DASHBOARD OVERVIEW
 # ==============================================================================
-if "Executive Dashboard" in menu:
-    st.markdown(f"### {get_icon('LayoutDashboard', '#38BDF8', 24)} Executive Decision Command Center {render_badge('observed')}", unsafe_allow_html=True)
-    st.caption(f"Real-Time Operational Monitoring, Active Alerts & AI Insights — GEC Smart Campus | Active View: {user_role}")
+if menu == "Dashboard Overview":
+    st.markdown(f"### {get_icon('LayoutDashboard', '#2BB49B', 24)} Dashboard Overview {render_badge('observed')}", unsafe_allow_html=True)
+    st.caption("Multi-domain real-time sensor telemetry, multi-line consumption trends, performance metrics breakdown & GIS map")
     
-    # 5 Key Metric Cards
-    c1, c2, c3, c4, c5 = st.columns(5)
-    with c1:
-        render_kpi_card("Energy Demand", "142.5", " kWh", "+8.2% vs avg", "up", "Zap", "#F59E0B")
-    with c2:
-        render_kpi_card("Water Flow", "1,070", " L", "Nominal", "neutral", "Droplets", "#0EA5E9")
-    with c3:
-        render_kpi_card("Waste Bin Fill", "68.4", " %", "2 Bins >80%", "up", "Recycle", "#10B981")
-    with c4:
-        render_kpi_card("Campus AQI", "110", " PM2.5", "Moderate", "neutral", "Wind", "#8B5CF6")
-    with c5:
-        render_kpi_card("Sustainability", "78.5", " /100", "Gold Tier", "down", "Leaf", "#22C55E")
-        
-    st.markdown("---")
-    
-    col_map, col_insights = st.columns([1.5, 1])
-    
-    with col_map:
-        st.markdown(f"#### {get_icon('Map', '#38BDF8', 20)} Campus GIS Map & Active Alerts Overlay", unsafe_allow_html=True)
-        if HAS_FOLIUM:
-            m = folium.Map(location=[18.5204, 73.8567], zoom_start=16)
-            folium.Marker([18.5204, 73.8567], popup="Academic Block A - Nominal Operation", icon=folium.Icon(color="blue", icon="info-sign")).add_to(m)
-            folium.Marker([18.5215, 73.8575], popup="Block B Hostel (HVAC Anomaly Alert)", icon=folium.Icon(color="red", icon="warning")).add_to(m)
-            folium.Marker([18.5195, 73.8555], popup="Main Gate (Moderate Traffic Flow)", icon=folium.Icon(color="green")).add_to(m)
-            st_folium(m, width=650, height=350)
-        else:
-            st.info("Interactive Map: GEC Smart Campus (Latitude: 18.5204, Longitude: 73.8567)")
-            
-    with col_insights:
-        st.markdown(f"#### {get_icon('Sparkles', '#C084FC', 20)} Top Actionable AI Insights", unsafe_allow_html=True)
-        st.markdown("""
-        <div class="ai-insight-box">
-            <div class="ai-insight-header">
-                <span>⚡ High Energy Anomaly Flagged</span>
-            </div>
-            <div style="font-size:0.88rem; color:#CBD5E1; margin-bottom:8px;">
-                Block B Hostel consumption is 85% above baseline. Primary driver: HVAC setback override.
-            </div>
-            <div style="font-size:0.8rem; color:#94A3B8;">
-                <b>Evidence:</b> HVAC Load (55 kW), Outdoor Temp (32°C)<br>
-                <b>Recommended Action:</b> Inspect setback schedules & thermostat override.
-            </div>
+    # 3 Summary Cards Row (Matching Web UI middle section)
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        st.markdown(f"""
+        <div style="background:#124B3E; border:1px solid #2BB49B; border-radius:14px; padding:18px;">
+            <div style="font-size:0.8rem; color:#A3C9BE; font-weight:700; text-transform:uppercase;">Total Energy</div>
+            <div style="font-size:2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin-top:4px;">7.42 MWh</div>
+            <div style="font-size:0.75rem; color:#4ADE80; margin-top:4px;">● Nominal Demand Horizon</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with sc2:
+        st.markdown(f"""
+        <div style="background:#124B3E; border:1px solid #2BB49B; border-radius:14px; padding:18px;">
+            <div style="font-size:0.8rem; color:#A3C9BE; font-weight:700; text-transform:uppercase;">Water Recycled</div>
+            <div style="font-size:2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin-top:4px;">12,480 kL</div>
+            <div style="font-size:0.75rem; color:#2BB49B; margin-top:4px;">● Greywater Treatment Active</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with sc3:
+        st.markdown(f"""
+        <div style="background:#124B3E; border:1px solid #2BB49B; border-radius:14px; padding:18px;">
+            <div style="font-size:0.8rem; color:#A3C9BE; font-weight:700; text-transform:uppercase;">Waste Diverted</div>
+            <div style="font-size:2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin-top:4px;">5,420 kg</div>
+            <div style="font-size:0.75rem; color:#F5C577; margin-top:4px;">● 61% Compost / Recycling</div>
         </div>
         """, unsafe_allow_html=True)
         
-        st.warning("🗑️ **Waste Overflow Risk**: Bin 01 (Central Cafeteria) projected to reach 95% fill within 2 hours.")
-        st.success("💧 **Water Recycling**: Greywater recovery system meeting 30% of hostel non-potable flushing demand.")
-
-    # Role-Specific Panel
     st.markdown("---")
-    if user_role == "Administrator View":
-        st.markdown(f"#### {get_icon('ShieldCheck', '#38BDF8', 20)} Administrator Overview: Policy & Budget Directives", unsafe_allow_html=True)
-        st.info("💡 **Executive Directive**: Campus energy intensity is 0.31 kWh/sqft. Monthly estimated carbon footprint is 18.5 Tons CO2e. On track for annual ESG compliance.")
-    elif user_role == "Operations Technician View":
-        st.markdown(f"#### {get_icon('Settings2', '#F59E0B', 20)} Technician Operations: Asset Work Orders", unsafe_allow_html=True)
-        st.warning("🔧 **Preventive Servicing**: AST_CHILLER_01 vibration reading is 3.8 mm/s (Risk Score: 0.82). Recommended maintenance window: Tomorrow 06:00 AM.")
-    else:  # Sustainability Officer View
-        st.markdown(f"#### {get_icon('Leaf', '#22C55E', 20)} Sustainability Officer Panel: ESG & UN SDG Compliance", unsafe_allow_html=True)
-        st.success("🎯 **UN SDG Compliance**: Meeting SDG 7 (Clean Energy) & SDG 11 (Sustainable Cities). Current rooftop solar offset: 12.4%.")
-
-# ==============================================================================
-# 2. FACILITY MAP VIEW
-# ==============================================================================
-elif "Facility Map" in menu:
-    st.markdown(f"### {get_icon('Map', '#38BDF8', 24)} Interactive Campus GIS Twin & Geospatial Asset Map {render_badge('observed')}", unsafe_allow_html=True)
-    st.caption("Geospatial Engine: GeoPandas + Folium + OpenStreetMap Tile Renderer")
     
-    asset_filter = st.selectbox("Filter Spatial Assets by Category:", ["All", "Energy", "Water", "Waste", "Parking", "Assets"])
-    geo_repo = GeospatialFacilityRepository()
-    map_html = geo_repo.generate_folium_map(asset_type=asset_filter)
-    st.components.v1.html(map_html, height=520, scrolling=False)
+    col_chart, col_side = st.columns([1.6, 1])
+    
+    with col_chart:
+        st.markdown(f"#### {get_icon('Activity', '#2BB49B', 20)} Resource Consumption Wave Trend", unsafe_allow_html=True)
+        df_e = repo.get_energy_data(limit=72)
+        if not df_e.empty:
+            fig_wave = px.line(df_e, x="timestamp", y="electricity_kwh", color="building_id", title="Multi-Domain Real-Time Telemetry Comparison (kWh)")
+            fig_wave = apply_plotly_theme(fig_wave)
+            st.plotly_chart(fig_wave, use_container_width=True)
+        else:
+            st.info("Streaming telemetry line chart active.")
+
+    with col_side:
+        st.markdown(f"#### {get_icon('SlidersHorizontal', '#2BB49B', 20)} Performance Breakdown", unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background:rgba(21,30,51,0.9); border:1px solid #2A3857; border-radius:14px; padding:18px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:700; color:#E2E8F0; margin-bottom:6px;">
+                <span>Energy Intensity Target</span>
+                <span style="color:#2BB49B;">74%</span>
+            </div>
+            <div style="background:#1E293B; border-radius:6px; height:8px; overflow:hidden;">
+                <div style="background:#2BB49B; width:74%; height:100%;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:700; color:#E2E8F0; margin-top:14px; margin-bottom:6px;">
+                <span>Water Recovery Rate</span>
+                <span style="color:#38BDF8;">68%</span>
+            </div>
+            <div style="background:#1E293B; border-radius:6px; height:8px; overflow:hidden;">
+                <div style="background:#38BDF8; width:68%; height:100%;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:700; color:#E2E8F0; margin-top:14px; margin-bottom:6px;">
+                <span>Waste Diversion Ratio</span>
+                <span style="color:#F5C577;">61%</span>
+            </div>
+            <div style="background:#1E293B; border-radius:6px; height:8px; overflow:hidden;">
+                <div style="background:#F5C577; width:61%; height:100%;"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div style="background:rgba(239, 68, 68, 0.1); border:1px solid #EF4444; border-radius:14px; padding:16px;">
+            <div style="display:flex; align-items:center; gap:8px; color:#F87171; font-weight:800; font-size:0.95rem; margin-bottom:6px;">
+                {get_icon("TriangleAlert", "#F87171", 18)} 2 Active Backend Alerts
+            </div>
+            <div style="font-size:0.82rem; color:#CBD5E1; margin-bottom:10px;">
+                Block B HVAC anomaly (145.2 kWh) & Central Cafeteria Bin #01 overflow risk.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Campus GIS Map Section
+    st.markdown("---")
+    st.markdown(f"#### {get_icon('Map', '#2BB49B', 20)} Campus GIS Spatial Twin Overlay", unsafe_allow_html=True)
+    if HAS_FOLIUM:
+        geo_repo = GeospatialFacilityRepository()
+        map_html = geo_repo.generate_folium_map(asset_type="All")
+        st.components.v1.html(map_html, height=450, scrolling=False)
+    else:
+        st.info("Interactive Map: GEC Smart Campus (Latitude: 18.5204, Longitude: 73.8567)")
+
 
 # ==============================================================================
-# 3. ENERGY INTELLIGENCE
+# TAB 2: AI SUGGESTIONS & ROI ADVISOR
 # ==============================================================================
-elif "Energy Intelligence" in menu:
-    st.markdown(f"### {get_icon('Zap', '#F59E0B', 24)} Energy Demand Forecasting & SHAP Attribution {render_badge('predicted')}", unsafe_allow_html=True)
+elif menu == "AI Suggestions & ROI":
+    st.markdown(f"### {get_icon('Lightbulb', '#F5C577', 24)} AI Suggestions & ROI Advisor {render_badge('predicted')}", unsafe_allow_html=True)
+    st.caption("Actionable AI recommendations with predicted financial return & carbon offset metrics")
+    
+    # ROI Summary Banner matching Web UI
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg, #124B3E 0%, #0E3D32 100%); border:1px solid #2BB49B; border-radius:16px; padding:24px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+        <div>
+            <div style="font-size:0.85rem; font-weight:700; color:#A3C9BE; text-transform:uppercase;">Total Actionable AI Potential Savings</div>
+            <div style="font-size:2.2rem; font-weight:800; color:#FFFFFF; font-family:'Plus Jakarta Sans'; margin:6px 0;">
+                $24,400 / yr <span style="font-size:1.2rem; color:#2BB49B;">(₹19.8 Lakhs/yr)</span>
+            </div>
+            <div style="font-size:0.88rem; color:#CBD5E1;">
+                Executing all 3 AI automated optimization rules will reduce campus carbon footprint by <strong>24.5 Tons CO₂e / yr</strong>.
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("✨ Execute All AI Automated Rules Now", type="primary"):
+        st.balloons()
+        st.success("✅ All 3 AI Operational Rules Successfully Dispatched to BMS Controller!")
+        
+    st.markdown("---")
+    
+    col_s1, col_s2, col_s3 = st.columns(3)
+    
+    with col_s1:
+        st.markdown(f"""
+        <div style="background:rgba(21, 30, 51, 0.9); border:1px solid #EF4444; border-radius:14px; padding:20px; height:100%;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span class="pill-badge badge-red">HIGH PRIORITY</span>
+                <span style="font-size:0.75rem; color:#94A3B8;">Energy</span>
+            </div>
+            <h4 style="font-size:1rem; font-weight:700; color:#FFFFFF; margin-bottom:8px;">HVAC Thermostat Setpoint Reset</h4>
+            <p style="font-size:0.82rem; color:#CBD5E1; margin-bottom:14px;">
+                Continuous compressor load surge detected in Block B Hostel. Resetting setpoint to 24°C saves 18.2 Tons CO₂e.
+            </p>
+            <div style="font-size:1.1rem; font-weight:800; color:#4ADE80; margin-bottom:12px;">+$14,200 / yr (₹11.5L)</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Apply HVAC Rule", key="rule_hvac"):
+            st.success("HVAC Setpoint reset queued!")
+
+    with col_s2:
+        st.markdown(f"""
+        <div style="background:rgba(21, 30, 51, 0.9); border:1px solid #F59E0B; border-radius:14px; padding:20px; height:100%;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span class="pill-badge badge-amber">MEDIUM PRIORITY</span>
+                <span style="font-size:0.75rem; color:#94A3B8;">Maintenance</span>
+            </div>
+            <h4 style="font-size:1rem; font-weight:700; color:#FFFFFF; margin-bottom:8px;">Chiller 01 Bearing Lubrication</h4>
+            <p style="font-size:0.82rem; color:#CBD5E1; margin-bottom:14px;">
+                Vibration anomaly 3.8 mm/s indicates friction. Scheduled preventive maintenance avoids catastrophic downtime.
+            </p>
+            <div style="font-size:1.1rem; font-weight:800; color:#4ADE80; margin-bottom:12px;">+$6,400 / yr (₹5.2L)</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Schedule Chiller Maintenance", key="rule_chiller"):
+            st.success("Work Order created!")
+
+    with col_s3:
+        st.markdown(f"""
+        <div style="background:rgba(21, 30, 51, 0.9); border:1px solid #2BB49B; border-radius:14px; padding:20px; height:100%;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span class="pill-badge badge-teal">OPTIMIZATION</span>
+                <span style="font-size:0.75rem; color:#94A3B8;">Sanitation</span>
+            </div>
+            <h4 style="font-size:1rem; font-weight:700; color:#FFFFFF; margin-bottom:8px;">Cafeteria Bin Dynamic Route</h4>
+            <p style="font-size:0.82rem; color:#CBD5E1; margin-bottom:14px;">
+                Bin #01 fill rate accelerated. Dispatching collection prior to peak lunch overflow preserves sanitation grade.
+            </p>
+            <div style="font-size:1.1rem; font-weight:800; color:#4ADE80; margin-bottom:12px;">+$3,800 / yr (₹3.1L)</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Dispatch Route", key="rule_waste"):
+            st.success("Collection route updated!")
+
+
+# ==============================================================================
+# TAB 3: ENERGY ML FORECASTING
+# ==============================================================================
+elif menu == "Energy ML":
+    st.markdown(f"### {get_icon('Zap', '#F5C577', 24)} Energy ML Forecasting & SHAP Explainability {render_badge('predicted')}", unsafe_allow_html=True)
+    
+    # 3 Forecast Horizon Cards
+    fc1, fc2, fc3 = st.columns(3)
+    with fc1: render_kpi_card("1-Hour Forecast", "135.5", " kWh", "CatBoost Model Active", "neutral", "Zap", "#2BB49B")
+    with fc2: render_kpi_card("4-Hour Peak Forecast", "155.0", " kWh", "Peak Demand Window (14:00)", "up", "Zap", "#EF4444")
+    with fc3: render_kpi_card("24-Hour Cumulative Load", "118.2", " kWh", "Off-Peak Compliant", "down", "Zap", "#4ADE80")
+
+    st.markdown("---")
     df_e = repo.get_energy_data(limit=168)
     if not df_e.empty:
-        fig = px.line(df_e, x="timestamp", y="electricity_kwh", color="building_id", title="7-Day Hourly Electricity Demand Trajectory (kWh)")
-        fig = apply_plotly_theme(fig)
-        st.plotly_chart(fig, use_container_width=True)
-        
-    st.markdown("#### Short-Term Forecast Horizon")
-    fc1, fc2, fc3 = st.columns(3)
-    with fc1: render_kpi_card("Forecast Next 1 Hour", "135.5", " kWh", "Model Prediction", "neutral", "Zap", "#F59E0B")
-    with fc2: render_kpi_card("Forecast Next 4 Hours", "142.0", " kWh", "Model Prediction", "up", "Zap", "#F59E0B")
-    with fc3: render_kpi_card("Forecast Next 24 Hours", "118.2", " kWh", "Model Prediction", "down", "Zap", "#10B981")
-    
-    st.markdown("---")
-    st.markdown(f"#### {get_icon('BrainCircuit', '#C084FC', 20)} Multi-Zone Thermal & Electrical Coupling Matrix", unsafe_allow_html=True)
-    coupling_data = pd.DataFrame({
-        "Campus Zone": ["Block A Academic", "Block B Hostel", "CSE Block", "Admin Block", "Central Utility"],
-        "Thermal Coupling Weight": [0.65, 0.45, 0.88, 0.52, 0.91],
-        "Electrical Panel Load Ratio": [0.78, 0.85, 0.92, 0.40, 0.95],
-        "Inter-Zone Heat Ripple": ["Moderate", "Low", "High (Server Heat)", "Low", "High (Main Transformer)"]
-    })
-    st.table(coupling_data)
+        fig_e = px.line(df_e, x="timestamp", y="electricity_kwh", color="building_id", title="7-Day Hourly Demand Trajectory & ML Predictions (kWh)")
+        fig_e = apply_plotly_theme(fig_e)
+        st.plotly_chart(fig_e, use_container_width=True)
 
     st.markdown("---")
     st.markdown(f"#### {get_icon('Sparkles', '#C084FC', 20)} SHAP Feature Attribution Analysis", unsafe_allow_html=True)
@@ -325,189 +388,116 @@ elif "Energy Intelligence" in menu:
         attr_res = explainer.explain_prediction(sample_df[meta["feature_names"]])
         st.json(attr_res)
 
+
 # ==============================================================================
-# 4. WATER INTELLIGENCE
+# TAB 4: WATER MODULE
 # ==============================================================================
-elif "Water Intelligence" in menu:
-    st.markdown(f"### {get_icon('Droplets', '#0EA5E9', 24)} Water Consumption & Leak Risk Monitoring {render_badge('observed')}", unsafe_allow_html=True)
-    st.caption("Operational Indicator Disclaimer: Potential abnormal flow patterns represent decision-support indicators and do NOT guarantee physical pipe leakage.")
+elif menu == "Water Module":
+    st.markdown(f"### {get_icon('Droplets', '#38BDF8', 24)} Water Consumption & Anomaly Detection {render_badge('observed')}", unsafe_allow_html=True)
     df_w = repo.get_water_data(limit=168)
     if not df_w.empty:
-        fig_w = px.area(df_w, x="timestamp", y="water_consumption_liters", color="building_id", title="Campus Water Consumption Trajectory (Liters)")
+        fig_w = px.area(df_w, x="timestamp", y="water_consumption_liters", color="building_id", title="Campus Water Flow Trajectory (Liters)")
         fig_w = apply_plotly_theme(fig_w)
         st.plotly_chart(fig_w, use_container_width=True)
 
+
 # ==============================================================================
-# 5. WASTE INTELLIGENCE
+# TAB 5: WASTE OVERFLOW
 # ==============================================================================
-elif "Waste Intelligence" in menu:
-    st.markdown(f"### {get_icon('Recycle', '#10B981', 24)} Smart Waste Bin Fill & Overflow Predictor {render_badge('predicted')}", unsafe_allow_html=True)
+elif menu == "Waste Overflow":
+    st.markdown(f"### {get_icon('Trash2', '#10B981', 24)} Waste Bin Overflow Predictor {render_badge('predicted')}", unsafe_allow_html=True)
     df_wst = repo.get_waste_data(limit=100)
     if not df_wst.empty:
-        cols_to_show = [c for c in ["timestamp", "bin_id", "location_id", "fill_level_percent", "overflow_within_2h", "overflow_within_4h"] if c in df_wst.columns]
-        st.dataframe(df_wst[cols_to_show].tail(15), use_container_width=True)
+        cols = [c for c in ["timestamp", "bin_id", "location_id", "fill_level_percent", "overflow_within_2h"] if c in df_wst.columns]
+        st.dataframe(df_wst[cols].tail(15), use_container_width=True)
+
 
 # ==============================================================================
-# 6. AIR QUALITY INTELLIGENCE
+# TAB 6: MOBILITY & AIR
 # ==============================================================================
-elif "Air Quality Intelligence" in menu:
-    st.markdown(f"### {get_icon('Wind', '#8B5CF6', 24)} Air Quality Index & Environmental Telemetry {render_badge('synthetic')}", unsafe_allow_html=True)
-    st.caption("Data Source: Synthetic IoT Sensor Network — Decision-support prototype values, not official regulatory measurements.")
-    df_air = repo.get_air_quality_data(limit=168)
-    if not df_air.empty:
-        fig_air = px.line(df_air, x="timestamp", y="aqi", color="location_id" if "location_id" in df_air.columns else None, title="AQI Sensor Trajectory Across Campus Zones")
-        fig_air = apply_plotly_theme(fig_air)
-        st.plotly_chart(fig_air, use_container_width=True)
-
-# ==============================================================================
-# 7. TRAFFIC INTELLIGENCE
-# ==============================================================================
-elif "Traffic Intelligence" in menu:
-    st.markdown(f"### {get_icon('Car', '#F59E0B', 24)} Gate Traffic Flow & Congestion Analytics {render_badge('observed')}", unsafe_allow_html=True)
-    df_tr = repo.get_traffic_data(limit=100)
-    if not df_tr.empty:
-        fig_tr = px.bar(df_tr, x="location_id" if "location_id" in df_tr.columns else "location", y="vehicle_count", color="congestion_level" if "congestion_level" in df_tr.columns else None, title="Vehicle Count Distribution by Campus Entry Gate")
-        fig_tr = apply_plotly_theme(fig_tr)
-        st.plotly_chart(fig_tr, use_container_width=True)
-
-# ==============================================================================
-# 8. PARKING INTELLIGENCE
-# ==============================================================================
-elif "Parking Intelligence" in menu:
-    st.markdown(f"### {get_icon('ParkingSquare', '#38BDF8', 24)} Parking Zone Occupancy Forecasting {render_badge('predicted')}", unsafe_allow_html=True)
-    df_pk = repo.get_parking_data(limit=100)
-    if not df_pk.empty:
-        y_col = "occupancy_percent" if "occupancy_percent" in df_pk.columns else ("occupancy_rate" if "occupancy_rate" in df_pk.columns else "occupied_spaces")
-        fig_pk = px.line(df_pk, x="timestamp", y=y_col, color="parking_zone" if "parking_zone" in df_pk.columns else None, title="Parking Zone Occupancy Trajectory")
-        fig_pk = apply_plotly_theme(fig_pk)
-        st.plotly_chart(fig_pk, use_container_width=True)
-
-# ==============================================================================
-# 9. EQUIPMENT INTELLIGENCE
-# ==============================================================================
-elif "Equipment Intelligence" in menu:
-    st.markdown(f"### {get_icon('Settings2', '#F59E0B', 24)} Asset Health & Predictive Maintenance Risk {render_badge('predicted')}", unsafe_allow_html=True)
-    st.caption("Maintenance-risk indicators highlight priority inspection schedules without guaranteeing physical equipment breakdown.")
-    df_eq = repo.get_equipment_data(limit=100)
-    if not df_eq.empty:
-        st.dataframe(df_eq.tail(15), use_container_width=True)
-
-# ==============================================================================
-# 10. SAFETY INTELLIGENCE
-# ==============================================================================
-elif "Safety Intelligence" in menu:
-    st.markdown(f"### {get_icon('ShieldCheck', '#EF4444', 24)} Campus Incident Distribution & Safety Monitoring {render_badge('observed')}", unsafe_allow_html=True)
-    st.caption("Incident data shows observed historical distributions and does NOT establish direct causal relationships.")
-    df_sf = repo.get_safety_data()
-    if not df_sf.empty:
-        st.dataframe(df_sf, use_container_width=True)
-
-# ==============================================================================
-# 11. EMISSIONS INTELLIGENCE
-# ==============================================================================
-elif "Emissions Intelligence" in menu:
-    st.markdown(f"### {get_icon('Factory', '#10B981', 24)} Scope 1 & 2 Carbon Footprint Accounting {render_badge('observed')}", unsafe_allow_html=True)
-    st.caption("Configured Emission Factors: Grid Electricity = 0.82 kg CO2e/kWh | Diesel Generator = 2.68 kg CO2e/L | Vehicles = 0.14 kg CO2e/km")
-    df_em = repo.get_emissions_data(limit=168)
-    if not df_em.empty:
-        y_c = "estimated_co2_kg" if "estimated_co2_kg" in df_em.columns else "emission_estimate"
-        fig_em = px.area(df_em, x="timestamp", y=y_c, title="Estimated Carbon Footprint Trajectory (kg CO2e)")
-        fig_em = apply_plotly_theme(fig_em)
-        st.plotly_chart(fig_em, use_container_width=True)
-
-# ==============================================================================
-# 12. SUSTAINABILITY SCORECARD
-# ==============================================================================
-elif "Sustainability Scorecard" in menu:
-    st.markdown(f"### {get_icon('Leaf', '#22C55E', 24)} Campus Sustainability Performance Scorecard {render_badge('observed')}", unsafe_allow_html=True)
-    res = sustainability_calc.calculate_score(140, 120, 950, 1000, 42, 110, 185, 200, 0.75, 25)
-    score_val = res.get("composite_sustainability_score", res.get("overall_sustainability_score", 78.5))
-    energy_sub = res.get("sub_scores", {}).get("energy", 84.0)
-    emissions_sub = res.get("sub_scores", {}).get("emissions", res.get("sub_scores", {}).get("carbon", 85.0))
-    band_name = res.get("performance_band", "GOLD (EFFICIENT)")
+elif menu == "Mobility & Air":
+    st.markdown(f"### {get_icon('Car', '#F5C577', 24)} Mobility, Parking & Air Quality Analytics {render_badge('observed')}", unsafe_allow_html=True)
     
-    sc1, sc2, sc3 = st.columns(3)
-    with sc1: render_kpi_card("Overall ESG Score", f"{score_val}", " /100", f"Tier: {band_name}", "down", "Leaf", "#22C55E")
-    with sc2: render_kpi_card("Energy Sub-Score", f"{energy_sub}", " /100", "Efficient", "neutral", "Zap", "#F59E0B")
-    with sc3: render_kpi_card("Carbon Sub-Score", f"{emissions_sub}", " /100", "Compliant", "neutral", "Factory", "#10B981")
+    col_tr, col_air = st.columns(2)
+    with col_tr:
+        st.markdown("#### Campus Entry Gate Vehicle Count")
+        df_tr = repo.get_traffic_data(limit=100)
+        if not df_tr.empty:
+            fig_tr = px.bar(df_tr, x="location_id" if "location_id" in df_tr.columns else "location", y="vehicle_count", title="Vehicle Count Distribution")
+            fig_tr = apply_plotly_theme(fig_tr)
+            st.plotly_chart(fig_tr, use_container_width=True)
+
+    with col_air:
+        st.markdown("#### Air Quality Index (AQI) Trajectory")
+        df_air = repo.get_air_quality_data(limit=100)
+        if not df_air.empty:
+            fig_air = px.line(df_air, x="timestamp", y="aqi", title="AQI Sensor Network Trajectory")
+            fig_air = apply_plotly_theme(fig_air)
+            st.plotly_chart(fig_air, use_container_width=True)
+
+
+# ==============================================================================
+# TAB 7: WHAT-IF SIMULATOR
+# ==============================================================================
+elif menu == "What-If Simulator":
+    st.markdown(f"### {get_icon('SlidersHorizontal', '#38BDF8', 24)} Operational What-If Scenario Simulator {render_badge('simulated')}", unsafe_allow_html=True)
     
+    sim_col1, sim_col2 = st.columns(2)
+    with sim_col1:
+        hvac_mod = st.slider("Modify HVAC Setback Schedule (% of Baseline Load):", 50, 120, 85)
+        solar_capacity = st.slider("Rooftop Solar PV Addition (kWp):", 0, 500, 150)
+    with sim_col2:
+        water_rec = st.slider("Greywater Recycling Efficiency (%):", 0, 60, 30)
+        tariff_rate = st.slider("Electricity Tariff Rate (₹ INR / kWh):", 6.0, 14.0, 9.5)
+        
+    base_kwh = 140.0
+    sim_kwh = (base_kwh * (hvac_mod / 100.0)) - (solar_capacity * 0.15)
+    sim_kwh = max(10.0, sim_kwh)
+    
+    monthly_savings_kwh = (base_kwh - sim_kwh) * 24 * 30
+    monthly_savings_inr = monthly_savings_kwh * tariff_rate
+    co2_saved_kg = monthly_savings_kwh * 0.82
+    
+    bm1, bm2, bm3 = st.columns(3)
+    with bm1: render_kpi_card("With-XAI Savings", f"{round(max(0, monthly_savings_inr), 0):,.0f}", " ₹/mo", "+7.0% Net Gain vs Heuristic", "down", "Sparkles", "#C084FC")
+    with bm2: render_kpi_card("CO2 Reduced", f"{round(max(0, co2_saved_kg), 1):,}", " kg/mo", "0.82 kg/kWh Baseline", "down", "Leaf", "#22C55E")
+    with bm3: render_kpi_card("Simulated Demand Target", f"{round(sim_kwh, 1)}", " kWh", f"{round(((sim_kwh-base_kwh)/base_kwh)*100, 1)}% Shift", "down", "Zap", "#F5C577")
+
     st.markdown("---")
-    st.json(res)
+    sim_df = pd.DataFrame({
+        "Hour": list(range(24)),
+        "Baseline Demand (kWh)": [base_kwh + np.sin(h/4)*20 for h in range(24)],
+        "Simulated Target (kWh)": [sim_kwh + np.sin(h/4)*15 for h in range(24)]
+    })
+    fig_sim = px.line(sim_df, x="Hour", y=["Baseline Demand (kWh)", "Simulated Target (kWh)"], title="24-Hour Simulated Demand Curve Comparison")
+    fig_sim = apply_plotly_theme(fig_sim)
+    st.plotly_chart(fig_sim, use_container_width=True)
+
 
 # ==============================================================================
-# 13. AI ALERT CENTER
+# TAB 8: AI OPERATIONAL CO-PILOT
 # ==============================================================================
-elif "AI Alert Center" in menu:
-    st.markdown(f"### {get_icon('Bell', '#EF4444', 24)} Centralized Priority Alert Management {render_badge('predicted')}", unsafe_allow_html=True)
+elif menu == "AI Operational Co-Pilot":
+    st.markdown(f"### {get_icon('Sparkles', '#C084FC', 24)} AI Operational Decision Assistant (Groq Cloud LLM)", unsafe_allow_html=True)
+    st.caption("Powered by Groq Cloud (llama-3.3-70b-versatile) & Grounded EstateIQ-DIF Evidence Packets")
     
-    p1 = priority_engine.compute_priority(1.0, 0.85, 0.8, 0.9, 0.5)
-    
-    st.markdown("#### High-Priority Active Operational Alerts")
-    
-    a_col1, a_col2 = st.columns([3, 1])
-    with a_col1:
-        score_val = p1.get("composite_priority_score", p1.get("priority_score", 0.85))
-        st.error(f"🚨 **Priority 1 Alert**: Block B Hostel HVAC Load Surge — Urgency Level: **{p1['priority_level']}** (Priority Score: {score_val:.2f})")
-        st.caption("Evidence: HVAC power consumption is 85% above baseline threshold during off-peak hours.")
-    with a_col2:
-        if st.button("Acknowledge Alert", key="ack_p1"):
-            st.success("Alert Acknowledged by " + user_role)
-            
-    st.markdown("---")
-    
-    b_col1, b_col2 = st.columns([3, 1])
-    with b_col1:
-        st.warning("⚠️ **Priority 2 Alert**: Bin 01 (Central Cafeteria) Fill Level Projected >90% within 2 Hours.")
-        st.caption("Evidence: Rapid waste fill rate recorded during lunch period (12:00-14:00).")
-    with b_col2:
-        if st.button("Dispatch Collection", key="ack_p2"):
-            st.success("Work Order Dispatched to Sanitation Crew!")
-
-# ==============================================================================
-# 14. AI FACILITY ASSISTANT
-# ==============================================================================
-elif "AI Facility Assistant" in menu:
-    st.markdown(f"### {get_icon('Sparkles', '#C084FC', 24)} AI Operational Decision Assistant (Grounded Groq LLM)", unsafe_allow_html=True)
-    st.caption("Powered by Groq Cloud (llama-3.3-70b-versatile) & Grounded EstateIQ-DIF Evidence Packet")
-    
-    # Check AI Health
     health = ai_copilot_service.check_health()
     h_col1, h_col2, h_col3, h_col4 = st.columns(4)
-    with h_col1:
-        st.markdown(f"**AI Provider:** `{health.provider.upper()}`")
-    with h_col2:
-        st.markdown(f"**Model:** `{health.model}`")
+    with h_col1: st.markdown(f"**AI Provider:** `{health.provider.upper()}`")
+    with h_col2: st.markdown(f"**Model:** `{health.model}`")
     with h_col3:
         status_color = "🟢" if health.status == "healthy" else ("🟡" if health.status == "not_configured" else "🔴")
         st.markdown(f"**Status:** {status_color} `{health.status.upper()}`")
-    with h_col4:
-        st.markdown(f"**Environment Mode:** `{health.mode.upper()}`")
+    with h_col4: st.markdown(f"**Environment Mode:** `{health.mode.upper()}`")
         
     st.markdown("---")
     
-    # Initialize query state
     if "ai_query" not in st.session_state:
         st.session_state["ai_query"] = "Why is energy consumption high in Block B Hostel?"
         
-    st.markdown("##### Role-Tailored Quick Prompts:")
-    if user_role == "Administrator View":
-        p1_txt, p2_txt, p3_txt = "What is our monthly carbon footprint?", "How do we reduce overall energy costs by 15%?", "Show ESG Sustainability Score breakdown."
-    elif user_role == "Operations Technician View":
-        p1_txt, p2_txt, p3_txt = "Why is energy consumption high in Block B Hostel?", "Which waste bins need immediate emptying?", "What equipment has high vibration risk?"
-    else:
-        p1_txt, p2_txt, p3_txt = "Show UN SDG 7 & 11 compliance metrics.", "What is our solar offset percentage?", "How much CO2 was saved this week?"
-        
-    p_col1, p_col2, p_col3 = st.columns(3)
-    if p_col1.button(p1_txt, key="btn_p1"):
-        st.session_state["ai_query"] = p1_txt
-    if p_col2.button(p2_txt, key="btn_p2"):
-        st.session_state["ai_query"] = p2_txt
-    if p_col3.button(p3_txt, key="btn_p3"):
-        st.session_state["ai_query"] = p3_txt
-        
     query_input = st.text_input("Ask a question about facility operations:", value=st.session_state["ai_query"])
     
-    if st.button("Submit Query", type="primary") or st.session_state.get("btn_p1") or st.session_state.get("btn_p2") or st.session_state.get("btn_p3"):
+    if st.button("Submit Query", type="primary"):
         with st.spinner("Querying EstateIQ-DIF Backend & Grounded Groq AI..."):
             try:
                 res = ai_copilot_service.query_copilot(user_query=query_input)
@@ -516,7 +506,7 @@ elif "AI Facility Assistant" in menu:
                 <div class="ai-insight-box">
                     <div class="ai-insight-header">
                         {get_icon('Sparkles', '#C084FC', 20)}
-                        <span>EstateIQ Grounded AI Analysis (Query: "{query_input}") {res.data_source_badge}</span>
+                        <span>EstateIQ Grounded AI Analysis {res.data_source_badge}</span>
                     </div>
                     <p><b>Executive Summary:</b> {res.summary}</p>
                     <p><b>What Happened?:</b> {res.what_happened}</p>
@@ -546,237 +536,15 @@ elif "AI Facility Assistant" in menu:
 
             except AIServiceError as e:
                 st.error(f"❌ AI SERVICE ERROR: [{e.error_code}] {e.message}")
-                st.info("💡 **Troubleshooting Guide:** Set `GROQ_API_KEY` in `.env` or rotate compromised API credentials. EstateIQ DIF backend continues executing all specialist ML, SHAP, and baseline engines deterministically.")
             except Exception as e:
                 st.error(f"❌ UNEXPECTED AI ERROR: {str(e)}")
 
-# ==============================================================================
-# AI REST API & DIAGNOSTICS TAB
-# ==============================================================================
-elif "AI REST API & Diagnostics" in menu:
-    st.markdown(f"### {get_icon('Radio', '#38BDF8', 24)} AI REST API & Live Service Diagnostics", unsafe_allow_html=True)
-    st.caption("Server-side Groq Cloud API Gateway, Health Diagnostics, Live Endpoint Testing & Pipeline Inspector")
-    
-    health = ai_copilot_service.check_health()
-    
-    st.markdown("#### 1. Live AI Service Status")
-    s1, s2, s3, s4, s5 = st.columns(5)
-    with s1: render_kpi_card("AI Provider", "Groq Cloud", "", "LPU Hardware", "neutral", "Cpu", "#38BDF8")
-    with s2: render_kpi_card("Active Model", health.model, "", "llama-3.3-70b-versatile", "neutral", "Brain", "#C084FC")
-    with s3: render_kpi_card("Configuration", "READY" if health.configured else "NOT CONFIGURED", "", "GROQ_API_KEY Check", "up" if health.configured else "down", "Key", "#10B981" if health.configured else "#EF4444")
-    with s4: render_kpi_card("Connection Health", health.status.upper(), "", f"Latency: {health.latency_ms:.1f} ms", "up" if health.status == "healthy" else "down", "Activity", "#10B981" if health.status == "healthy" else "#F59E0B")
-    with s5: render_kpi_card("Operating Mode", health.mode.upper(), "", "ESTATEIQ_MODE", "neutral", "ShieldCheck", "#38BDF8")
-    
-    st.markdown("---")
-    
-    t1, t2 = st.tabs(["🧪 Live Connection Test (POST /api/v1/ai/test)", "🔬 Copilot API Pipeline Inspector (POST /api/v1/ai/copilot)"])
-    
-    with t1:
-        st.markdown("##### Minimal API Ping & Connectivity Benchmark")
-        test_prompt = st.text_input("Test Prompt:", value="Respond with exactly: ESTATEIQ_GROQ_CONNECTION_OK")
-        if st.button("Run Connection Test (POST /api/v1/ai/test)", type="primary"):
-            with st.spinner("Sending test ping to Groq API via FastAPI backend..."):
-                test_res = ai_copilot_service.test_connection(prompt=test_prompt)
-                if test_res.success:
-                    st.success(f"✅ CONNECTION SUCCESS! Latency: {test_res.latency_ms:.1f} ms | Message: `{test_res.message}`")
-                else:
-                    st.error(f"❌ CONNECTION FAILED: [{test_res.error_code}] {test_res.error_message}")
-                    st.json(test_res.dict())
-
-    with t2:
-        st.markdown("##### Full End-to-End Pipeline Visual Inspector")
-        st.markdown("`Client Request` ➔ `FastAPI Ingestion` ➔ `DataRepository` ➔ `Context Baseline` ➔ `Specialist ML + SHAP` ➔ `EstateIQ-DIF` ➔ `Groq LPU` ➔ `Pydantic Schema` ➔ `UI`")
-        
-        diag_query = st.text_input("Diagnostic Query:", value="Why is electricity consumption high in Block B Hostel?", key="diag_q")
-        diag_bld = st.selectbox("Target Building:", ["Block B Hostel", "Hostel A", "Central Cafeteria", "Admin Block"], index=0)
-        
-        if st.button("Execute Pipeline Inspector", type="primary", key="btn_diag"):
-            with st.spinner("Tracing full execution stack..."):
-                try:
-                    # Step 1: Context Evidence
-                    evidence_packet = build_ai_context(facility_id="FAC_GEC_CAMPUS", user_query=diag_query, building_id=diag_bld)
-                    
-                    st.markdown("###### Step 1 & 2: EstateIQ Evidence Packet & DIF Baseline Output")
-                    st.json(evidence_packet)
-                    
-                    # Step 3: Full AI Copilot execution
-                    st.markdown("###### Step 3: Groq LLM Execution & Pydantic Schema Validation")
-                    res = ai_copilot_service.query_copilot(user_query=diag_query, building_id=diag_bld)
-                    
-                    st.success(f"✅ Pipeline Executed Successfully! Request ID: `{res.request_id}` | Latency: 1.2s | Fallback: `{res.fallback_used}`")
-                    st.json(res.dict())
-                    
-                except AIServiceError as e:
-                    st.error(f"❌ PIPELINE ERROR: [{e.error_code}] {e.message}")
-                except Exception as e:
-                    st.error(f"❌ UNEXPECTED ERROR: {str(e)}")
-
 
 # ==============================================================================
-# 15. INTELLIGENCE FUSION ENGINE
+# TAB 9: ML MODELS REGISTRY
 # ==============================================================================
-elif "Intelligence Fusion Engine" in menu:
-    st.markdown(f"### {get_icon('BrainCircuit', '#38BDF8', 24)} EstateIQ Intelligence Fusion Engine {render_badge('predicted')}", unsafe_allow_html=True)
-    st.caption("Multi-Source Signal Fusion: Data Quality + Model Consensus + Facility Fingerprint + Business Impact + AI Safety Gate")
-    
-    # Run Fusion Engine evaluation
-    fusion_output = fusion_engine.evaluate_facility_telemetry(
-        facility_id="FAC_GEC_CAMPUS",
-        building_id="BLD_HOSTEL_B",
-        telemetry_batch={"electricity_kwh": 145.0, "occupancy": 160, "temperature": 32.5, "hvac_power_kw": 58.0}
-    )
-    
-    dq = fusion_output["data_quality"]
-    consensus = fusion_output["model_consensus"]
-    confidence = fusion_output["confidence"]
-    impact = fusion_output["business_impact"]
-    rec = fusion_output["recommendation"]
-    
-    # KPI Row 1: High level Fusion Engine Metrics
-    f1, f2, f3, f4 = st.columns(4)
-    with f1: render_kpi_card("Decision Score", f"{fusion_output['decision_score']:.1f}", " /100", f"Priority: {fusion_output['priority_level']}", "up", "Activity", "#F59E0B")
-    with f2: render_kpi_card("AI Confidence", f"{confidence['confidence_percent']:.1f}%", "", f"Level: {confidence['confidence_level']}", "neutral", "ShieldCheck", "#38BDF8")
-    with f3: render_kpi_card("Data Quality", f"{dq['quality_score']:.1f}%", "", f"Coverage: {dq['completeness']:.1f}%", "neutral", "BadgeCheck", "#10B981")
-    with f4: render_kpi_card("Cost of Inaction", f"₹{impact['cost_of_inaction']['annual_inr']:,.0f}", " /yr", f"₹{impact['cost_of_inaction']['daily_inr']:.0f}/day", "up", "AlertTriangle", "#EF4444")
-    
-    st.markdown("---")
-    
-    # Section 2: Model Consensus Accordion & Signals
-    col_c1, col_c2 = st.columns([1.2, 1])
-    with col_c1:
-        st.markdown(f"#### {get_icon('GitBranch', '#C084FC', 20)} Specialized Model Consensus Engine", unsafe_allow_html=True)
-        st.info(f"**Consensus Score:** {consensus['consensus_score']:.1f}% | **Model Disagreement:** {consensus['disagreement_score']:.1f}%")
-        
-        # Model Breakdown table
-        m_df = pd.DataFrame([
-            {"Model Engine": "XGBoost Regressor", "Output Signal": "SURGE DETECTED (142.5 kWh)", "Weight": "30%", "Agreement": "AGREE"},
-            {"Model Engine": "Prophet Time-Series", "Output Signal": "ELEVATED (138.0 kWh)", "Weight": "25%", "Agreement": "AGREE"},
-            {"Model Engine": "Isolation Forest", "Output Signal": "ANOMALOUS (Score: -0.32)", "Weight": "25%", "Agreement": "AGREE"},
-            {"Model Engine": "Local Outlier Factor (LOF)", "Output Signal": "OUTLIER (Score: -1.85)", "Weight": "20%", "Agreement": "AGREE"}
-        ])
-        st.table(m_df)
-        
-    with col_c2:
-        st.markdown(f"#### {get_icon('ShieldCheck', '#38BDF8', 20)} Multi-Source Confidence Breakdown", unsafe_allow_html=True)
-        st.json({
-            "model_agreement_score": consensus['consensus_score'],
-            "data_quality_score": dq['quality_score'],
-            "historical_coverage": confidence['components']['historical_coverage'],
-            "sensor_reliability": dq['sensor_reliability'],
-            "shap_driver_completeness": 95.0,
-            "final_estateiq_confidence": confidence['confidence_score']
-        })
-
-    st.markdown("---")
-    
-    # Section 3: Priority Recommendation & Decision Trace
-    st.markdown(f"#### {get_icon('Sparkles', '#22C55E', 20)} Ranked Opportunity & Recommendation Engine", unsafe_allow_html=True)
-    st.success(f"**Recommended Action:** {rec['recommended_action']} | **Expected Annual Savings:** ₹{rec['expected_saving_inr']:,.0f} | **ROI Horizon:** {rec['payback_months']} months")
-    
-    with st.expander("🔍 View Full Grounded Decision Trace 2.0 (Audit Ledger)"):
-        st.json(fusion_output["decision_trace"])
-
-# ==============================================================================
-# 16. ACTION & OUTCOME VERIFICATION
-# ==============================================================================
-elif "Action & Outcome Verification" in menu:
-    st.markdown(f"### {get_icon('CheckCircle2', '#10B981', 24)} Closed-Loop Action Center & Outcome Verification {render_badge('observed')}", unsafe_allow_html=True)
-    st.caption("Human-in-the-Loop Safety Gate: Approve recommendations and empirically verify pre- vs post-action telemetry impact.")
-    
-    v1, v2 = st.columns(2)
-    with v1:
-        st.markdown("#### 1. Pending Human-in-the-Loop Approval")
-        st.warning("⚠️ **Action ID:** ACT_HVAC_SETBACK_01 — Reset Hostel B thermostat setback to 24.5°C during 13:00-16:00 window.")
-        
-        c_app, c_rej = st.columns(2)
-        if c_app.button("✅ Approve Action", key="btn_approve_action"):
-            st.success("Action Approved! Dispatched to Building Management System (BMS).")
-        if c_rej.button("❌ Reject Action", key="btn_reject_action"):
-            st.error("Action Rejected. Reason recorded in Decision Memory for AI re-calibration.")
-            
-    with v2:
-        st.markdown("#### 2. Pre- vs Post-Action Telemetry Verification")
-        # Run verification check
-        verif_res = outcome_verifier.verify_outcome(
-            decision_id="ACT_HVAC_SETBACK_01",
-            building_id="BLD_HOSTEL_B",
-            pre_action_actual_kwh=145.0,
-            post_action_actual_kwh=118.2,
-            expected_reduction_pct=15.0
-        )
-        
-        st.markdown(f"**Status:** `{verif_res['verification_status']}`")
-        st.markdown(f"- **Pre-Action Baseline:** {verif_res['pre_action_kwh']} kWh")
-        st.markdown(f"- **Post-Action Observed:** {verif_res['post_action_kwh']} kWh")
-        st.markdown(f"- **Verified Reduction:** {verif_res['kwh_reduction_pct']:.1f}%")
-        st.markdown(f"- **Verified Annual Savings:** ₹{verif_res['annual_verified_savings_inr']:,.0f}")
-        
-        if verif_res["is_verified_success"]:
-            st.success("🏆 VERIFIED: Target reduction achieved! Outcome recorded in AI Calibration store.")
-        else:
-            st.warning("⚠️ ATTENTION: Expected impact not fully met.")
-
-# ==============================================================================
-# 17. WHAT-IF SIMULATION
-# ==============================================================================
-elif "What-If Simulation" in menu:
-    st.markdown(f"### {get_icon('FlaskConical', '#38BDF8', 24)} Operational What-If Scenario Simulator {render_badge('simulated')}", unsafe_allow_html=True)
-    
-    sim_col1, sim_col2 = st.columns(2)
-    with sim_col1:
-        hvac_mod = st.slider("Modify HVAC Setback Schedule (% of Baseline Load):", 50, 120, 85)
-        solar_capacity = st.slider("Rooftop Solar PV Addition (kWp):", 0, 500, 150)
-    with sim_col2:
-        water_rec = st.slider("Greywater Recycling Efficiency (%):", 0, 60, 30)
-        tariff_rate = st.slider("Electricity Tariff Rate (₹ INR / kWh):", 6.0, 14.0, 9.5)
-        
-    base_kwh = 140.0
-    sim_kwh = (base_kwh * (hvac_mod / 100.0)) - (solar_capacity * 0.15)
-    sim_kwh = max(10.0, sim_kwh)
-    
-    monthly_savings_kwh = (base_kwh - sim_kwh) * 24 * 30
-    monthly_savings_inr = monthly_savings_kwh * tariff_rate
-    co2_saved_kg = monthly_savings_kwh * 0.82
-    
-    st.markdown("#### Paired Decision Benchmark (With-XAI vs Without-XAI - Paper 2 Integration)")
-    bm1, bm2, bm3 = st.columns(3)
-    with bm1: render_kpi_card("With-XAI Guided Savings", f"{round(max(0, monthly_savings_inr), 0):,.0f}", " ₹/mo", "+7.0% Net Gain vs Heuristic", "down", "Sparkles", "#C084FC")
-    with bm2: render_kpi_card("CO2 Reduced", f"{round(max(0, co2_saved_kg), 1):,}", " kg/mo", "0.82 kg/kWh Baseline", "down", "Leaf", "#22C55E")
-    with bm3: render_kpi_card("Simulated Demand Target", f"{round(sim_kwh, 1)}", " kWh", f"{round(((sim_kwh-base_kwh)/base_kwh)*100, 1)}% Shift", "down", "Zap", "#F59E0B")
-
-    st.markdown("---")
-    sim_df = pd.DataFrame({
-        "Hour": list(range(24)),
-        "Baseline Demand (kWh)": [base_kwh + np.sin(h/4)*20 for h in range(24)],
-        "Simulated Target (kWh)": [sim_kwh + np.sin(h/4)*15 for h in range(24)]
-    })
-    fig_sim = px.line(sim_df, x="Hour", y=["Baseline Demand (kWh)", "Simulated Target (kWh)"], title="24-Hour Simulated Demand Curve Comparison")
-    fig_sim = apply_plotly_theme(fig_sim)
-    st.plotly_chart(fig_sim, use_container_width=True)
-
-# ==============================================================================
-# 16. DATA EXPLORER
-# ==============================================================================
-elif "Data Explorer" in menu:
-    st.markdown(f"### {get_icon('Database', '#38BDF8', 24)} Centralized Facility Data Explorer {render_badge('observed')}", unsafe_allow_html=True)
-    tbl = st.selectbox("Select Table:", ["facilities", "buildings", "energy_readings", "water_readings", "waste_readings", "air_quality_readings", "equipment_sensor_readings", "emissions"])
-    df = repo.query_table(tbl, limit=100)
-    st.dataframe(df, use_container_width=True)
-    
-    if not df.empty:
-        csv_data = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label=f"📥 Download {tbl} Table as CSV",
-            data=csv_data,
-            file_name=f"{tbl}_export.csv",
-            mime="text/csv"
-        )
-
-# ==============================================================================
-# 17. MODEL CENTER
-# ==============================================================================
-elif "Model Center" in menu:
-    st.markdown(f"### {get_icon('BrainCircuit', '#C084FC', 24)} Machine Learning Model Registry & Metrics {render_badge('observed')}", unsafe_allow_html=True)
+elif menu == "ML Models Registry":
+    st.markdown(f"### {get_icon('Cpu', '#2BB49B', 24)} Trained ML Models Registry & Validation Metrics {render_badge('observed')}", unsafe_allow_html=True)
     m_dir = "models"
     if os.path.exists(m_dir):
         files = [f for f in os.listdir(m_dir) if f.endswith("_metadata.joblib")]
@@ -794,64 +562,93 @@ elif "Model Center" in menu:
             })
         st.dataframe(pd.DataFrame(records), use_container_width=True)
 
-# ==============================================================================
-# 18. DATA QUALITY CENTER
-# ==============================================================================
-elif "Data Quality Center" in menu:
-    st.markdown(f"### {get_icon('BadgeCheck', '#10B981', 24)} Data Quality & Sensor Coverage Audit {render_badge('observed')}", unsafe_allow_html=True)
-    q_path = "facility_dataset/reports/data_quality_report.csv"
-    if os.path.exists(q_path):
-        st.dataframe(pd.read_csv(q_path), use_container_width=True)
-    else:
-        st.info("Data Quality Report: All 19 IoT tables scored 98.5%+ coverage with zero critical gaps.")
 
 # ==============================================================================
-# 19. TECHNOLOGY STACK ALIGNMENT
+# TAB 10: ESG & CARBON AUDIT
 # ==============================================================================
-elif "Technology Stack" in menu:
-    st.markdown(f"### {get_icon('Layers', '#38BDF8', 24)} Problem Statement Technology Alignment & Audit {render_badge('observed')}", unsafe_allow_html=True)
-    st.caption("Aligned with Sustainable Facility and Estate Intelligence Dashboard for India Problem Statement Criteria")
+elif menu == "ESG & Carbon Audit":
+    st.markdown(f"### {get_icon('Leaf', '#22C55E', 24)} ESG & Carbon Footprint Audit {render_badge('observed')}", unsafe_allow_html=True)
+    res = sustainability_calc.calculate_score(140, 120, 950, 1000, 42, 110, 185, 200, 0.75, 25)
+    score_val = res.get("composite_sustainability_score", 87.0)
     
-    tech_df = pd.DataFrame([
-        {"Technology": "Python 3.11", "Category": "Core Language", "Status": "CURRENTLY USED", "Purpose": "Primary runtime for API, ML pipeline & analytics"},
-        {"Technology": "Pandas & NumPy", "Category": "Data Engineering", "Status": "CURRENTLY USED", "Purpose": "Telemetry aggregation, feature engineering, data cleaning"},
-        {"Technology": "Scikit-learn", "Category": "Machine Learning", "Status": "CURRENTLY USED", "Purpose": "Linear/Ensemble models, IsolationForest, LOF anomaly detection"},
-        {"Technology": "Prophet", "Category": "Time-Series Forecasting", "Status": "CURRENTLY USED", "Purpose": "Dedicated time-series forecasting baseline with seasonality"},
-        {"Technology": "XGBoost, LightGBM, CatBoost", "Category": "Advanced Tabular ML", "Status": "CURRENTLY USED", "Purpose": "Gradient boosted decision trees for structured facility data"},
-        {"Technology": "SHAP", "Category": "Explainable AI (XAI)", "Status": "CURRENTLY USED", "Purpose": "Grounded feature attribution scores & driver impact breakdown"},
-        {"Technology": "FastAPI & Uvicorn", "Category": "Backend / API Layer", "Status": "CURRENTLY USED", "Purpose": "RESTful microservice endpoints, OpenAPI specs & JWT security"},
-        {"Technology": "Streamlit", "Category": "Data Science Dashboard", "Status": "CURRENTLY USED", "Purpose": "Primary Power BI-style analytical dashboard presentation layer"},
-        {"Technology": "Plotly Express", "Category": "Interactive Visualization", "Status": "CURRENTLY USED", "Purpose": "Interactive demand curves, area charts & time-series graphs"},
-        {"Technology": "GeoPandas & Folium", "Category": "Geospatial GIS Maps", "Status": "CURRENTLY USED", "Purpose": "OpenStreetMap tile renderer & spatial asset location mapping"},
-        {"Technology": "IoT Simulator (365-Day)", "Category": "Data Generator", "Status": "CURRENTLY USED", "Purpose": "15-min interval synthetic telemetry for 19 domain tables"},
-        {"Technology": "paho-mqtt", "Category": "IoT Protocol Gateway", "Status": "CURRENTLY USED", "Purpose": "Hardware readiness interface for ESP32/Arduino IoT brokers"},
-        {"Technology": "Grounded GenAI Engine", "Category": "AI Decision Support", "Status": "CURRENTLY USED", "Purpose": "JSON-grounded 7-part explanation engine with offline fallback"},
-        {"Technology": "PostgreSQL / MongoDB", "Category": "Database Architecture", "Status": "FUTURE READY", "Purpose": "Production persistence layer with in-memory DB fallback"}
-    ])
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1: render_kpi_card("Overall ESG Score", f"{score_val}", " /100", "Tier: GOLD TIER", "down", "Leaf", "#22C55E")
+    with sc2: render_kpi_card("Energy Sub-Score", "84.0", " /100", "Efficient", "neutral", "Zap", "#F5C577")
+    with sc3: render_kpi_card("Carbon Sub-Score", "85.0", " /100", "Compliant", "neutral", "Factory", "#10B981")
     
-    st.dataframe(tech_df, use_container_width=True)
+    st.markdown("---")
+    st.json(res)
+
 
 # ==============================================================================
-# 20. HACKATHON DEMO MODE
+# TAB 11: SUBSCRIPTION & PLANS
 # ==============================================================================
-elif "Hackathon Demo Mode" in menu:
-    st.markdown(f"### {get_icon('Presentation', '#F59E0B', 24)} Live Storytelling Hackathon Demonstration Mode", unsafe_allow_html=True)
-    step = st.select_slider("Select Demo Storyline Step:", options=[1, 2, 3, 4, 5, 6, 7, 8])
+elif menu == "Subscription & Plans":
+    st.markdown(f"### {get_icon('Crown', '#F5C577', 24)} SaaS Subscription & Billing Plans", unsafe_allow_html=True)
     
-    if step == 1:
-        st.info("Step 1: Facility Baseline Normal — Overall campus operations within nominal baseline thresholds.")
-    elif step == 2:
-        st.error("Step 2: Anomaly Injected — Sudden HVAC energy load surge detected in Block B Hostel.")
-    elif step == 3:
-        st.warning("Step 3: ML Anomaly Detector Flags High Severity Alert (Score: 0.88).")
-    elif step == 4:
-        st.markdown("Step 4: SHAP Feature Attribution Analysis — Identifies Outdoor Temp (32°C) and HVAC Load (72%) as primary drivers.")
-    elif step == 5:
-        st.markdown("Step 5: Recommendation Generated — Directs technician to inspect thermostat controls and setback overrides.")
-    elif step == 6:
-        st.markdown("Step 6: AI Assistant Interaction — Provides grounded 7-part explanation without fabricating metrics.")
-    elif step == 7:
-        st.markdown("Step 7: What-If Simulation — Facility manager simulates 15% HVAC load reduction.")
-    elif step == 8:
-        st.success("Step 8: Verified Outcome — 18.5 kWh saved per hour, lowering monthly emissions by ~15.2 kg CO2e!")
+    p1, p2, p3 = st.columns(3)
+    with p1:
+        st.markdown("""
+        <div style="background:rgba(21, 30, 51, 0.9); border:1px solid #2A3857; border-radius:14px; padding:20px;">
+            <h4 style="color:#94A3B8;">Community Tier</h4>
+            <div style="font-size:1.8rem; font-weight:800; color:#FFF; margin:10px 0;">$0 <span style="font-size:0.9rem; font-weight:400;">/mo</span></div>
+            <p style="font-size:0.8rem; color:#CBD5E1;">For single facility research & basic rule-based monitoring.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
+    with p2:
+        st.markdown("""
+        <div style="background:linear-gradient(135deg, #124B3E 0%, #0E3D32 100%); border:2px solid #2BB49B; border-radius:14px; padding:20px;">
+            <span class="pill-badge badge-gold">ACTIVE PLAN</span>
+            <h4 style="color:#2BB49B; margin-top:6px;">Enterprise Pro</h4>
+            <div style="font-size:1.8rem; font-weight:800; color:#FFF; margin:10px 0;">$499 <span style="font-size:0.9rem; font-weight:400;">/mo</span></div>
+            <p style="font-size:0.8rem; color:#CBD5E1;">Full AI Copilot, Groq LPU integration, SHAP explainability & unlimited sensors.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with p3:
+        st.markdown("""
+        <div style="background:rgba(21, 30, 51, 0.9); border:1px solid #2A3857; border-radius:14px; padding:20px;">
+            <h4 style="color:#C084FC;">Govt & Institutional</h4>
+            <div style="font-size:1.8rem; font-weight:800; color:#FFF; margin:10px 0;">Custom</div>
+            <p style="font-size:0.8rem; color:#CBD5E1;">Multi-campus state grid deployment with SLA & dedicated engineers.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+# ==============================================================================
+# TAB 12: AI REST API & DIAGNOSTICS
+# ==============================================================================
+elif menu == "AI REST API & Diagnostics":
+    st.markdown(f"### {get_icon('Radio', '#38BDF8', 24)} AI REST API & Service Diagnostics", unsafe_allow_html=True)
+    st.caption("Server-side Groq Cloud API Gateway, Health Diagnostics & Live Endpoint Testing")
+    
+    health = ai_copilot_service.check_health()
+    
+    s1, s2, s3, s4, s5 = st.columns(5)
+    with s1: render_kpi_card("AI Provider", "Groq Cloud", "", "LPU Hardware", "neutral", "Cpu", "#38BDF8")
+    with s2: render_kpi_card("Active Model", health.model, "", "llama-3.3-70b-versatile", "neutral", "BrainCircuit", "#C084FC")
+    with s3: render_kpi_card("Configuration", "READY" if health.configured else "NOT CONFIGURED", "", "GROQ_API_KEY Check", "up" if health.configured else "down", "Key", "#10B981" if health.configured else "#EF4444")
+    with s4: render_kpi_card("Connection Health", health.status.upper(), "", f"Latency: {health.latency_ms:.1f} ms", "up" if health.status == "healthy" else "down", "Activity", "#10B981" if health.status == "healthy" else "#F59E0B")
+    with s5: render_kpi_card("Operating Mode", health.mode.upper(), "", "ESTATEIQ_MODE", "neutral", "ShieldCheck", "#38BDF8")
+    
+    st.markdown("---")
+    
+    test_prompt = st.text_input("Test Prompt:", value="Respond with exactly: ESTATEIQ_GROQ_CONNECTION_OK")
+    if st.button("Run Connection Test (POST /api/v1/ai/test)", type="primary"):
+        with st.spinner("Sending test ping to Groq API via FastAPI backend..."):
+            test_res = ai_copilot_service.test_connection(prompt=test_prompt)
+            if test_res.success:
+                st.success(f"✅ CONNECTION SUCCESS! Latency: {test_res.latency_ms:.1f} ms | Message: `{test_res.message}`")
+            else:
+                st.error(f"❌ CONNECTION FAILED: [{test_res.error_code}] {test_res.error_message}")
+
+
+# ==============================================================================
+# TAB 13: DATA EXPLORER & TOOLS
+# ==============================================================================
+elif menu == "Data Explorer & Tools":
+    st.markdown(f"### {get_icon('Database', '#38BDF8', 24)} Centralized Facility Data Explorer & Diagnostic Tools", unsafe_allow_html=True)
+    tbl = st.selectbox("Select Data Table:", ["facilities", "buildings", "energy_readings", "water_readings", "waste_readings", "air_quality_readings", "equipment_sensor_readings", "emissions"])
+    df = repo.query_table(tbl, limit=100)
+    st.dataframe(df, use_container_width=True)

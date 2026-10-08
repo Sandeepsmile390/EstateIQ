@@ -229,22 +229,18 @@ def auth_login(req: LoginRequest):
     token = create_user_token(user)
     permissions = ROLE_PERMISSIONS.get(user["role"], [])
     
-    # Map permission list for frontend UI tabs & capabilities
+    # Unrestricted tab opening policy: all logged-in roles can access all tabs
+    tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "esg", "billing", "work-orders", "ai-assistant"]
     role_key_norm = req.role.lower() if req.role else "admin"
     if user["role"] in ["SUPER_ADMIN", "FACILITY_ADMIN"]:
-        tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "esg", "billing", "work-orders", "ai-assistant"]
         avatar_bg = "#124B3E"
     elif user["role"] == "OPERATIONS_ENGINEER":
-        tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "work-orders", "ai-assistant"]
         avatar_bg = "#1E7A68"
     elif user["role"] == "ESG_AUDITOR":
-        tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "esg", "simulator", "work-orders", "ai-assistant"]
         avatar_bg = "#D97706"
     elif user["role"] == "STAFF":
-        tab_permissions = ["overview", "work-orders", "ai-assistant"]
         avatar_bg = "#2563EB"
     else:  # MANAGEMENT_VIEWER
-        tab_permissions = ["overview", "energy", "water", "waste", "mobility", "esg", "work-orders", "ai-assistant"]
         avatar_bg = "#4B5563"
 
     record_audit_event("LOGIN_SUCCESS", user, "LOGIN", "auth", result="SUCCESS")

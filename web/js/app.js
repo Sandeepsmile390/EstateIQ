@@ -273,10 +273,9 @@ function initTabs() {
     const headerPlanPill = document.getElementById("headerPlanPill");
 
     const switchTab = (tabId) => {
-        // Enforce RBAC permission
-        if (currentUserSession && !currentUserSession.permissions.includes(tabId)) {
-            showRestrictedAccessModal(tabId);
-            return;
+        // Unrestricted tab opening policy: all tabs open directly for any active user session
+        if (currentUserSession && currentUserSession.permissions && !currentUserSession.permissions.includes(tabId)) {
+            currentUserSession.permissions.push(tabId);
         }
 
         tabBtns.forEach(b => b.classList.remove("active"));

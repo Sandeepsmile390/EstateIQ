@@ -199,5 +199,81 @@ class TestUniversalAICopilotAntiStatic(unittest.TestCase):
         self.assertGreaterEqual(len(intents), 8)
 
 
+class TestAICopilotResponseFormatRules(unittest.TestCase):
+    """Regression Test Suite for Intent-Grounded AI Copilot Response Formatting."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.router = UniversalQueryRouter()
+        cls.ai_service = EstateIQAIService()
+
+    def setUp(self):
+        self.ai_service.clear_cache()
+
+    def test_greeting_receives_friendly_message_no_analysis_headings(self):
+        """'Hi' receives a friendly greeting with no 'What happened?' or 'Why?' headings or telemetry data."""
+        query = "Hi"
+        route = self.router.route(query)
+        self.assertEqual(route.intent.value, "GREETING")
+        self.assertFalse(route.is_explanatory)
+
+        res = self.ai_service.query_copilot(query)
+        self.assertTrue(res.success)
+        self.assertEqual(res.what_happened, "")
+        self.assertEqual(res.why, [])
+        self.assertEqual(len(res.evidence), 0)
+        self.assertTrue(any(word in res.summary for word in ["Hello", "Hi", "EstateIQ", "Copilot"]))
+
+    def test_algorithm_question_identifies_elite_algo(self):
+        """'Which algorithm is used?' identifies 'Elite algo (created by Team Elite)' and gives plain-language explanation."""
+        query = "Which algorithm is used?"
+        route = self.router.route(query)
+        self.assertEqual(route.intent.value, "MODEL_EXPLANATION")
+        self.assertFalse(route.is_explanatory)
+
+        res = self.ai_service.query_copilot(query)
+        self.assertTrue(res.success)
+        self.assertIn("Elite algo (created by Team Elite)", res.summary)
+        self.assertTrue(any(w in res.summary.lower() for w in ["routes", "converts", "intent"]))
+        self.assertIn("models", res.summary.lower())
+        self.assertEqual(res.what_happened, "")
+        self.assertEqual(res.why, [])
+
+    def test_summarize_recent_energy_use_normal_sentence_no_why_headings(self):
+        """'Summarize recent energy use' uses normal sentence form without 'Why?' or 'What happened?' headings."""
+        query = "Summarize recent energy use"
+        route = self.router.route(query)
+        self.assertFalse(route.is_explanatory)
+
+        res = self.ai_service.query_copilot(query)
+        self.assertTrue(res.success)
+        self.assertEqual(res.what_happened, "")
+        self.assertEqual(res.why, [])
+        self.assertTrue(len(res.summary) > 20)
+
+    def test_why_did_energy_use_increase_uses_both_sections(self):
+        """'Why did energy use increase?' uses both 'What happened?' and 'Why?' sections."""
+        query = "Why did energy use increase?"
+        route = self.router.route(query)
+        self.assertTrue(route.is_explanatory)
+
+        res = self.ai_service.query_copilot(query)
+        self.assertTrue(res.success)
+        self.assertNotEqual(res.what_happened, "")
+        self.assertGreater(len(res.why), 0)
+
+    def test_what_happened_to_water_consumption_uses_both_sections(self):
+        """'What happened to water consumption?' uses both 'What happened?' and 'Why?' sections."""
+        query = "What happened to water consumption?"
+        route = self.router.route(query)
+        self.assertTrue(route.is_explanatory)
+
+        res = self.ai_service.query_copilot(query)
+        self.assertTrue(res.success)
+        self.assertNotEqual(res.what_happened, "")
+        self.assertGreater(len(res.why), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
+

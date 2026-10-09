@@ -150,7 +150,16 @@ class EstateIQDIF:
                 implementation_cost_inr=0.0,
                 effort="LOW",
                 operational_risk="LOW",
-                confidence_pct=confidence.confidence_pct
+                confidence_pct=confidence.confidence_pct,
+                why_recommended=[
+                    "Zero CAPEX, instant setpoint adjustment via BMS integration.",
+                    "Directly addresses primary SHAP factor (HVAC Load).",
+                    f"High decision confidence ({confidence.confidence_pct}%) ensures zero occupant discomfort risk."
+                ],
+                why_not_alternatives=[
+                    "Chiller Replacement: Infeasible capital expenditure (>₹15,00,000) with 3-week lead time vs instant setpoint optimization.",
+                    "Complete HVAC Shutdown: Unacceptable breach of thermal comfort policy (target 24.5°C)."
+                ]
             )
         ]
         ranked_recommendations = self.recommendation_ranker.rank(candidates)

@@ -1,5 +1,5 @@
 dataset,total_records,missing_count,missing_pct,duplicates,status
-energy_readings.csv,172800,2592,1.5,0,VALIDATED_PASSED
-water_readings.csv,172800,2073,1.2,0,VALIDATED_PASSED
-waste_readings.csv,483840,0,0.0,0,VALIDATED_PASSED
-air_quality_readings.csv,120960,0,0.0,0,VALIDATED_PASSED
+energy_readings.csv,350400,5256,1.5,0,VALIDATED_PASSED
+water_readings.csv,350400,4204,1.2,0,VALIDATED_PASSED
+waste_readings.csv,981120,0,0.0,0,VALIDATED_PASSED
+air_quality_readings.csv,245280,0,0.0,0,VALIDATED_PASSED

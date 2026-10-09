@@ -24,7 +24,8 @@ class ContextualBaselineEngine:
         occupancy: int = 140,
         temperature: float = 31.5,
         hvac_load: float = 75.0,
-        operating_schedule: Optional[str] = None
+        operating_schedule: Optional[str] = None,
+        history_days: int = 365
     ) -> Dict[str, Any]:
         """Calculates expected contextual baseline & dynamic upper/lower normal bounds."""
         prof = self.fingerprint_engine.get_fingerprint(building_id)
@@ -52,8 +53,10 @@ class ContextualBaselineEngine:
 
         expected_kwh = round(float(expected_kwh), 2)
 
-        # Dynamic Adaptive Normal Bounds (±20% or ±15 kWh variance)
-        normal_std = max(12.0, expected_kwh * 0.18)
+        # Dynamic Adaptive Normal Bounds (±18% variance standard, expanded 1.8x if COLD_START)
+        is_cold_start = history_days < 14
+        variance_factor = 0.32 if is_cold_start else 0.18
+        normal_std = max(12.0, expected_kwh * variance_factor)
         lower_bound = round(max(5.0, expected_kwh - (1.96 * normal_std)), 2)
         upper_bound = round(expected_kwh + (1.96 * normal_std), 2)
 
@@ -67,6 +70,8 @@ class ContextualBaselineEngine:
             "normal_std_dev": round(normal_std, 2),
             "building_type": prof.get("type", "Residential"),
             "schedule_mult": round(sched_mult, 2),
+            "is_cold_start": is_cold_start,
+            "cold_start_mode": "COLD_START_EXPANDED_BOUNDS" if is_cold_start else "ESTABLISHED_BASELINE",
             "provenance": "CONTEXTUAL_BASELINE"
         }
 

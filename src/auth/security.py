@@ -1,6 +1,6 @@
 """
 EstateIQ Security & Enterprise Role-Based & Attribute-Based Access Control (RBAC/ABAC) Module.
-Provides identity authentication, PBKDF2-SHA256 password hashing, HMAC-SHA256 JWT tokens,
+Provides identity authentication, Argon2id password hashing, HMAC-SHA256 JWT tokens,
 centralized permission matrix, server-side dependency enforcement, and facility object-level authorization.
 """
 
@@ -14,12 +14,12 @@ from typing import Dict, Any, List, Optional
 from fastapi import HTTPException, Security, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-# --- Secret Configuration ---
-JWT_SECRET = os.environ.get("JWT_SECRET")
-if not JWT_SECRET:
-    # Development secret fallback with warning; in production required via env
-    JWT_SECRET = "estateiq_prod_sec_key_2026_9823748293748293"
+from src.security.password import hash_password as argon2_hash_password, verify_password as argon2_verify_password
+from src.security.secrets import redact_secrets, get_secret
+from src.security.encryption_service import get_encryption_service
 
+# --- Secret Configuration ---
+JWT_SECRET = get_secret("JWT_SECRET", "estateiq_prod_sec_key_2026_9823748293748293", required_in_prod=False)
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_SECONDS = 3600 * 8  # 8 hours session
 
@@ -28,25 +28,15 @@ security_scheme = HTTPBearer(auto_error=False)
 # --- Revoked Tokens Blacklist ---
 REVOKED_TOKENS = set()
 
-# --- Password Hashing Helpers (PBKDF2-HMAC-SHA256) ---
-def hash_password(password: str, salt: Optional[str] = None) -> str:
-    if not salt:
-        salt = os.urandom(16).hex()
-    key = hashlib.pbkdf2_hmac(
-        'sha256',
-        password.encode('utf-8'),
-        salt.encode('utf-8'),
-        iterations=100000
-    ).hex()
-    return f"{salt}:{key}"
+# --- Password Hashing Helpers (Pure Argon2id) ---
+def hash_password(password: str) -> str:
+    """Hashes password strictly using Argon2id."""
+    return argon2_hash_password(password)
 
 def verify_password(password: str, stored_hash: str) -> bool:
-    try:
-        salt, key = stored_hash.split(":")
-        new_hash = hash_password(password, salt)
-        return hmac.compare_digest(new_hash, stored_hash)
-    except Exception:
-        return False
+    """Verifies password strictly against Argon2id hash."""
+    is_valid, _ = argon2_verify_password(password, stored_hash)
+    return is_valid
 
 # --- Lightweight JWT Helper (HMAC-SHA256) ---
 def _b64url_encode(data: bytes) -> str:
@@ -145,8 +135,7 @@ LEGACY_ROLE_MAP = {
     "staff": "STAFF"
 }
 
-# --- User Database (Simulated Production Store with Pre-Hashed Passwords) ---
-# Pre-hash standard passwords: Admin@123456, Lead@123456, Engineer@123, Auditor@123, Viewer@123, Staff@123
+# --- User Database (Simulated Production Store with Argon2id Password Hashes) ---
 USERS_DB: Dict[str, Dict[str, Any]] = {
     "admin@estateiq.in": {
         "user_id": "USR_SUPER_00",
@@ -156,7 +145,7 @@ USERS_DB: Dict[str, Dict[str, Any]] = {
         "facility_id": "FAC_GEC_01",
         "role": "SUPER_ADMIN",
         "role_label": "System Administrator",
-        "password_hash": hash_password("Admin@123456", "salt_super_admin"),
+        "password_hash": argon2_hash_password("Admin@123456"),
         "status": "ACTIVE"
     },
     "lead@estateiq.in": {
@@ -167,7 +156,7 @@ USERS_DB: Dict[str, Dict[str, Any]] = {
         "facility_id": "FAC_GEC_01",
         "role": "FACILITY_ADMIN",
         "role_label": "Facility Lead & Admin",
-        "password_hash": hash_password("Lead@123456", "salt_facility_lead"),
+        "password_hash": argon2_hash_password("Lead@123456"),
         "status": "ACTIVE"
     },
     "alex.chen@estateiq.in": {
@@ -178,7 +167,7 @@ USERS_DB: Dict[str, Dict[str, Any]] = {
         "facility_id": "FAC_GEC_01",
         "role": "OPERATIONS_ENGINEER",
         "role_label": "Operations Engineer",
-        "password_hash": hash_password("Engineer@123", "salt_alex_chen"),
+        "password_hash": argon2_hash_password("Engineer@123"),
         "status": "ACTIVE"
     },
     "priya.sharma@estateiq.in": {
@@ -189,7 +178,7 @@ USERS_DB: Dict[str, Dict[str, Any]] = {
         "facility_id": "FAC_GEC_01",
         "role": "ESG_AUDITOR",
         "role_label": "ESG Compliance Auditor",
-        "password_hash": hash_password("Auditor@123", "salt_priya_sharma"),
+        "password_hash": argon2_hash_password("Auditor@123"),
         "status": "ACTIVE"
     },
     "sam.taylor@estateiq.in": {
@@ -200,7 +189,7 @@ USERS_DB: Dict[str, Dict[str, Any]] = {
         "facility_id": "FAC_GEC_01",
         "role": "MANAGEMENT_VIEWER",
         "role_label": "Campus Stakeholder",
-        "password_hash": hash_password("Viewer@123", "salt_sam_taylor"),
+        "password_hash": argon2_hash_password("Viewer@123"),
         "status": "ACTIVE"
     },
     "staff@estateiq.in": {
@@ -211,7 +200,7 @@ USERS_DB: Dict[str, Dict[str, Any]] = {
         "facility_id": "FAC_GEC_01",
         "role": "STAFF",
         "role_label": "Field Maintenance Staff",
-        "password_hash": hash_password("Staff@123", "salt_staff_arjun"),
+        "password_hash": argon2_hash_password("Staff@123"),
         "status": "ACTIVE"
     }
 }
@@ -226,7 +215,6 @@ USER_ROLES_DB: Dict[str, Dict[str, Any]] = {
     "admin@estateiq.in": USERS_DB["admin@estateiq.in"]
 }
 
-# --- Default Active Session (for dev/test convenience when no auth header provided) ---
 DEFAULT_USER = USERS_DB["lead@estateiq.in"]
 
 
@@ -245,11 +233,14 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
     user = USERS_DB.get(email_clean)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
+    
     if not verify_password(password, user["password_hash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
+
     if user.get("status") != "ACTIVE":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated.")
     return user
+
 
 def create_user_token(user: Dict[str, Any]) -> str:
     now = time.time()
@@ -274,7 +265,6 @@ def revoke_token(token: str):
 def verify_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Security(security_scheme)) -> Dict[str, Any]:
     if credentials and credentials.credentials:
         token = credentials.credentials
-        # Handle legacy tokens for test compatibility
         if token.startswith("bearer_estateiq_") or token in ["admin", "engineer", "auditor", "viewer"]:
             r_key = token.replace("bearer_estateiq_", "").split("_")[0]
             mapped_role = LEGACY_ROLE_MAP.get(r_key, "FACILITY_ADMIN")
@@ -284,7 +274,6 @@ def verify_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Se
                     u_copy["permissions"] = ROLE_PERMISSIONS.get(u_copy["role"], [])
                     return u_copy
 
-        # Standard JWT decoding
         payload = decode_jwt(token)
         return {
             "user_id": payload["sub"],
@@ -297,7 +286,6 @@ def verify_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Se
             "token": token
         }
     
-    # Fallback to default user context for dev/testing when no token provided
     default_copy = DEFAULT_USER.copy()
     default_copy["permissions"] = ROLE_PERMISSIONS.get(default_copy["role"], [])
     return default_copy

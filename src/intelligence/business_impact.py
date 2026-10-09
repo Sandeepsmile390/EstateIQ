@@ -40,8 +40,11 @@ class IntelligenceBusinessImpactEngine:
         annual_co2_tons = round((residual_kwh * 24 * 365 * self.co2_factor) / 1000.0, 2)
 
         # Cost of Inaction Breakdown
+        weekly_cost_inr = round(daily_cost_inr * 7.0, 2)
         cost_of_inaction = {
             "daily_cost_inaction_inr": daily_cost_inr,
+            "cost_7day_inaction_inr": weekly_cost_inr,
+            "cost_30day_inaction_inr": monthly_cost_inr,
             "monthly_cost_inaction_inr": monthly_cost_inr,
             "annualized_cost_inaction_inr": annual_cost_inr,
             "annualized_cost_inaction_usd": round(annual_cost_inr * self.inr_to_usd, 2),

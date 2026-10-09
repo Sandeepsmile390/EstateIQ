@@ -19,7 +19,10 @@ from src.ai.schemas import (
     AIHealthResponse, AITestResponse
 )
 from src.ai.safety import AISafetyGuard
-from src.ai.prompts import SYSTEM_PROMPT_COPILOT, SYSTEM_PROMPT_CAPABILITY, SYSTEM_PROMPT_PROJECT, PROMPT_TEMPLATE_ANOMALY
+from src.ai.prompts import (
+    SYSTEM_PROMPT_COPILOT, SYSTEM_PROMPT_CAPABILITY, SYSTEM_PROMPT_PROJECT,
+    SYSTEM_PROMPT_GREETING, SYSTEM_PROMPT_ALGORITHM, PROMPT_TEMPLATE_ANOMALY
+)
 from src.ai.usage_tracker import GLOBAL_USAGE_TRACKER
 from src.ai.exceptions import (
     AIServiceError, GroqConfigurationError, GroqAuthenticationError,
@@ -209,7 +212,11 @@ class EstateIQAIService:
 
         # Select intent-appropriate system prompt
         intent_type = evidence_packet.get("intent_type", "ANOMALY")
-        if intent_type == "SYSTEM_CAPABILITY":
+        if intent_type == "GREETING":
+            system_prompt = SYSTEM_PROMPT_GREETING
+        elif intent_type == "MODEL_EXPLANATION" or "algorithm" in sanitized_query.lower():
+            system_prompt = SYSTEM_PROMPT_ALGORITHM
+        elif intent_type == "SYSTEM_CAPABILITY":
             system_prompt = SYSTEM_PROMPT_CAPABILITY
         elif intent_type == "PROJECT_EXPLANATION":
             system_prompt = SYSTEM_PROMPT_PROJECT
@@ -244,6 +251,14 @@ class EstateIQAIService:
                 duration_ms = round((time.time() - start_time) * 1000.0, 2)
                 GLOBAL_USAGE_TRACKER.log_request(model_name, duration_ms, success=True, fallback_used=False)
 
+                is_explanatory = evidence_packet.get("is_explanatory", evidence_packet.get("query_meta", {}).get("is_explanatory", False))
+                if is_explanatory:
+                    what_happened_final = copilot_resp.what_happened or evidence_packet.get("what_happened") or f"Telemetry observation for query: '{sanitized_query}'."
+                    why_final = [copilot_resp.why_it_happened] if copilot_resp.why_it_happened else (evidence_packet.get("why") if isinstance(evidence_packet.get("why"), list) else [evidence_packet.get("why_it_happened", "Primary deviation derived from telemetry.")])
+                else:
+                    what_happened_final = ""
+                    why_final = []
+
                 hourly_cost = evidence_packet.get("business_impact", {}).get("hourly_cost_inr", 500) if isinstance(evidence_packet.get("business_impact"), dict) else 500
                 formatted_actions = [
                     {
@@ -259,11 +274,11 @@ class EstateIQAIService:
                     request_id=req_id,
                     response=copilot_resp.summary,
                     summary=copilot_resp.summary,
-                    what_happened=copilot_resp.what_happened,
-                    why=[copilot_resp.why_it_happened],
+                    what_happened=what_happened_final,
+                    why=why_final,
                     evidence=[
                         {"metric": k, "value": v} for k, v in evidence_packet.get("telemetry_observed", {}).items()
-                    ],
+                    ] if is_explanatory else [],
                     recommended_actions=formatted_actions,
                     assumptions=copilot_resp.assumptions,
                     limitations=copilot_resp.limitations,
@@ -309,16 +324,8 @@ class EstateIQAIService:
         now_iso: str
     ) -> CopilotQueryResponse:
         """Dynamic intent-grounded fallback response when Groq API key is unconfigured or unavailable."""
-        summary = evidence_packet.get("summary") or evidence_packet.get("analysis_narrative") or "EstateIQ Facility Intelligence Analysis."
-        what_happened = evidence_packet.get("what_happened") or f"Telemetry analysis for query: '{user_query}'"
-        
-        raw_why = evidence_packet.get("why")
-        if isinstance(raw_why, list):
-            why_list = raw_why
-        elif isinstance(raw_why, str):
-            why_list = [raw_why]
-        else:
-            why_list = [evidence_packet.get("why_it_happened", "Derived from current facility telemetry.")]
+        intent_type = evidence_packet.get("intent_type", "")
+        is_explanatory = evidence_packet.get("is_explanatory", False)
 
         raw_actions = evidence_packet.get("recommended_actions", ["Review facility telemetry parameters"])
         formatted_actions = []
@@ -333,6 +340,54 @@ class EstateIQAIService:
                 })
 
         conf = evidence_packet.get("confidence", evidence_packet.get("confidence_percent", 85.0))
+        if isinstance(conf, dict):
+            conf = conf.get("confidence_percent", 85.0)
+
+        if intent_type == "GREETING":
+            summary = evidence_packet.get("greeting_message", "Hello! I am your EstateIQ AI Decision Intelligence Copilot. How can I assist you with campus facility monitoring, energy forecasts, water/waste audits, or anomaly insights today?")
+            what_happened = ""
+            why_list = []
+            badge = "[ESTATEIQ AI]"
+            evidence_list = []
+            actions_list = [
+                {"title": "Ask about Block B energy surge", "reason": "Sample question", "expected_cost_saving_inr": 0},
+                {"title": "Check water telemetry status", "reason": "Sample question", "expected_cost_saving_inr": 0}
+            ]
+        elif intent_type == "MODEL_EXPLANATION" or "algorithm" in user_query.lower():
+            info = evidence_packet.get("algorithm_info", {})
+            summary = info.get("description") or "EstateIQ relies on 'Elite algo (created by Team Elite)', an intelligent decision-support pipeline. It routes your natural language query into specialized operational intents, retrieves relevant facility readings and contextual baselines, and grounds its responses using explainable decision trees and SHAP attributions. Note that task-specific registered models (such as CatBoost for energy forecasting, Isolation Forest for water anomalies, or Prophet for trend predictions) may differ depending on the domain task."
+            what_happened = ""
+            why_list = []
+            badge = "[ELITE ALGO]"
+            evidence_list = []
+            actions_list = [
+                {"title": "View Registered ML Models", "reason": "System inspection", "expected_cost_saving_inr": 0},
+                {"title": "Run AI Anomaly Audit", "reason": "Diagnostic execution", "expected_cost_saving_inr": 0}
+            ]
+        elif not is_explanatory:
+            summary = evidence_packet.get("summary") or evidence_packet.get("analysis_narrative") or f"Facility telemetry for '{user_query}': All monitored parameters are within nominal operational thresholds across active campus blocks."
+            what_happened = ""
+            why_list = []
+            badge = f"[{evidence_packet.get('query_meta', {}).get('data_source', 'REAL SENSOR')}]"
+            evidence_list = [{"metric": k, "value": v} for k, v in evidence_packet.get("telemetry_observed", {}).items()]
+            actions_list = formatted_actions
+        else:
+            summary = evidence_packet.get("summary") or f"Telemetry deviation analysis for '{user_query}'."
+            obs_kwh = evidence_packet.get("telemetry_observed", {}).get("actual_kwh")
+            bld = evidence_packet.get("query_meta", {}).get("building_id", "Block B Hostel")
+            if obs_kwh:
+                what_happened = f"In {bld}, actual energy consumption reached {obs_kwh} kWh at peak interval vs baseline expected load."
+            else:
+                what_happened = evidence_packet.get("what_happened") or f"Telemetry observation for query: '{user_query}'."
+
+            shap_attrib = evidence_packet.get("shap_attribution")
+            if shap_attrib:
+                why_list = [f"SHAP feature driver: {shap_attrib.get('primary_driver', 'HVAC load')} accounted for primary deviation."]
+            else:
+                why_list = [evidence_packet.get("why_it_happened") or "Primary deviation attributed to ambient load variation. If sensor telemetry does not establish root cause, check manual equipment overrides."]
+            badge = f"[{evidence_packet.get('query_meta', {}).get('data_source', 'REAL SENSOR')}]"
+            evidence_list = [{"metric": k, "value": v} for k, v in evidence_packet.get("telemetry_observed", {}).items()]
+            actions_list = formatted_actions
 
         return CopilotQueryResponse(
             success=True,
@@ -341,10 +396,8 @@ class EstateIQAIService:
             summary=summary,
             what_happened=what_happened,
             why=why_list,
-            evidence=[
-                {"metric": k, "value": v} for k, v in evidence_packet.get("telemetry_observed", {}).items()
-            ],
-            recommended_actions=formatted_actions,
+            evidence=evidence_list,
+            recommended_actions=actions_list,
             assumptions=evidence_packet.get("assumptions", ["Facility telemetry sensors operational"]),
             limitations=evidence_packet.get("limitations", ["Analysis constrained to retrieved period"]),
             confidence=float(conf),
@@ -353,5 +406,5 @@ class EstateIQAIService:
             model="estateiq-dif-v1",
             generated_at=now_iso,
             fallback_used=True,
-            data_source_badge=f"[{evidence_packet.get('query_meta', {}).get('data_source', 'REAL SENSOR')}]"
+            data_source_badge=badge
         )

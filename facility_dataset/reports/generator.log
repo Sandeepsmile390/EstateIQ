@@ -177,3 +177,62 @@
 2026-10-02 19:38:34,348 [INFO] Imported table 'safety_incidents' (19 rows) into facility.db
 2026-10-02 19:38:34,554 [INFO] Imported table 'emissions' (35416 rows) into facility.db
 2026-10-02 19:38:34,555 [INFO] SQLite database built successfully at facility.db.
+2026-10-09 03:15:55,386 [INFO] Running master generation with parameters: days=365, start_date=2026-01-01, frequency=15min, seed=42
+2026-10-09 03:15:55,388 [INFO] Generating Facility Metadata (facilities, buildings, locations, assets)...
+2026-10-09 03:15:55,418 [INFO] Facility Metadata generated successfully.
+2026-10-09 03:15:55,418 [INFO] Generating Campus Events Schedule (events.csv)...
+2026-10-09 03:15:55,421 [INFO] Events Schedule generated successfully.
+2026-10-09 03:15:55,421 [INFO] Generating 15-minute Weather Readings (weather_readings.csv)...
+2026-10-09 03:15:56,118 [INFO] Weather readings generated successfully (35040 rows).
+2026-10-09 03:15:56,119 [INFO] Generating 15-minute Occupancy Readings (occupancy_readings.csv)...
+2026-10-09 03:16:05,310 [INFO] Occupancy readings generated successfully (350400 rows).
+2026-10-09 03:16:05,315 [INFO] Generating 15-minute Energy Readings (energy_readings.csv)...
+2026-10-09 03:16:28,684 [INFO] Energy readings generated successfully (350400 rows).
+2026-10-09 03:16:28,844 [INFO] Generating 15-minute Water Readings (water_readings.csv)...
+2026-10-09 03:16:50,326 [INFO] Water readings generated successfully (350400 rows).
+2026-10-09 03:16:50,404 [INFO] Generating Waste Bins, Collection Events, and Fill Readings...
+2026-10-09 03:18:50,804 [INFO] Waste readings generated successfully (981120 rows, 2695 collection events).
+2026-10-09 03:18:50,816 [INFO] Generating 15-minute Air Quality Readings (air_quality_readings.csv)...
+2026-10-09 03:19:01,278 [INFO] Air Quality readings generated successfully (245280 rows).
+2026-10-09 03:19:01,358 [INFO] Generating 15-minute Traffic Readings (traffic_readings.csv)...
+2026-10-09 03:19:10,564 [INFO] Traffic readings generated successfully (210240 rows).
+2026-10-09 03:19:10,584 [INFO] Generating 15-minute Parking Readings (parking_readings.csv)...
+2026-10-09 03:19:17,515 [INFO] Parking readings generated successfully (140160 rows).
+2026-10-09 03:19:17,532 [INFO] Generating 15-minute Equipment Sensor Readings (equipment_sensor_readings.csv)...
+2026-10-09 03:21:47,723 [INFO] Equipment sensor readings generated successfully (1226400 rows, 278 maintenance events).
+2026-10-09 03:21:48,757 [INFO] Generating Sparse Safety Incidents (safety_incidents.csv)...
+2026-10-09 03:21:50,188 [INFO] Safety incidents generated successfully (55 sparse events).
+2026-10-09 03:21:50,189 [INFO] Generating 15-minute Emissions Records (emissions.csv)...
+2026-10-09 03:21:55,028 [INFO] Emissions records generated successfully (71848 rows).
+2026-10-09 03:21:55,043 [INFO] Injecting Realistic Anomaly Scenarios & Ground-Truth Labels...
+2026-10-09 03:22:15,022 [INFO] Energy anomalies injected successfully.
+2026-10-09 03:22:24,889 [INFO] Water anomalies injected successfully.
+2026-10-09 03:23:07,819 [INFO] Equipment anomalies injected successfully.
+2026-10-09 03:23:07,846 [INFO] Building ML-ready datasets in data/ml/ with lag features and future targets...
+2026-10-09 03:23:31,165 [INFO] Saved ML dataset: energy_forecasting.csv (349400 rows)
+2026-10-09 03:23:41,517 [INFO] Saved ML dataset: water_anomaly.csv (350320 rows)
+2026-10-09 03:24:09,459 [INFO] Saved ML dataset: waste_overflow.csv (981008 rows)
+2026-10-09 03:24:13,948 [INFO] Saved ML dataset: traffic_prediction.csv (210192 rows)
+2026-10-09 03:24:53,550 [INFO] Saved ML dataset: equipment_failure.csv (1226365 rows)
+2026-10-09 03:24:53,638 [INFO] Running Data Validation Checks & Generating Quality Reports...
+2026-10-09 03:25:08,171 [INFO] Validation checks PASSED 100%%. Quality reports written to reports/.
+2026-10-09 03:25:08,200 [INFO] Generating Data Dictionary (data_dictionary.csv)...
+2026-10-09 03:25:08,207 [INFO] Data dictionary saved to data_dictionary.csv.
+2026-10-09 03:25:08,208 [INFO] Building SQLite database (facility.db)...
+2026-10-09 03:25:08,266 [INFO] Imported table 'facilities' (1 rows) into facility.db
+2026-10-09 03:25:08,303 [INFO] Imported table 'buildings' (10 rows) into facility.db
+2026-10-09 03:25:08,340 [INFO] Imported table 'locations' (7 rows) into facility.db
+2026-10-09 03:25:08,361 [INFO] Imported table 'assets' (35 rows) into facility.db
+2026-10-09 03:25:08,392 [INFO] Imported table 'events' (5 rows) into facility.db
+2026-10-09 03:25:08,699 [INFO] Imported table 'weather_readings' (35040 rows) into facility.db
+2026-10-09 03:25:11,009 [INFO] Imported table 'occupancy_readings' (350400 rows) into facility.db
+2026-10-09 03:25:15,124 [INFO] Imported table 'energy_readings' (350400 rows) into facility.db
+2026-10-09 03:25:18,913 [INFO] Imported table 'water_readings' (350400 rows) into facility.db
+2026-10-09 03:25:31,590 [INFO] Imported table 'waste_readings' (981120 rows) into facility.db
+2026-10-09 03:25:34,648 [INFO] Imported table 'air_quality_readings' (245280 rows) into facility.db
+2026-10-09 03:25:36,588 [INFO] Imported table 'traffic_readings' (210240 rows) into facility.db
+2026-10-09 03:25:37,972 [INFO] Imported table 'parking_readings' (140160 rows) into facility.db
+2026-10-09 03:25:48,309 [INFO] Imported table 'equipment_sensor_readings' (1226400 rows) into facility.db
+2026-10-09 03:25:48,365 [INFO] Imported table 'safety_incidents' (55 rows) into facility.db
+2026-10-09 03:25:48,775 [INFO] Imported table 'emissions' (71848 rows) into facility.db
+2026-10-09 03:25:48,777 [INFO] SQLite database built successfully at facility.db.

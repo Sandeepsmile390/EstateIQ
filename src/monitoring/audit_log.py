@@ -1,13 +1,14 @@
 """
 Structured Enterprise Audit Logging Engine (src/monitoring/audit_log.py).
 Records immutable security and operational audit events across authentication, action execution,
-simulation runs, role changes, and permission validations.
+simulation runs, role changes, and permission validations with automatic secret redaction.
 """
 
 import time
 import uuid
 import pandas as pd
 from typing import Dict, Any, List, Optional
+from src.security.secrets import redact_secrets
 
 # Global in-memory audit trail store
 AUDIT_LOGS_STORE: List[Dict[str, Any]] = [
@@ -37,6 +38,9 @@ def record_audit_event(
     metadata: Optional[Dict[str, Any]] = None,
     request_id: Optional[str] = None
 ) -> Dict[str, Any]:
+    # Automatically redact any secrets in metadata payload
+    sanitized_metadata = redact_secrets(metadata or {})
+    
     audit_entry = {
         "audit_id": f"AUD_{uuid.uuid4().hex[:8]}",
         "request_id": request_id or f"REQ_{uuid.uuid4().hex[:6]}",
@@ -50,7 +54,7 @@ def record_audit_event(
         "resource_id": resource_id,
         "action": action,
         "result": result,
-        "metadata": metadata or {}
+        "metadata": sanitized_metadata
     }
     AUDIT_LOGS_STORE.append(audit_entry)
     return audit_entry

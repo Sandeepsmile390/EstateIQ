@@ -64,6 +64,9 @@ class PredictionResult:
     champion_model: str
     challenger_predictions: Dict[str, float] = field(default_factory=dict)
     models_executed: List[str] = field(default_factory=list)
+    ensemble_prediction: float = 0.0
+    model_weights: Dict[str, float] = field(default_factory=dict)
+    model_metrics: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
 @dataclass
 class AnomalyResult:
@@ -117,6 +120,8 @@ class RecommendationCandidate:
     operational_risk: str
     confidence_pct: float
     utility_score: float = 0.0
+    why_recommended: List[str] = field(default_factory=list)
+    why_not_alternatives: List[str] = field(default_factory=list)
 
 @dataclass
 class DecisionResult:

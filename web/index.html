@@ -298,9 +298,9 @@
                     <span class="nav-label">AI Co-Pilot</span>
                     <span class="badge-count bg-mint">AI</span>
                 </a>
-                <a href="#models" class="nav-item" id="navModels" data-tab-nav="models" data-tooltip="Trained ML Models Registry">
-                    <i class="fa-solid fa-microchip"></i>
-                    <span class="nav-label">ML Models</span>
+                <a href="#faq" class="nav-item" id="navFaq" data-tab-nav="faq" data-tooltip="System FAQ & Algorithm Knowledge Hub">
+                    <i class="fa-solid fa-circle-question text-mint"></i>
+                    <span class="nav-label">FAQ</span>
                 </a>
                 <a href="#esg" class="nav-item" id="navEsg" data-tab-nav="esg" data-tooltip="ESG & Carbon Footprint Audit">
                     <i class="fa-solid fa-earth-americas"></i>
@@ -633,9 +633,9 @@
                         <span>What-If Simulator</span>
                         <div class="tab-indicator"></div>
                     </button>
-                    <button class="tab-btn" data-tab="models" id="tabModels">
-                        <i class="fa-solid fa-microchip"></i>
-                        <span>ML Registry</span>
+                    <button class="tab-btn" data-tab="faq" id="tabFaq">
+                        <i class="fa-solid fa-circle-question text-mint"></i>
+                        <span>FAQ</span>
                         <div class="tab-indicator"></div>
                     </button>
                     <button class="tab-btn" data-tab="esg" id="tabEsg">
@@ -1663,32 +1663,641 @@
                             </div>
 
                         </div>
-
                     </div>
                 </div>
 
-                <!-- TAB CONTENT 8: ML MODELS REGISTRY -->
-                <div class="tab-content" id="contentModels">
+                <!-- TAB CONTENT 8: FAQ & SYSTEM KNOWLEDGE HUB -->
+                <div class="tab-content" id="contentFaq">
                     <div class="module-tab-wrapper">
                         
-                        <div class="interactive-card">
+                        <!-- Hero Section -->
+                        <div class="interactive-card border-left-mint">
                             <div class="card-header-styled">
-                                <i class="fa-solid fa-microchip text-teal"></i>
+                                <i class="fa-solid fa-circle-question text-mint text-xl"></i>
                                 <div>
-                                    <h3>Trained Machine Learning Model Registry</h3>
-                                    <p>9 Registered Machine Learning Models & Metadata (`/api/v1/models`)</p>
+                                    <h3 class="text-xl font-bold">EstateIQ System FAQ & Algorithm Knowledge Hub</h3>
+                                    <p class="text-secondary">Comprehensive documentation on EstateIQ algorithms, system architecture, multi-signal decision intelligence, and operational capabilities.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 1: WHAT IS OUR ALGORITHM? -->
+                        <div class="interactive-card border-left-blue margin-top-md">
+                            <div class="algo-section-header">
+                                <div class="algo-header-left">
+                                    <div class="algo-title-group">
+                                        <div class="algo-beacon-icon">
+                                            <i class="fa-solid fa-microchip"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="algo-main-title">EstateIQ Multi-Tier Hybrid Algorithmic Architecture</h3>
+                                            <p class="algo-main-subtitle">Combining specialist predictive ML, multivariate anomaly fusion, TreeSHAP causal explainability, and real-time financial waste quantification.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="algo-header-right">
+                                    <span class="badge-algo-tier"><i class="fa-solid fa-layer-group text-mint"></i> 4-Tier Hybrid Engine</span>
+                                    <span class="badge-algo-perf"><i class="fa-solid fa-bolt text-gold"></i> Sub-5ms Total Latency</span>
                                 </div>
                             </div>
 
-                            <div class="models-grid" id="mlModelsGrid">
-                                <div class="model-card-item">
-                                    <div class="mc-header">
-                                        <span class="mc-task">energy_kwh_prediction</span>
-                                        <span class="badge-green">REGISTERED</span>
+                            <div class="algo-card-grid">
+                                
+                                <!-- Card 1: Adaptive Ensemble Engine -->
+                                <div class="algo-card-featured">
+                                    <div class="algo-card-top">
+                                        <div class="algo-tier-tag tier-green">TIER 01 • PREDICTIVE FORECASTING</div>
+                                        <span class="algo-status-badge"><i class="fa-solid fa-circle-check text-mint"></i> ACTIVE MODEL</span>
                                     </div>
-                                    <h4>Algorithm: CatBoostRegressor</h4>
-                                    <p>Features: 12 • Task: Energy Demand Forecasting</p>
+                                    
+                                    <div class="algo-header">
+                                        <div class="algo-icon icon-teal"><i class="fa-solid fa-chart-line"></i></div>
+                                        <div>
+                                            <h4 class="algo-title">Adaptive Ensemble Forecasting</h4>
+                                            <span class="algo-pill-accent">CatBoost + LightGBM + XGBoost</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="algo-desc">
+                                        Generates rolling 24h & 30-day facility consumption baselines. Dynamically weights predictions based on historical error variance under shifting weather, day-of-week, and occupancy states.
+                                    </p>
+                                    
+                                    <div class="algo-formula-box">
+                                        <span class="formula-label">Ensemble Model Formula:</span>
+                                        <code>Ŷ = w₁·CatBoost + w₂·LightGBM + w₃·Prophet</code>
+                                    </div>
+                                    
+                                    <div class="algo-complexity-grid">
+                                        <div class="complexity-item">
+                                            <span class="c-label"><i class="fa-solid fa-clock text-teal"></i> Time Complexity</span>
+                                            <span class="c-val">Inference: <strong>𝓞(M · D)</strong> ≈ 1.2 ms</span>
+                                            <span class="c-sub">Train: 𝓞(M · K · N log N)</span>
+                                        </div>
+                                        <div class="complexity-item">
+                                            <span class="c-label"><i class="fa-solid fa-database text-mint"></i> Size / Space</span>
+                                            <span class="c-val">Memory: <strong>𝓞(M · 2ᵈ)</strong> ≈ 4.8 MB</span>
+                                            <span class="c-sub">Serialised Tree Memory</span>
+                                        </div>
+                                    </div>
                                 </div>
+
+                                <!-- Card 2: Multi-Signal Anomaly Fusion -->
+                                <div class="algo-card-featured">
+                                    <div class="algo-card-top">
+                                        <div class="algo-tier-tag tier-purple">TIER 02 • ANOMALY DETECTION</div>
+                                        <span class="algo-status-badge"><i class="fa-solid fa-shield-halved text-purple"></i> DUAL FUSION</span>
+                                    </div>
+
+                                    <div class="algo-header">
+                                        <div class="algo-icon icon-purple"><i class="fa-solid fa-shield-cat"></i></div>
+                                        <div>
+                                            <h4 class="algo-title">Multi-Signal Anomaly Fusion</h4>
+                                            <span class="algo-pill-accent">IsolationForest + Dynamic Z-Score</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="algo-desc">
+                                        Eliminates false alarms by evaluating telemetry against multi-variate isolation trees and dynamic rolling Z-scores. Flags anomalies only when multi-model consensus exceeds 85% confidence.
+                                    </p>
+
+                                    <div class="algo-formula-box">
+                                        <span class="formula-label">Consensus Fusion Logic:</span>
+                                        <code>Consensus = Score(IsoForest) ∩ Score(Z-Score) ≥ T_conf</code>
+                                    </div>
+
+                                    <div class="algo-complexity-grid">
+                                        <div class="complexity-item">
+                                            <span class="c-label"><i class="fa-solid fa-clock text-purple"></i> Time Complexity</span>
+                                            <span class="c-val">Inference: <strong>𝓞(T · h̄)</strong> ≈ 0.8 ms</span>
+                                            <span class="c-sub">Train: 𝓞(T · ψ log ψ)</span>
+                                        </div>
+                                        <div class="complexity-item">
+                                            <span class="c-label"><i class="fa-solid fa-database text-mint"></i> Size / Space</span>
+                                            <span class="c-val">Memory: <strong>𝓞(T · ψ)</strong> ≈ 1.2 MB</span>
+                                            <span class="c-sub">Isolation Sub-Sample Trees</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Card 3: SHAP Feature Attribution -->
+                                <div class="algo-card-featured">
+                                    <div class="algo-card-top">
+                                        <div class="algo-tier-tag tier-gold">TIER 03 • EXPLAINABLE AI (XAI)</div>
+                                        <span class="algo-status-badge"><i class="fa-solid fa-brain text-gold"></i> TREE-SHAP</span>
+                                    </div>
+
+                                    <div class="algo-header">
+                                        <div class="algo-icon icon-gold"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                                        <div>
+                                            <h4 class="algo-title">SHAP Feature Attribution</h4>
+                                            <span class="algo-pill-accent">TreeSHAP + Causal Attribution</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="algo-desc">
+                                        Explains <em>WHY</em> consumption deviated by computing Shapley additive explanations for every telemetry feature (HVAC runtime, ambient temperature, occupancy, transformer load).
+                                    </p>
+
+                                    <div class="algo-formula-box">
+                                        <span class="formula-label">Shapley Additive Value:</span>
+                                        <code>ϕᵢ = ∑ [f(S ∪ {i}) - f(S)] / |S|!</code>
+                                    </div>
+
+                                    <div class="algo-complexity-grid">
+                                        <div class="complexity-item">
+                                            <span class="c-label"><i class="fa-solid fa-clock text-gold"></i> Time Complexity</span>
+                                            <span class="c-val">TreeSHAP: <strong>𝓞(M · L · D²)</strong> ≈ 3.4 ms</span>
+                                            <span class="c-sub">Naive SHAP: 𝓞(2ⁿ) Exponential</span>
+                                        </div>
+                                        <div class="complexity-item">
+                                            <span class="c-label"><i class="fa-solid fa-database text-mint"></i> Size / Space</span>
+                                            <span class="c-val">Memory: <strong>𝓞(M · L)</strong> ≈ 850 KB</span>
+                                            <span class="c-sub">Memoized Attributions</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Card 4: Financial Waste Engine -->
+                                <div class="algo-card-featured">
+                                    <div class="algo-card-top">
+                                        <div class="algo-tier-tag tier-emerald">TIER 04 • MONETARY IMPACT</div>
+                                        <span class="algo-status-badge"><i class="fa-solid fa-indian-rupee-sign text-emerald"></i> REALTIME ROI</span>
+                                    </div>
+
+                                    <div class="algo-header">
+                                        <div class="algo-icon icon-emerald"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                                        <div>
+                                            <h4 class="algo-title">Financial Waste & Impact Engine</h4>
+                                            <span class="algo-pill-accent">Cost Rate × Excess kWh Vector</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="algo-desc">
+                                        Translates raw statistical deviations into actionable monetary impact (₹/hr waste rate & 30-day projected cost of inaction) paired with carbon emission abatement metrics.
+                                    </p>
+
+                                    <div class="algo-formula-box">
+                                        <span class="formula-label">Monetary Impact Formula:</span>
+                                        <code>Waste(₹/hr) = (Actual_kWh - Baseline_kWh) × Tariff_Rate</code>
+                                    </div>
+
+                                    <div class="algo-complexity-grid">
+                                        <div class="complexity-item">
+                                            <span class="c-label"><i class="fa-solid fa-clock text-emerald"></i> Time Complexity</span>
+                                            <span class="c-val">Vector Ops: <strong>𝓞(N)</strong> ≈ 0.1 ms</span>
+                                            <span class="c-sub">Instant SIMD Tensor Math</span>
+                                        </div>
+                                        <div class="complexity-item">
+                                            <span class="c-label"><i class="fa-solid fa-database text-mint"></i> Size / Space</span>
+                                            <span class="c-val">Memory: <strong>𝓞(N)</strong> ≈ 120 KB</span>
+                                            <span class="c-sub">Streaming Tensor Buffer</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- SECTION 2: HOW ESTATEIQ IS DIFFERENT FROM OTHERS (DIFFERENTIATION TABLE) -->
+                        <div class="interactive-card border-left-purple margin-top-md">
+                            <div class="margin-bottom-sm">
+                                <h3 class="text-lg font-bold text-purple"><i class="fa-solid fa-scale-balanced margin-right-xs"></i> How EstateIQ is Different From Others</h3>
+                                <p class="text-secondary text-xs">Comparison between traditional Facility Management Systems / Dashboards and the EstateIQ Multi-Layer Intelligence Engine.</p>
+                            </div>
+
+                            <div class="diff-table-container margin-top-md">
+                                <table class="diff-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Feature / Dimension</th>
+                                            <th>Traditional BMS & Analytics</th>
+                                            <th>EstateIQ Intelligence Engine</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="diff-feature"><i class="fa-solid fa-eye text-muted"></i> Primary Output</td>
+                                            <td class="diff-traditional"><i class="fa-solid fa-xmark diff-icon-bad"></i> Static Charts & Raw Telemetry</td>
+                                            <td class="diff-estateiq"><i class="fa-solid fa-check diff-icon-good"></i> Actionable Decisions & Financial Impact (₹)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="diff-feature"><i class="fa-solid fa-triangle-exclamation text-muted"></i> Anomaly Detection</td>
+                                            <td class="diff-traditional"><i class="fa-solid fa-xmark diff-icon-bad"></i> Rigid Static Threshold Alarms (High False Alarms)</td>
+                                            <td class="diff-estateiq"><i class="fa-solid fa-check diff-icon-good"></i> Multi-Model Consensus (IsolationForest + Z-Score)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="diff-feature"><i class="fa-solid fa-wand-magic-sparkles text-muted"></i> Root Cause Analysis</td>
+                                            <td class="diff-traditional"><i class="fa-solid fa-xmark diff-icon-bad"></i> Manual Human Investigation Required</td>
+                                            <td class="diff-estateiq"><i class="fa-solid fa-check diff-icon-good"></i> Automated SHAP Feature Weight Attribution</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="diff-feature"><i class="fa-solid fa-indian-rupee-sign text-muted"></i> Business Impact</td>
+                                            <td class="diff-traditional"><i class="fa-solid fa-xmark diff-icon-bad"></i> Raw kWh Deviation Only</td>
+                                            <td class="diff-estateiq"><i class="fa-solid fa-check diff-icon-good"></i> ₹/hr Waste Rate + 30-Day Cost of Inaction</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="diff-feature"><i class="fa-solid fa-sliders text-muted"></i> Decision Simulation</td>
+                                            <td class="diff-traditional"><i class="fa-solid fa-xmark diff-icon-bad"></i> No Pre-Action Simulation Capability</td>
+                                            <td class="diff-estateiq"><i class="fa-solid fa-check diff-icon-good"></i> Interactive "What-If" Scenario Engine</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="diff-feature"><i class="fa-solid fa-shield-heart text-muted"></i> Confidence Scoring</td>
+                                            <td class="diff-traditional"><i class="fa-solid fa-xmark diff-icon-bad"></i> Binary (Alarm On / Alarm Off)</td>
+                                            <td class="diff-estateiq"><i class="fa-solid fa-check diff-icon-good"></i> Multi-Signal Reliability & Freshness Score (%)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="diff-feature"><i class="fa-solid fa-robot text-muted"></i> AI Assistance</td>
+                                            <td class="diff-traditional"><i class="fa-solid fa-xmark diff-icon-bad"></i> Un-grounded generic chatbots</td>
+                                            <td class="diff-estateiq"><i class="fa-solid fa-check diff-icon-good"></i> Grounded Co-Pilot bounded by telemetry facts</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="diff-feature"><i class="fa-solid fa-arrows-rotate text-muted"></i> Action Lifecycle</td>
+                                            <td class="diff-traditional"><i class="fa-solid fa-xmark diff-icon-bad"></i> Disconnected Monitoring & Work Orders</td>
+                                            <td class="diff-estateiq"><i class="fa-solid fa-check diff-icon-good"></i> Closed-Loop Observe → Recommend → Act → Verify</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 3: SYSTEM FAQ ACCORDION -->
+                        <div class="interactive-card border-left-mint margin-top-md">
+                            <div class="margin-bottom-sm">
+                                <h3 class="text-lg font-bold text-mint"><i class="fa-solid fa-circle-question margin-right-xs"></i> Frequently Asked Questions</h3>
+                                <p class="text-secondary text-xs">Filter or search through 31 comprehensive technical and operational questions.</p>
+                            </div>
+
+                            <!-- FAQ Search & Category Chips -->
+                            <div class="kb-search-container margin-top-md">
+                                <i class="fa-solid fa-magnifying-glass kb-search-icon"></i>
+                                <input type="text" id="faqSearchInput" class="kb-search-input" placeholder="Search questions (e.g. algorithm, architecture, AI, ROI, IoT, security)..." onkeyup="filterFaqs()">
+                            </div>
+
+                            <div class="faq-quick-prompts margin-top-sm">
+                                <span class="text-xs text-muted font-bold">Quick Prompts:</span>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('What is EstateIQ')">What is EstateIQ?</button>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('different')">How is it different?</button>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('architecture')">Architecture</button>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('What-If')">What-If & Impact</button>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('IoT')">IoT Telemetry</button>
+                            </div>
+
+                            <div class="faq-category-chips margin-top-sm" id="faqCategoryChips">
+                                <span class="faq-chip active" onclick="filterFaqCategory('all', this)"><i class="fa-solid fa-layer-group"></i> All</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('overview', this)"><i class="fa-solid fa-compass"></i> Overview</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('differentiation', this)"><i class="fa-solid fa-shield-halved"></i> Differentiation</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('technology', this)"><i class="fa-solid fa-code"></i> Technology</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('architecture', this)"><i class="fa-solid fa-sitemap"></i> Architecture</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('ai', this)"><i class="fa-solid fa-wand-magic-sparkles"></i> AI & ML</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('iot', this)"><i class="fa-solid fa-microchip"></i> IoT</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('data', this)"><i class="fa-solid fa-database"></i> Data</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('security', this)"><i class="fa-solid fa-lock"></i> Security</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('deployment', this)"><i class="fa-solid fa-cloud-arrow-up"></i> Deployment</span>
+                                <span class="faq-chip" onclick="filterFaqCategory('hackathon', this)"><i class="fa-solid fa-trophy"></i> Hackathon</span>
+                            </div>
+
+                            <!-- Accordion FAQ List (2-Column Grid) -->
+                            <div class="faq-accordion-grid-2col margin-top-md" id="faqAccordionGrid">
+                                
+                                <!-- CATEGORY 1: OVERVIEW -->
+                                <div class="faq-accordion-item" data-category="overview">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-circle-question text-mint margin-right-xs"></i> Q1. What is EstateIQ?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        EstateIQ is an AI-powered facility and estate decision-intelligence platform designed to help organizations understand, monitor, predict, and optimize facility operations.<br><br>
+                                        It brings together facility telemetry, IoT data, historical data, data-quality checks, machine-learning models, anomaly detection, forecasting, business-impact analysis, recommendations, and What-If simulation into one decision workflow.<br><br>
+                                        Instead of only showing dashboards or alerts, EstateIQ helps answer: <strong>"What is happening?", "Why is it happening?", "How important is it?", "What should we do?", "What could happen if we act or do nothing?", and "Did the action actually improve the situation?"</strong>
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="overview">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-circle-question text-mint margin-right-xs"></i> Q2. What problem does EstateIQ solve?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Large facilities generate data from electricity systems, transformers, DGs, HVAC equipment, buildings, water systems, waste infrastructure, air-quality sensors, mobility systems, and other operational assets.<br><br>
+                                        The problem is that this data is often fragmented across meters, spreadsheets, dashboards, and individual systems.<br><br>
+                                        EstateIQ converts this fragmented operational data into a unified decision workflow: <strong>Observe → Validate → Analyze → Detect → Explain → Quantify → Prioritize → Recommend → Simulate → Act → Verify.</strong> This helps facility teams move from reactive monitoring to proactive decision-making.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="overview">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-circle-question text-mint margin-right-xs"></i> Q3. Who can use EstateIQ?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        EstateIQ is designed to be adaptable across colleges and universities, corporate campuses, hospitals, government facilities, industrial estates, municipal facilities, and large residential communities.<br><br>
+                                        The same intelligence architecture can be applied to different facility types by changing the facility configuration, assets, operational rules, and available data sources.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="overview">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-circle-question text-mint margin-right-xs"></i> Q4. What domains does EstateIQ support?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        The platform is designed around multiple facility intelligence domains including Electricity & Energy, Transformer Monitoring, DG Operations, HVAC, Water, Waste, Air Quality, Traffic & Mobility, Parking, Equipment Utilization, Safety, Emissions, and Sustainability.<br><br>
+                                        Energy management acts as the strongest initial implementation while the architecture remains extensible to all operational domains.
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 2: DIFFERENTIATION -->
+                                <div class="faq-accordion-item" data-category="differentiation">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-shield-halved text-mint margin-right-xs"></i> Q5. How is EstateIQ different from a traditional dashboard?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        A traditional dashboard mainly answers "What happened?". EstateIQ goes further by combining operational data with analytical signals to answer "What happened?", "Why did it happen?", "Is it actually abnormal?", "How confident are we?", "What is the financial or sustainability impact?", "What should be done first?", "What happens if we take action?", and "Did the action work?".<br><br>
+                                        The key difference is the transition from <strong>Data → Visualization</strong> to <strong>Data → Intelligence → Decision → Action → Verification.</strong>
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="differentiation">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-shield-halved text-mint margin-right-xs"></i> Q6. How is EstateIQ different from using ML models individually?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Individual ML algorithms are specialized analytical tools (e.g. CatBoost for forecasting, IsolationForest for anomaly detection, SHAP for feature contributions).<br><br>
+                                        EstateIQ does not need to replace these models. Instead, it uses their outputs as evidence and adds a higher-level decision layer that considers context, baseline deviations, model agreement, confidence scores, business impact (₹/hr & 30-day cost), priority ranking, recommendations, What-If simulation, and post-action verification.<br><br>
+                                        Traditional ML output: <em>"Consumption is predicted to increase."</em><br>
+                                        EstateIQ output: <em>"Consumption is predicted to increase, confidence is 89%, the deviation is significant relative to the contextual baseline, the estimated operational impact is ₹3,86,784 over 30 days, the highest-priority contributor is HVAC, and the recommended next action is to inspect the identified operating schedule."</em>
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="differentiation">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-shield-halved text-mint margin-right-xs"></i> Q7. What is EstateIQ's core innovation?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        The core innovation is not simply another isolated prediction model. The core innovation is the decision-intelligence workflow that combines multiple analytical signals into an actionable operational decision.<br><br>
+                                        EstateIQ connects <strong>Data Quality + Contextual Baseline + Forecasting + Anomaly Detection + Model Evidence + Confidence + Business Impact + Priority + Recommendation + What-If Simulation + Action Verification</strong> into one continuous decision lifecycle.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="differentiation">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-shield-halved text-mint margin-right-xs"></i> Q8. What does EstateIQ add on top of existing algorithms?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        EstateIQ adds a decision layer responsible for: 1. Contextualizing analytical results, 2. Comparing observations against baselines, 3. Combining multiple evidence signals, 4. Measuring confidence, 5. Quantifying business impact, 6. Ranking operational priorities, 7. Generating grounded recommendations, 8. Simulating outcomes, 9. Supporting human approval, and 10. Verifying post-action results.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="differentiation">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-shield-halved text-mint margin-right-xs"></i> Q9. Is EstateIQ itself an ML model?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        No. EstateIQ is a multi-layer decision-intelligence system. Specialist ML and statistical models provide analytical evidence, while the EstateIQ decision layer combines that evidence with facility context, data quality, business impact, confidence, and operational rules to produce decisions and recommendations.
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 3: TECHNOLOGY -->
+                                <div class="faq-accordion-item" data-category="technology">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-code text-mint margin-right-xs"></i> Q10. What technologies and algorithms are used?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        <strong>Data & Core:</strong> Python, Pandas, NumPy, SQLite/PostgreSQL, Time-Series Telemetry.<br>
+                                        <strong>Machine Learning:</strong> CatBoostRegressor, LightGBM, GradientBoosting, RandomForest, LinearRegression.<br>
+                                        <strong>Anomaly Detection:</strong> IsolationForest, Z-Score Anomaly Engine, DBSCAN.<br>
+                                        <strong>Explainability:</strong> SHAP Feature Contributions, Decision Trace Tree.<br>
+                                        <strong>Backend & UI:</strong> FastAPI REST APIs, Streamlit Control Center, Modern Web UI (HTML5/CSS3/Vanilla JS, Chart.js).<br>
+                                        <strong>AI & IoT:</strong> Grounded Co-Pilot Engine, ESP32 Edge Firmware <span class="badge-gold">Planned / Prototype</span>.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="technology">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-code text-mint margin-right-xs"></i> Q11. Why does EstateIQ use multiple algorithms instead of one?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Facility operations contain different types of problems: Forecasting asks "What will happen next?", Anomaly detection asks "Is this behavior unusual?", Regression asks "What factors influence the outcome?", and SHAP asks "Why did the model produce this result?". No single algorithm is optimal for every analytical task. EstateIQ uses specialist models for specialist tasks and combines their outputs at the decision-intelligence layer.
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 4: ARCHITECTURE -->
+                                <div class="faq-accordion-item" data-category="architecture">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-sitemap text-mint margin-right-xs"></i> Q12. What is the EstateIQ architecture?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        High-level flow: <strong>Physical Facility → IoT / Sensors → Edge Ingestion → Data Quality Validation → Feature Engineering → Specialist Analytics → EstateIQ Decision Layer → Impact & Priority Analysis → AI Insight → Recommendation → What-If Simulation → Human Approval → Work Order Action → Post-Action Verification → Decision Learning.</strong>
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="architecture">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-sitemap text-mint margin-right-xs"></i> Q13. How does data flow through EstateIQ?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Telemetry from energy meters or sensors passes through data quality checks to calculate freshness and completeness scores. Features are extracted and passed to ensemble forecasting and anomaly models. The outputs are fused with business impact calculations (tariff rate × excess kWh) and presented as prioritized decisions with full technical provenance retained.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="architecture">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-sitemap text-mint margin-right-xs"></i> Q14. What is the EstateIQ Decision Lifecycle?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        The 11-stage decision lifecycle: 01. Observe, 02. Validate, 03. Contextualize, 04. Analyze, 05. Fuse, 06. Quantify, 07. Prioritize, 08. Recommend, 09. Simulate, 10. Act, 11. Verify.
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 5: AI & DECISION INTELLIGENCE -->
+                                <div class="faq-accordion-item" data-category="ai">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-wand-magic-sparkles text-mint margin-right-xs"></i> Q15. How does EstateIQ generate an AI insight?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        The AI layer does not invent facility numbers. It receives a structured evidence package from backend calculation engines (data quality, actual vs expected kWh, SHAP weights, ₹ cost impact) and synthesizes a human-readable explanation using grounded prompt boundaries.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="ai">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-wand-magic-sparkles text-mint margin-right-xs"></i> Q16. How does EstateIQ generate recommendations?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Recommendations are generated from detected issues, analytical evidence, financial impact, priority scores, and operational context. Each recommendation specifies: Problem, Action, Rationale, Expected Benefit, Financial/Energy Impact, Confidence, Assigned Owner, and Status.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="ai">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-wand-magic-sparkles text-mint margin-right-xs"></i> Q17. What is "Next Best Action"?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Next Best Action identifies the single operational intervention that provides the highest combined value of business impact, urgency, confidence, severity, and sustainability opportunity, answering: <em>"If the facility manager can perform only one action right now, what should it be?"</em>
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="ai">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-wand-magic-sparkles text-mint margin-right-xs"></i> Q18. How does EstateIQ handle uncertainty?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        EstateIQ strictly separates <strong>Severity</strong> from <strong>Impact</strong> from <strong>Confidence</strong>. Confidence is computed from data freshness, sensor reliability, model consensus (e.g. 4/4 agree), and historical coverage depth. Low-confidence findings are explicitly tagged to prevent premature operational interventions.
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 6: IOT & ENERGY -->
+                                <div class="faq-accordion-item" data-category="iot">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-microchip text-mint margin-right-xs"></i> Q19. How can EstateIQ monitor electricity in a college campus?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        The power distribution topology maps: Grid → Main Campus Switchyard → Transformers → Building Submeters → HVAC/Lighting loads. Smart energy meters and CT sensors transmit voltage, current, power factor, and kWh via IoT gateways to the platform for continuous anomaly detection and forecasting.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="iot">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-microchip text-mint margin-right-xs"></i> Q20. Can EstateIQ work without physical IoT sensors?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Yes. EstateIQ supports real IoT telemetry, existing facility databases, synthetic campus datasets, and open historical telemetry streams. The UI transparently labels data sources (e.g. <span class="badge-green">LIVE SENSOR</span>, <span class="badge-gold">SYNTHETIC DATA</span>).
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 7: DATA -->
+                                <div class="faq-accordion-item" data-category="data">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-database text-mint margin-right-xs"></i> Q21. How does EstateIQ handle poor-quality data?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        The platform evaluates missing values, freshness, duplicate readings, invalid ranges, and sensor noise. Data quality directly reduces decision confidence. If data is insufficient, EstateIQ explicitly flags <em>"Insufficient data for a reliable baseline."</em>
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="data">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-database text-mint margin-right-xs"></i> Q22. Can EstateIQ work with synthetic datasets?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Yes. Synthetic datasets allow development, testing, benchmarking, and demonstration of full facility scenarios. When live facility sensors are connected, the exact same analytical pipeline consumes the live stream without architectural changes.
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 8: WHAT-IF & BUSINESS IMPACT -->
+                                <div class="faq-accordion-item" data-category="whatif">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-sliders text-mint margin-right-xs"></i> Q23. What is the purpose of What-If simulation?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        What-If simulation allows facility managers to evaluate operational adjustments (e.g. resetting HVAC setpoints by 2°C or shifting DG load) before taking action, estimating financial savings, kWh reduction, CO₂ mitigation, and sustainability score changes.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="whatif">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-sliders text-mint margin-right-xs"></i> Q24. How does EstateIQ convert an anomaly into business impact?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Formula: <strong>Excess Usage (kWh) = Observed kWh - Contextual Baseline kWh</strong><br>
+                                        <strong>Hourly Financial Waste (₹/hr) = Excess kWh × Commercial Tariff Rate (₹14/kWh)</strong><br>
+                                        <strong>30-Day Cost of Inaction (₹) = Hourly Waste × 24 hrs × 30 days</strong>
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="whatif">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-sliders text-mint margin-right-xs"></i> Q25. What happens if the administrator does nothing?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        EstateIQ projects a "Cost of Inaction" over a 30-day rolling window (e.g. ₹3,86,784 for persistent HVAC over-cooling), helping management prioritize interventions based on monetary risk.
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 9: SECURITY & GOVERNANCE -->
+                                <div class="faq-accordion-item" data-category="security">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-lock text-mint margin-right-xs"></i> Q26. How is EstateIQ secured?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        EstateIQ enforces JWT bearer token authentication, server-side secret management (`GROQ_API_KEY`, DB credentials never exposed to client), permission-based route guards, and granular Role-Based Access Control (RBAC).
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="security">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-lock text-mint margin-right-xs"></i> Q27. Can every user approve a recommendation?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        No. RBAC permissions restrict operational execution: <strong>Facility Lead & Admin</strong> can approve recommendations and issue work orders, <strong>Engineers</strong> can execute work orders, and <strong>Viewers/Auditors</strong> have read-only access.
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 10: DEPLOYMENT & SCALABILITY -->
+                                <div class="faq-accordion-item" data-category="deployment">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-cloud-arrow-up text-mint margin-right-xs"></i> Q28. Can EstateIQ scale from one college to many facilities?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Yes. The platform uses a multi-tenant hierarchy (`Facility → Building → Zone → Asset → Sensor`). The intelligence pipeline processes domain data dynamically based on active facility context.
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="deployment">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-cloud-arrow-up text-mint margin-right-xs"></i> Q29. Can EstateIQ work with intermittent internet?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Edge gateways perform local telemetry buffering and initial threshold checks. When network connectivity restores, buffered data synchronizes with the central EstateIQ decision engine.
+                                    </div>
+                                </div>
+
+                                <!-- CATEGORY 11: HACKATHON DEMO -->
+                                <div class="faq-accordion-item" data-category="hackathon">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-trophy text-mint margin-right-xs"></i> Q30. What is the strongest EstateIQ demonstration?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Demonstrate the complete closed-loop lifecycle: <strong>1. Observe anomaly in Block B → 2. Validate data quality → 3. Fuse CatBoost & IsolationForest evidence → 4. Quantify ₹537.20/hr waste & 30-day cost → 5. Inspect Next Best Action → 6. Run What-If simulation → 7. Approve Work Order → 8. Verify post-action savings.</strong>
+                                    </div>
+                                </div>
+
+                                <div class="faq-accordion-item" data-category="hackathon">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-trophy text-mint margin-right-xs"></i> Q31. What is the main takeaway of EstateIQ?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        EstateIQ turns facility data into operational decisions. The platform moves from <em>"Here is your data"</em> to <strong>"Here is what is happening, why it matters, what you should do, what could happen if you act, and whether the action worked."</strong>
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
 
@@ -1941,12 +2550,15 @@
                         <!-- CHAT INPUT FORM WITH MIC & ATTACHMENT ACCENTS -->
                         <form class="chat-input-form" id="chatForm">
                             <div class="input-glow-wrapper">
+                                <div class="input-sparkle-icon">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                </div>
                                 <input type="text" id="chatInputText" placeholder="Ask EstateIQ AI anything (e.g. 'Why is energy high in Block B Hostel?')..." autocomplete="off">
                                 <div class="input-actions-right">
                                     <button type="button" class="chat-action-btn" id="voicePromptBtn" title="Voice Input"><i class="fa-solid fa-microphone"></i></button>
-                                    <button type="submit" class="btn btn-primary" id="sendChatBtn">
-                                        <i class="fa-solid fa-paper-plane"></i>
+                                    <button type="submit" class="btn-ask-ai" id="sendChatBtn">
                                         <span>Ask AI</span>
+                                        <i class="fa-solid fa-paper-plane"></i>
                                     </button>
                                 </div>
                             </div>

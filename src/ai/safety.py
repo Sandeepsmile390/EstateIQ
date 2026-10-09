@@ -33,28 +33,44 @@ class AISafetyGuard:
 
     @classmethod
     def validate_ai_output(cls, output_dict: Dict[str, Any], backend_evidence: Dict[str, Any]) -> Dict[str, Any]:
-        """Validates AI response ensuring numeric metrics do NOT override backend truth and required fields exist."""
+        """Validates AI response ensuring numeric metrics do NOT override backend truth and required fields match intent format."""
         if not isinstance(output_dict, dict):
             output_dict = {}
 
+        query_meta = backend_evidence.get("query_meta", {})
+        intent_type = backend_evidence.get("intent_type", "")
+        is_explanatory = backend_evidence.get("is_explanatory", query_meta.get("is_explanatory", False))
+
+        if intent_type in ["GREETING", "MODEL_EXPLANATION", "SYSTEM_CAPABILITY"]:
+            is_explanatory = False
+
         # Guarantee all required schema fields
         output_dict.setdefault("summary", "EstateIQ facility intelligence analysis completed based on grounded telemetry.")
-        output_dict.setdefault("what_happened", "Observed telemetry reading evaluated against baseline parameters.")
 
-        why_val = output_dict.get("why_it_happened") or output_dict.get("why")
-        if isinstance(why_val, list):
-            why_val = "; ".join(why_val)
-        output_dict["why_it_happened"] = why_val or "SHAP feature attributions indicate HVAC setback schedule deviation during peak demand."
+        if not is_explanatory:
+            output_dict["what_happened"] = ""
+            output_dict["why_it_happened"] = ""
+        else:
+            output_dict.setdefault("what_happened", "Observed telemetry reading evaluated against baseline parameters.")
+            why_val = output_dict.get("why_it_happened") or output_dict.get("why")
+            if isinstance(why_val, list):
+                why_val = "; ".join(why_val)
+            output_dict["why_it_happened"] = why_val or "SHAP feature attributions indicate HVAC setback schedule deviation during peak demand."
 
         hourly_cost = backend_evidence.get("business_impact", {}).get("hourly_cost_inr", 500) if isinstance(backend_evidence.get("business_impact"), dict) else 500
         output_dict.setdefault("business_impact", f"Estimated financial cost impact: ₹{hourly_cost * 24 * 30:,.0f}/month.")
 
         actions = output_dict.get("recommended_actions")
         if not actions or not isinstance(actions, list):
-            output_dict["recommended_actions"] = [
-                "Reset HVAC thermostat setback schedule to 24.5°C during 13:00-16:00 window.",
-                "Inspect chiller bearing vibration telemetry for preventive maintenance."
-            ]
+            if intent_type == "GREETING":
+                output_dict["recommended_actions"] = ["Ask about Block B energy surge", "Check water telemetry status"]
+            elif intent_type == "MODEL_EXPLANATION":
+                output_dict["recommended_actions"] = ["View Registered ML Models", "Run AI Anomaly Audit"]
+            else:
+                output_dict["recommended_actions"] = [
+                    "Reset HVAC thermostat setback schedule to 24.5°C during 13:00-16:00 window.",
+                    "Inspect chiller bearing vibration telemetry for preventive maintenance."
+                ]
 
         output_dict.setdefault("assumptions", ["Sensors operating within nominal calibration specs."])
         output_dict.setdefault("limitations", ["Telemetry sampled at 15-minute interval."])

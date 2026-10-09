@@ -170,7 +170,6 @@
 }
 
 .opportunity-card:hover {
-    transform: translateY(-3px);
     border-color: rgba(30, 122, 104, 0.25);
     box-shadow: var(--glass-shadow-hover);
 }

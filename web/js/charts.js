@@ -1,12 +1,38 @@
 /* ==========================================================================
    EstateIQ Facility Intelligence - Chart.js Initialization & Multi-Horizon Engine
-   Supports 15 Min, 1 Hour, 24 Hours, 7 Days, 1 Month, 1 Year visualizations across:
-   - Energy ML Load & Area Comparison
-   - Water Consumption & Area Matrix
-   - Waste Stream Fill Rate & Composition
-   - Mobility Gate Flow & Air Quality (AQI)
-   - Equipment Health & Vibration Anomaly Telemetry
    ========================================================================== */
+
+if (typeof Chart !== 'undefined') {
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+    Chart.defaults.color = '#94A3B8';
+
+    // Global Ultra-Smooth Progressive Left-to-Right Line Animation Config
+    Chart.defaults.animation = {
+        duration: 1800,
+        easing: 'easeInOutCubic',
+        delay(context) {
+            let delay = 0;
+            if (context.type === 'data' && context.mode === 'default') {
+                // Progressive delay from left (dataIndex 0) to right
+                delay = context.dataIndex * 85 + context.datasetIndex * 140;
+            }
+            return delay;
+        }
+    };
+
+    Chart.defaults.animations = {
+        x: {
+            type: 'number',
+            easing: 'linear',
+            duration: 100
+        },
+        y: {
+            type: 'number',
+            easing: 'easeInOutCubic',
+            duration: 1200
+        }
+    };
+}
 
 let mainWaveChartInstance = null;
 let miniBarChartInstance = null;
@@ -162,7 +188,7 @@ function updateChartTimeRange(range) {
         mainWaveChartInstance.data.datasets[2].data = [2.1, 1.8, 3.2, 5.8, 6.4, 5.9, 5.42, 4.3, 3.1];
     }
 
-    mainWaveChartInstance.update('active');
+    mainWaveChartInstance.update();
 }
 
 /* ==========================================================================
@@ -618,28 +644,28 @@ function updateChartHorizon(target, timeframe) {
         energyTrendChartInstance.data.labels = data.labels;
         energyTrendChartInstance.data.datasets[0].data = data.energyActual;
         energyTrendChartInstance.data.datasets[1].data = data.energyPredicted;
-        energyTrendChartInstance.update('active');
+        energyTrendChartInstance.update();
     } else if (target === 'waterTrend' && waterTrendChartInstance) {
         waterTrendChartInstance.data.labels = data.labels;
         waterTrendChartInstance.data.datasets[0].data = data.waterActual;
         waterTrendChartInstance.data.datasets[1].data = data.waterPredicted;
-        waterTrendChartInstance.update('active');
+        waterTrendChartInstance.update();
     } else if (target === 'wasteTrend' && wasteTrendChartInstance) {
         wasteTrendChartInstance.data.labels = data.labels;
         wasteTrendChartInstance.data.datasets[0].data = data.wasteFill;
-        wasteTrendChartInstance.update('active');
+        wasteTrendChartInstance.update();
     } else if (target === 'mobilityTrend' && mobilityTrendChartInstance) {
         mobilityTrendChartInstance.data.labels = data.labels;
         mobilityTrendChartInstance.data.datasets[0].data = data.mobilityFlow;
-        mobilityTrendChartInstance.update('active');
+        mobilityTrendChartInstance.update();
     } else if (target === 'airTrend' && airTrendChartInstance) {
         airTrendChartInstance.data.labels = data.labels;
         airTrendChartInstance.data.datasets[0].data = data.airAqi;
-        airTrendChartInstance.update('active');
+        airTrendChartInstance.update();
     } else if (target === 'equipmentTrend' && equipmentVibrationChartInstance) {
         equipmentVibrationChartInstance.data.labels = data.labels;
         equipmentVibrationChartInstance.data.datasets[0].data = data.equipVib;
-        equipmentVibrationChartInstance.update('active');
+        equipmentVibrationChartInstance.update();
     }
 }
 
@@ -716,7 +742,7 @@ function updateScenarioChartData(baseLoadMultiplier, solarKwOffset) {
     });
 
     scenarioChartInstance.data.datasets[1].data = targetCurve;
-    scenarioChartInstance.update('active');
+    scenarioChartInstance.update();
 }
 
 window.resizeAllCharts = function() {
@@ -741,7 +767,7 @@ window.resizeAllCharts = function() {
         if (inst) {
             try {
                 inst.resize();
-                inst.update('none');
+                inst.update();
             } catch (e) {}
         }
     });

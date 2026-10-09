@@ -5,7 +5,7 @@
       "model_version": "v1.0",
       "task": "energy_kwh_prediction",
       "facility_type": "configurable_estate",
-      "training_date": "2026-10-02 19:21:44",
+      "training_date": "2026-10-09 03:26:39",
       "dataset_version": "v1.0_synthetic",
       "features": [
         "temperature",
@@ -44,7 +44,7 @@
       "model_version": "v1.0",
       "task": "water_usage_forecasting",
       "facility_type": "configurable_estate",
-      "training_date": "2026-10-02 19:21:45",
+      "training_date": "2026-10-09 03:26:42",
       "dataset_version": "v1.0_synthetic",
       "features": [
         "flow_rate",
@@ -80,7 +80,7 @@
       "model_version": "v1.0",
       "task": "waste_overflow_2hr",
       "facility_type": "configurable_estate",
-      "training_date": "2026-10-02 19:21:46",
+      "training_date": "2026-10-09 03:26:43",
       "dataset_version": "v1.0_synthetic",
       "features": [
         "fill_level",
@@ -123,7 +123,7 @@
       "model_version": "v1.0",
       "task": "air_pm25_prediction",
       "facility_type": "configurable_estate",
-      "training_date": "2026-10-02 19:21:48",
+      "training_date": "2026-10-09 03:26:45",
       "dataset_version": "v1.0_synthetic",
       "features": [
         "PM10",
@@ -157,7 +157,7 @@
       "model_version": "v1.0",
       "task": "traffic_congestion_class",
       "facility_type": "configurable_estate",
-      "training_date": "2026-10-02 19:21:48",
+      "training_date": "2026-10-09 03:26:46",
       "dataset_version": "v1.0_synthetic",
       "features": [
         "average_speed",
@@ -201,7 +201,7 @@
       "model_version": "v1.0",
       "task": "parking_occupancy_forecasting",
       "facility_type": "configurable_estate",
-      "training_date": "2026-10-02 19:21:49",
+      "training_date": "2026-10-09 03:26:47",
       "dataset_version": "v1.0_synthetic",
       "features": [
         "capacity",
@@ -233,7 +233,7 @@
       "model_version": "v1.0",
       "task": "equipment_maintenance_risk",
       "facility_type": "configurable_estate",
-      "training_date": "2026-10-02 19:21:50",
+      "training_date": "2026-10-09 03:26:49",
       "dataset_version": "v1.0_synthetic",
       "features": [
         "runtime_hours",
@@ -278,7 +278,7 @@
       "model_version": "v1.0",
       "task": "emissions_forecasting",
       "facility_type": "configurable_estate",
-      "training_date": "2026-10-02 19:21:50",
+      "training_date": "2026-10-09 03:26:50",
       "dataset_version": "v1.0_synthetic",
       "features": [
         "energy_consumption",

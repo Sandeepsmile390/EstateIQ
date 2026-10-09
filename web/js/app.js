@@ -15,7 +15,7 @@ let currentUserSession = {
     role_key: "admin",
     role_label: "Facility Lead & Admin",
     avatar_bg: "#124B3E",
-    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "esg", "billing", "work-orders", "ai-assistant"],
+    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "faq", "decision-intelligence", "esg", "billing", "work-orders", "ai-assistant"],
     can_execute_rules: true,
     can_upgrade_subscription: true
 };
@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadBackendActionableSuggestions();
     loadBackendWorkOrders();
     loadBackendAIInsights();
+    loadBackendCapabilities();
 
     // Initialize interactive form listeners
     initEnergyPredictorForm();
@@ -273,33 +274,48 @@ function initTabs() {
     const headerPlanPill = document.getElementById("headerPlanPill");
 
     const switchTab = (tabId) => {
+        let activeTab = tabId;
+        if (!activeTab || activeTab === "decision-intelligence" || activeTab === "models") activeTab = "faq";
+
         // Unrestricted tab opening policy: all tabs open directly for any active user session
-        if (currentUserSession && currentUserSession.permissions && !currentUserSession.permissions.includes(tabId)) {
-            currentUserSession.permissions.push(tabId);
+        if (currentUserSession && currentUserSession.permissions && !currentUserSession.permissions.includes(activeTab)) {
+            currentUserSession.permissions.push(activeTab);
         }
 
         tabBtns.forEach(b => b.classList.remove("active"));
         tabContents.forEach(c => c.classList.remove("active"));
         sidebarNavs.forEach(s => s.classList.remove("active"));
 
-        const selectedBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+        const selectedBtn = document.querySelector(`.tab-btn[data-tab="${activeTab}"]`);
         if (selectedBtn) selectedBtn.classList.add("active");
 
-        const selectedSidebar = document.querySelector(`.nav-item[data-tab-nav="${tabId}"]`);
+        const selectedSidebar = document.querySelector(`.nav-item[data-tab-nav="${activeTab}"]`);
         if (selectedSidebar) selectedSidebar.classList.add("active");
 
-        const targetContent = document.getElementById(`content${capitalizeFirst(tabId)}`);
+        const metricsGrid = document.querySelector(".metrics-grid-top");
+        if (metricsGrid) {
+            if (activeTab === "overview") {
+                metricsGrid.style.display = "grid";
+            } else {
+                metricsGrid.style.display = "none";
+            }
+        }
+
+        const targetContent = document.getElementById(`content${capitalizeFirst(activeTab)}`) || document.getElementById("contentFaq");
         if (targetContent) {
             targetContent.classList.add("active");
-        } else if (tabId === "overview") {
+        } else if (activeTab === "overview") {
             document.getElementById("contentOverview")?.classList.add("active");
         }
+
+        // Scroll main viewport to top for clean tab presentation
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Trigger chart resize & re-render so hidden tab canvases calculate full width & height
         setTimeout(() => {
             window.dispatchEvent(new Event('resize'));
-            if (window.resizeAllCharts) window.resizeAllCharts();
         }, 40);
+        window.switchTab = switchTab;
     };
 
     tabBtns.forEach(btn => {
@@ -314,6 +330,16 @@ function initTabs() {
     });
 
     headerPlanPill?.addEventListener("click", () => switchTab("billing"));
+
+    // Handle initial hash navigation on page load
+    const initialHash = (window.location.hash || "").replace("#", "").trim();
+    if (initialHash) {
+        switchTab(initialHash);
+    }
+    window.addEventListener("hashchange", () => {
+        const h = (window.location.hash || "").replace("#", "").trim();
+        if (h) switchTab(h);
+    });
 }
 
 function showRestrictedAccessModal(tabId) {
@@ -333,6 +359,7 @@ function showRestrictedAccessModal(tabId) {
 
 function capitalizeFirst(str) {
     if (!str) return "";
+    if (str === "faq" || str === "decision-intelligence" || str === "models") return "Faq";
     if (str === "ai-assistant") return "AiAssistant";
     if (str === "work-orders") return "WorkOrders";
     return str.charAt(0).toUpperCase() + str.slice(1);
@@ -1329,11 +1356,14 @@ function initChatEngine() {
             if (response.ok) {
                 const data = await response.json();
                 const badge = data.data_source_badge || "[SIMULATED IoT]";
+                const hasWhatHappened = data.what_happened && data.what_happened.trim().length > 0;
+                const hasWhy = data.why && Array.isArray(data.why) && data.why.some(w => w && w.trim().length > 0);
+
                 const formattedHtml = `
                     <div style="margin-bottom:8px;"><span class="pill-badge badge-teal">${badge}</span></div>
                     <div>${data.response || data.summary}</div>
-                    ${data.what_happened ? `<div style="margin-top:8px; font-size:0.9rem;"><strong>What Happened:</strong> ${data.what_happened}</div>` : ''}
-                    ${data.why && data.why.length ? `<div style="margin-top:6px; font-size:0.9rem;"><strong>Why:</strong> ${data.why.join(', ')}</div>` : ''}
+                    ${hasWhatHappened ? `<div style="margin-top:8px; font-size:0.9rem;"><strong>What Happened:</strong> ${data.what_happened}</div>` : ''}
+                    ${hasWhy ? `<div style="margin-top:6px; font-size:0.9rem;"><strong>Why:</strong> ${data.why.filter(w => w && w.trim()).join(', ')}</div>` : ''}
                 `;
                 appendChatMessage("bot", formattedHtml);
             } else {
@@ -1592,4 +1622,77 @@ function initDecisionTraceModal() {
         showToast("Loaded Decision Trace parameters into What-If Simulator.");
     });
 }
+
+/* --------------------------------------------------------------------------
+   ESTATEIQ KNOWLEDGE CENTER HANDLERS
+   -------------------------------------------------------------------------- */
+function toggleFaq(btn) {
+    const item = btn.closest(".faq-accordion-item");
+    if (!item) return;
+    const isActive = item.classList.contains("active");
+    
+    // Close other active accordion items for clean single-expansion UI
+    document.querySelectorAll(".faq-accordion-item.active").forEach(el => {
+        if (el !== item) el.classList.remove("active");
+    });
+
+    item.classList.toggle("active", !isActive);
+}
+
+function filterFaqs() {
+    const query = (document.getElementById("faqSearchInput")?.value || "").toLowerCase().trim();
+    const items = document.querySelectorAll(".faq-accordion-item");
+    const activeChip = document.querySelector(".faq-chip.active");
+    let selectedCategory = "all";
+    if (activeChip) {
+        const match = activeChip.getAttribute("onclick")?.match(/'([^']+)'/);
+        if (match && match[1]) selectedCategory = match[1];
+    }
+
+    items.forEach(item => {
+        const cat = item.getAttribute("data-category") || "";
+        const text = item.textContent.toLowerCase();
+        
+        const matchesCat = (selectedCategory === "all" || cat === selectedCategory);
+        const matchesQuery = (!query || text.includes(query));
+
+        if (matchesCat && matchesQuery) {
+            item.style.display = "block";
+        } else {
+            item.style.display = "none";
+        }
+    });
+}
+
+function filterFaqCategory(category, chipEl) {
+    document.querySelectorAll(".faq-chip").forEach(c => c.classList.remove("active"));
+    if (chipEl) chipEl.classList.add("active");
+    filterFaqs();
+}
+
+async function loadBackendCapabilities() {
+    try {
+        const res = await fetch("/api/v1/intelligence/capabilities");
+        if (!res.ok) return;
+        const data = await res.json();
+        console.log("EstateIQ System Capabilities loaded:", data);
+    } catch (e) {
+        console.warn("Using default capability registry.");
+    }
+}
+
+function setFaqSearchPrompt(term) {
+    const searchInput = document.getElementById("faqSearchInput");
+    if (searchInput) {
+        searchInput.value = term;
+        filterFaqs();
+    }
+}
+
+// Expose handlers globally
+window.toggleFaq = toggleFaq;
+window.filterFaqs = filterFaqs;
+window.filterFaqCategory = filterFaqCategory;
+window.setFaqSearchPrompt = setFaqSearchPrompt;
+
 

@@ -53,6 +53,13 @@ from src.ai.config import DEFAULT_AI_CONFIG
 from src.ai.exceptions import AIServiceError
 from src.intelligence.types import EventData
 
+from src.security import (
+    get_encryption_service,
+    validate_security_configuration,
+    get_security_status,
+    redact_secrets
+)
+
 app = FastAPI(
     title="EstateIQ - Sustainable Facility Intelligence Platform",
     description="AI-powered decision-support dashboard for government, university, PSU, and enterprise campuses in India.",
@@ -72,10 +79,16 @@ def ai_service_exception_handler(request: Request, exc: AIServiceError):
     )
 
 
-# --- Security Headers & CORS Middleware ---
+# --- Security Headers & Secure CORS Middleware ---
+allowed_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+if allowed_origins_env and allowed_origins_env != "*":
+    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+else:
+    allowed_origins = ["http://localhost:3000", "http://localhost:8000", "http://localhost:8501", "http://127.0.0.1:8000", "http://127.0.0.1:8501"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -91,8 +104,10 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 @app.on_event("startup")
-def startup_db_client():
+def startup_security_and_db():
+    validate_security_configuration()
     connect_mongo_db()
+
 
 # --- Static File Serving ---
 if os.path.exists("web"):
@@ -230,7 +245,7 @@ def auth_login(req: LoginRequest):
     permissions = ROLE_PERMISSIONS.get(user["role"], [])
     
     # Unrestricted tab opening policy: all logged-in roles can access all tabs
-    tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "models", "esg", "billing", "work-orders", "ai-assistant"]
+    tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "faq", "decision-intelligence", "models", "esg", "billing", "work-orders", "ai-assistant"]
     role_key_norm = req.role.lower() if req.role else "admin"
     if user["role"] in ["SUPER_ADMIN", "FACILITY_ADMIN"]:
         avatar_bg = "#124B3E"
@@ -305,6 +320,45 @@ def get_system_audit_logs(
 ):
     logs = get_audit_logs(facility_id=user.get("facility_id"), limit=min(limit, 500))
     return {"count": len(logs), "logs": logs}
+
+# --- Security Status & AES-256-GCM Administration Endpoints ---
+class EncryptPayloadRequest(BaseModel):
+    plaintext: str
+    context: Optional[str] = None
+
+class DecryptPayloadRequest(BaseModel):
+    envelope: str
+    context: Optional[str] = None
+
+@app.get("/api/v1/admin/security/status")
+def admin_security_status(user: Dict[str, Any] = Depends(require_permission("audit.read"))):
+    return get_security_status()
+
+@app.post("/api/v1/admin/security/encrypt")
+def admin_encrypt_payload(
+    req: EncryptPayloadRequest,
+    user: Dict[str, Any] = Depends(require_permission("audit.read"))
+):
+    enc_svc = get_encryption_service()
+    envelope = enc_svc.encrypt(req.plaintext, context=req.context)
+    return {
+        "status": "ENCRYPTED",
+        "algorithm": "AES-256-GCM",
+        "envelope": envelope
+    }
+
+@app.post("/api/v1/admin/security/decrypt")
+def admin_decrypt_payload(
+    req: DecryptPayloadRequest,
+    user: Dict[str, Any] = Depends(require_permission("audit.read"))
+):
+    enc_svc = get_encryption_service()
+    plaintext = enc_svc.decrypt(req.envelope, context=req.context)
+    return {
+        "status": "DECRYPTED",
+        "plaintext": plaintext
+    }
+
 
 
 
@@ -517,7 +571,7 @@ def anomaly_water(
         "building_id": req.building_id,
         "anomaly_status": "ANOMALY_DETECTED" if is_anomaly else "NORMAL",
         "anomaly_score": 0.92 if is_anomaly else 0.08,
-        "explanation": "Abnormal water-use pattern detected. High flow observed during off-peak occupancy.",
+        "explanation": "Abnormal water-use pattern detected. High flow observed during off-peak occupancy. Immediate on-site inspection recommended.",
         "provenance": ProvenanceType.DERIVED,
         "provenance_badge": "[ANOMALY DETECTOR]"
     }
@@ -691,6 +745,37 @@ def submit_decision_feedback(
         rejection_reason=req.rejection_reason
     )
 
+@app.get("/api/v1/intelligence/capabilities")
+def get_intelligence_capabilities():
+    """Return live system intelligence capability registry."""
+    return {
+        "platform": "EstateIQ Facility Decision Intelligence",
+        "decision_intelligence": True,
+        "domains": ["Energy", "Water", "Waste", "Air Quality", "Mobility & Traffic", "Equipment Assets", "Sustainability"],
+        "models": ["CatBoostRegressor", "LightGBM", "RandomForest", "IsolationForest", "ZScoreAnomaly", "SHAPExplainer"],
+        "data_sources": [
+            {"type": "Historical Telemetry", "status": "LIVE"},
+            {"type": "IoT Sensor Stream", "status": "LIVE"},
+            {"type": "Synthetic Campus Dataset", "status": "LIVE"},
+            {"type": "Edge MQTT Hardware", "status": "PLANNED / PROTOTYPE"}
+        ],
+        "iot_status": "PROTOTYPE (ESP32 Ready)",
+        "ai_capabilities": ["Grounded Co-Pilot", "Evidence Fusion", "SHAP Decision Trace", "ROI Explanation"],
+        "what_if": True,
+        "recommendations": True,
+        "work_orders": True,
+        "verification": True,
+        "kb_questions_count": 31
+    }
+
+class RecommendationPostRequest(BaseModel):
+    issue: str = "energy_anomaly"
+    building: str = "Block B Hostel"
+    actual: float = 120.0
+    expected: float = 85.0
+    deviation_percent: float = 41.1
+    important_features: List[str] = ["occupancy", "temperature"]
+
 # --- Recommendations & Simulation Endpoints ---
 @app.get("/api/v1/recommendations")
 def get_recommendations(user: Dict[str, Any] = Depends(require_permission("recommendations.read"))):
@@ -702,6 +787,16 @@ def get_recommendations(user: Dict[str, Any] = Depends(require_permission("recom
         "deviation_percent": 86.1,
         "important_features": ["occupancy", "temperature", "hvac_load"]
     })
+
+@app.post("/recommendations")
+@app.post("/api/v1/recommendations")
+def post_recommendations(
+    req: RecommendationPostRequest,
+    user: Dict[str, Any] = Depends(require_permission("recommendations.read"))
+):
+    req_dict = req.model_dump() if hasattr(req, "model_dump") else req.dict()
+    return genai_engine.generate_recommendation(req_dict)
+
 
 @app.post("/scenario")
 @app.post("/api/v1/simulation")

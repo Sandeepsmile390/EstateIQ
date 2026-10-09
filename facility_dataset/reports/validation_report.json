@@ -1,24 +1,24 @@
 {
   "energy": {
-    "total_rows": 172800,
+    "total_rows": 350400,
     "missing_pct": 1.5,
-    "mean_electricity_kwh": 28.88,
-    "min_electricity_kwh": 4.361,
-    "max_electricity_kwh": 115.2
+    "mean_electricity_kwh": 30.37,
+    "min_electricity_kwh": 4.579,
+    "max_electricity_kwh": 117.698
   },
   "water": {
-    "total_rows": 172800,
+    "total_rows": 350400,
     "missing_pct": 1.2,
-    "mean_water_liters": 1071.29
+    "mean_water_liters": 1071.26
   },
   "waste": {
-    "total_rows": 483840,
-    "mean_fill_pct": 28.65,
+    "total_rows": 981120,
+    "mean_fill_pct": 28.63,
     "overflow_events_count": 0
   },
   "air_quality": {
-    "total_rows": 120960,
-    "mean_aqi": 50.15,
-    "mean_pm25": 29.07
+    "total_rows": 245280,
+    "mean_aqi": 46.73,
+    "mean_pm25": 27.15
   }
 }

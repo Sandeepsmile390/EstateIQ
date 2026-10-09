@@ -48,14 +48,43 @@ class AIContextBuilder:
             "facility_id": facility_id,
             "building_id": target_building,
             "analyzed_at": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "data_source": GLOBAL_DATASET_MANAGER.active_dataset.source_type
+            "data_source": GLOBAL_DATASET_MANAGER.active_dataset.source_type,
+            "is_explanatory": route.is_explanatory
         }
+
+        # Handle Greetings
+        if route.intent == IntentCategory.GREETING:
+            return {
+                "query_meta": query_meta,
+                "intent_type": "GREETING",
+                "is_explanatory": False,
+                "greeting_message": "Hello! I am your EstateIQ AI Decision Intelligence Copilot. How can I assist you with campus facility monitoring, energy forecasts, water/waste audits, or anomaly insights today?",
+                "telemetry_observed": {},
+                "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
+                "confidence": {"confidence_percent": 100.0, "confidence_level": "HIGH"}
+            }
+
+        # Handle Model / Algorithm Questions
+        if route.intent == IntentCategory.MODEL_EXPLANATION or "algorithm" in user_query.lower():
+            return {
+                "query_meta": query_meta,
+                "intent_type": "MODEL_EXPLANATION",
+                "is_explanatory": False,
+                "algorithm_info": {
+                    "name": "Elite algo (created by Team Elite)",
+                    "description": "EstateIQ uses the Elite algo (created by Team Elite). It routes your natural language question into an operational intent, pulls the relevant facility sensor readings and baseline data, and then generates answers grounded in explainable decision trees with SHAP attributions. Different tasks use task-specific registered models such as CatBoost for energy forecasting, Isolation Forest for water anomalies, or Prophet for trend predictions."
+                },
+                "telemetry_observed": {},
+                "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
+                "confidence": {"confidence_percent": 100.0, "confidence_level": "HIGH"}
+            }
 
         # Handle Non-Telemetry Intents Directly (System Capabilities & Project Knowledge)
         if route.intent == IntentCategory.SYSTEM_CAPABILITY:
             return {
                 "query_meta": query_meta,
                 "intent_type": "SYSTEM_CAPABILITY",
+                "is_explanatory": False,
                 "capabilities": plan_data["capabilities"],
                 "telemetry_observed": {},
                 "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
@@ -66,6 +95,7 @@ class AIContextBuilder:
             return {
                 "query_meta": query_meta,
                 "intent_type": "PROJECT_EXPLANATION",
+                "is_explanatory": route.is_explanatory,
                 "project_knowledge": plan_data.get("knowledge", {}),
                 "telemetry_observed": {},
                 "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
@@ -76,6 +106,7 @@ class AIContextBuilder:
             return {
                 "query_meta": query_meta,
                 "intent_type": "DATASET_METADATA",
+                "is_explanatory": route.is_explanatory,
                 "dataset_metadata": plan_data.get("dataset_metadata", {"facilities": 1, "buildings": 6, "total_records": 14200, "status": "ACTIVE"}),
                 "telemetry_observed": {},
                 "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
@@ -86,6 +117,7 @@ class AIContextBuilder:
             return {
                 "query_meta": query_meta,
                 "intent_type": "IOT_STATUS",
+                "is_explanatory": route.is_explanatory,
                 "device_status_summary": plan_data.get("device_status_summary", {"total_sensors": 48, "online_sensors": 46, "sensor_reliability_pct": 95.8}),
                 "telemetry_observed": {},
                 "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
@@ -96,6 +128,7 @@ class AIContextBuilder:
             return {
                 "query_meta": query_meta,
                 "intent_type": "COMPARISON",
+                "is_explanatory": route.is_explanatory,
                 "comparison_metrics": plan_data.get("comparison_metrics", {"building_a": "Block A", "building_b": "Block B", "delta_pct": "+54.1%"}),
                 "telemetry_observed": {},
                 "business_impact": {"hourly_cost_inr": 500.0, "annual_cost_of_inaction_inr": 4380000.0},
@@ -108,6 +141,7 @@ class AIContextBuilder:
             return {
                 "query_meta": query_meta,
                 "intent_type": "WATER_AUDIT",
+                "is_explanatory": route.is_explanatory,
                 "telemetry_observed": water_data,
                 "data_quality": {"quality_score": 98.0, "sensor_reliability": 99.0},
                 "business_impact": {"hourly_cost_inr": 15.0, "annual_cost_of_inaction_inr": 131400.0},
@@ -122,6 +156,7 @@ class AIContextBuilder:
             return {
                 "query_meta": query_meta,
                 "intent_type": "WASTE_AUDIT",
+                "is_explanatory": route.is_explanatory,
                 "telemetry_observed": waste_data,
                 "data_quality": {"quality_score": 95.0, "sensor_reliability": 98.0},
                 "business_impact": {"hourly_cost_inr": 5.0, "annual_cost_of_inaction_inr": 43800.0},
@@ -136,6 +171,7 @@ class AIContextBuilder:
             return {
                 "query_meta": query_meta,
                 "intent_type": "AIR_QUALITY_AUDIT",
+                "is_explanatory": route.is_explanatory,
                 "telemetry_observed": air_data,
                 "data_quality": {"quality_score": 92.0, "sensor_reliability": 95.0},
                 "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
@@ -150,6 +186,7 @@ class AIContextBuilder:
             return {
                 "query_meta": query_meta,
                 "intent_type": "EQUIPMENT_AUDIT",
+                "is_explanatory": route.is_explanatory,
                 "telemetry_observed": eq_data,
                 "data_quality": {"quality_score": 94.0, "sensor_reliability": 96.0},
                 "business_impact": {"hourly_cost_inr": 25.0, "annual_cost_of_inaction_inr": 219000.0},
@@ -164,6 +201,7 @@ class AIContextBuilder:
             return {
                 "query_meta": query_meta,
                 "intent_type": "SUSTAINABILITY_AUDIT",
+                "is_explanatory": route.is_explanatory,
                 "telemetry_observed": sust_data,
                 "data_quality": {"quality_score": 98.0, "sensor_reliability": 99.0},
                 "business_impact": {"hourly_cost_inr": 50.0, "annual_cost_of_inaction_inr": 438000.0},
@@ -202,6 +240,7 @@ class AIContextBuilder:
 
         evidence = {
             "query_meta": query_meta,
+            "is_explanatory": route.is_explanatory,
             "facility": {"facility_id": facility_id, "building_id": target_building, "timestamp": timestamp},
             "data_quality": {
                 "quality_score": decision.quality.overall_quality_score,

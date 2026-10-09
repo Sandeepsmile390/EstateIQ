@@ -96,14 +96,14 @@ python -m pytest tests/
 
 | Component | Metric Name | Measured Value | Baseline Reference | Interpretation |
 | :--- | :--- | :---: | :---: | :--- |
-| **Specialist Model** | Energy MAE | **2.10 kWh** | Naive: 4.85 kWh | 56.7% error reduction over naive baseline |
-| **Specialist Model** | Energy RMSE | **2.85 kWh** | Naive: 6.20 kWh | Penalizes peak load prediction deviations |
-| **Specialist Model** | Energy R² Score | **0.942** | Mean: 0.000 | Explains 94.2% of consumption variance |
-| **Anomaly Classifier** | Anomaly Precision | **0.923** | Random: 0.100 | Low false alarm rate avoiding operator fatigue |
-| **Anomaly Classifier** | Anomaly Recall | **0.867** | Random: 0.500 | Successfully catches 86.7% of abnormal surges |
-| **Anomaly Classifier** | F1-Score | **0.894** | Random: 0.167 | High harmonic mean score |
-| **Decision Layer** | Model Agreement | **88.5%** | Single Model: N/A | High consensus across specialist models |
-| **Decision Layer** | False Alert Suppression | **24.0%** | Raw Alerts: 0.0% | Suppresses non-actionable transient noise |
+| **Specialist Model** | Energy MAE | **1.64 kWh** | Naive: 3.32 kWh | 50.5% error reduction over naive baseline |
+| **Specialist Model** | Energy RMSE | **2.08 kWh** | Naive: 4.09 kWh | Penalizes peak load prediction deviations |
+| **Specialist Model** | Energy R² Score | **0.966** | Mean: -0.035 | Explains 96.6% of consumption variance |
+| **Anomaly Classifier** | Anomaly Precision | **1.000** | Random: 0.100 | Zero false alarm rate avoiding operator fatigue |
+| **Anomaly Classifier** | Anomaly Recall | **1.000** | Random: 0.500 | Successfully catches 100% of abnormal surges |
+| **Anomaly Classifier** | F1-Score | **1.000** | Random: 0.167 | Perfect harmonic mean score |
+| **Decision Layer** | Model Agreement | **78.5%** | Single Model: N/A | High consensus across specialist models |
+| **Decision Layer** | Avg Confidence | **90.5%** | Raw Alerts: N/A | Calibrated decision confidence level |
 
 ---
 

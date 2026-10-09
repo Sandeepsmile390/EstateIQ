@@ -2,7 +2,7 @@
 
 **Project:** EstateIQ Facility Intelligence Platform (BPUT Hackathon 2026)  
 **Author:** Team Elite  
-**Evaluated At:** `2026-10-09 15:23:06`  
+**Evaluated At:** `2026-10-09 16:36:41`  
 **Dataset Provenance:** `facility.db` (SQLite) / `facility_dataset/data/raw/` CSV feeds  
 **Evaluation Split:** Chronological 70% Train, 15% Validation, 15% Test (Fixed Seed: 42)  
 
@@ -109,10 +109,10 @@ The Elite Algorithm Decision Layer aggregates predictions from specialist models
 
 | Batch Size (Events) | Total Execution Time (ms) | Avg Latency per Event (ms) | Throughput (Events/sec) | Memory RSS (MB) |
 | :---: | :---: | :---: | :---: | :---: |
-| **1** | 0.09 ms | **0.09 ms** | 10000.0 evt/s | 42.5 MB |
-| **10** | 0.76 ms | **0.076 ms** | 13116.5 evt/s | 42.5 MB |
-| **100** | 8.3 ms | **0.083 ms** | 12047.6 evt/s | 42.5 MB |
-| **500** | 42.57 ms | **0.085 ms** | 11746.3 evt/s | 42.5 MB |
+| **1** | 0.29 ms | **0.286 ms** | 3491.6 evt/s | 42.5 MB |
+| **10** | 1.56 ms | **0.156 ms** | 6424.7 evt/s | 42.5 MB |
+| **100** | 15.44 ms | **0.154 ms** | 6478.7 evt/s | 42.5 MB |
+| **500** | 75.88 ms | **0.152 ms** | 6589.6 evt/s | 42.5 MB |
 
 
 ---

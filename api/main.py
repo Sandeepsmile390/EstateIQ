@@ -1077,6 +1077,119 @@ def get_device_health(device_id: str):
         "quality": "OK"
     }
 
+# --- Interactive IoT Simulator Endpoints ---
+from src.services.iot_simulator import GLOBAL_IOT_SIMULATOR
+
+class SimulatorControlRequest(BaseModel):
+    action: str  # start, pause, resume, stop, step, reset_state, reset_controls
+    speed: Optional[int] = 1
+    building_id: Optional[str] = None
+
+class SimulatorScenarioRequest(BaseModel):
+    scenario_key: str
+
+@app.get("/api/v1/iot-simulator/status")
+def get_iot_simulator_status():
+    return GLOBAL_IOT_SIMULATOR.get_status()
+
+@app.post("/api/v1/iot-simulator/control")
+def control_iot_simulator(req: SimulatorControlRequest):
+    action = req.action.lower()
+    if req.building_id:
+        GLOBAL_IOT_SIMULATOR.set_building(req.building_id)
+    if req.speed:
+        GLOBAL_IOT_SIMULATOR.set_speed(req.speed)
+
+    if action == "start":
+        return GLOBAL_IOT_SIMULATOR.start_simulation()
+    elif action == "pause":
+        return GLOBAL_IOT_SIMULATOR.pause_simulation()
+    elif action == "resume":
+        return GLOBAL_IOT_SIMULATOR.resume_simulation()
+    elif action == "stop":
+        return GLOBAL_IOT_SIMULATOR.stop_simulation()
+    elif action == "step":
+        return GLOBAL_IOT_SIMULATOR.step_simulation()
+    elif action == "reset_state":
+        return GLOBAL_IOT_SIMULATOR.reset_state()
+    elif action == "reset_controls":
+        return GLOBAL_IOT_SIMULATOR.reset_controls()
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown simulation action: {action}")
+
+@app.post("/api/v1/iot-simulator/scenario")
+def set_iot_simulator_scenario(req: SimulatorScenarioRequest):
+    return GLOBAL_IOT_SIMULATOR.apply_scenario_preset(req.scenario_key)
+
+@app.post("/api/v1/iot-simulator/sensors")
+def update_iot_simulator_sensors(overrides: Dict[str, Any]):
+    return GLOBAL_IOT_SIMULATOR.update_sensors(overrides)
+
+@app.get("/api/v1/iot-simulator/stream")
+def get_iot_simulator_stream(limit: int = 50):
+    return {
+        "data_source_mode": "simulated_iot",
+        "data_source_badge": "SIMULATED IoT — NOT PHYSICAL SENSOR DATA",
+        "total_records": len(GLOBAL_IOT_SIMULATOR.history_buffer),
+        "stream": GLOBAL_IOT_SIMULATOR.get_stream(limit=limit)
+    }
+
+@app.post("/api/v1/iot-simulator/evaluate")
+def evaluate_iot_simulator_telemetry():
+    """Runs live EstateIQ-DIF Engine & SHAP explainability on current simulated IoT telemetry state."""
+    status = GLOBAL_IOT_SIMULATOR.get_status()
+    sensors = status["sensors"]
+    building_id = status["building_id"]
+    
+    from src.intelligence.dif_engine import EstateIQDIF
+    from src.intelligence.types import EventData
+    dif_engine_local = EstateIQDIF()
+    
+    event = EventData(
+        event_id=f"EVT_SIM_{int(pd.Timestamp.now().timestamp())}",
+        facility_id=status["facility_id"],
+        building_id=building_id,
+        timestamp=status["simulated_timestamp"],
+        actual_kwh=sensors["energy_kwh"],
+        hour=pd.Timestamp.now().hour,
+        day_of_week=pd.Timestamp.now().dayofweek,
+        occupancy=int(sensors["occupancy_count"]),
+        temperature=float(sensors["temperature_c"]),
+        hvac_load=float(sensors["hvac_load_kw"])
+    )
+    
+    decision = dif_engine_local.analyze(event)
+    
+    return {
+        "status": "SUCCESS",
+        "data_source_mode": "simulated_iot",
+        "data_source_badge": "SIMULATED IoT — NOT PHYSICAL SENSOR DATA",
+        "building_id": building_id,
+        "simulated_timestamp": status["simulated_timestamp"],
+        "active_scenario": status["active_scenario"],
+        "event_telemetry": {
+            "active_power_kw": sensors["active_power_kw"],
+            "energy_kwh": sensors["energy_kwh"],
+            "temperature_c": sensors["temperature_c"],
+            "occupancy_count": sensors["occupancy_count"],
+            "hvac_load_kw": sensors["hvac_load_kw"],
+            "water_flow_lmin": sensors["water_flow_lmin"]
+        },
+        "dif_analysis": {
+            "expected_baseline_kwh": round(decision.contextual.expected_kwh, 2),
+            "residual_kwh": round(decision.contextual.residual_kwh, 2),
+            "relative_deviation_pct": round(decision.contextual.relative_deviation_pct, 1),
+            "anomaly_score": round(decision.anomaly.anomaly_score, 3),
+            "anomaly_level": decision.anomaly.anomaly_level.value,
+            "decision_score": round(decision.decision_score, 1),
+            "priority": decision.priority.value,
+            "hourly_cost_inr": round(decision.impact.hourly_avoidable_cost_inr, 2),
+            "shap_attribution": decision.shap_attribution,
+            "recommended_actions": [r.title for r in decision.recommendations]
+        }
+    }
+
+
 # --- Facility State & Dataset Management Endpoints ---
 @app.get("/api/v1/facility/state")
 def get_facility_state(facility_id: str = "FAC_GEC_CAMPUS"):

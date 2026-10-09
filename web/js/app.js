@@ -15,7 +15,7 @@ let currentUserSession = {
     role_key: "admin",
     role_label: "Facility Lead & Admin",
     avatar_bg: "#124B3E",
-    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "faq", "decision-intelligence", "esg", "billing", "work-orders", "ai-assistant"],
+    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "iot-simulator", "faq", "decision-intelligence", "esg", "billing", "work-orders", "ai-assistant"],
     can_execute_rules: true,
     can_upgrade_subscription: true
 };
@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initNotificationsDropdown();
     initChatEngine();
     initTelemetryStreamer();
+    initIotSimulator();
     initKeyboardShortcuts();
     initDecisionTraceModal();
     initScoreExplanationModal();
@@ -362,6 +363,7 @@ function capitalizeFirst(str) {
     if (str === "faq" || str === "decision-intelligence" || str === "models") return "Faq";
     if (str === "ai-assistant") return "AiAssistant";
     if (str === "work-orders") return "WorkOrders";
+    if (str === "iot-simulator") return "IotSimulator";
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
@@ -1694,5 +1696,322 @@ window.toggleFaq = toggleFaq;
 window.filterFaqs = filterFaqs;
 window.filterFaqCategory = filterFaqCategory;
 window.setFaqSearchPrompt = setFaqSearchPrompt;
+window.initIotSimulator = initIotSimulator;
+
+/* --------------------------------------------------------------------------
+   INTERACTIVE IOT TELEMETRY SIMULATOR CONTROLLER
+   -------------------------------------------------------------------------- */
+function initIotSimulator() {
+    const btnSimStart = document.getElementById("btnSimStart");
+    const btnSimPause = document.getElementById("btnSimPause");
+    const btnSimStep = document.getElementById("btnSimStep");
+    const btnSimStop = document.getElementById("btnSimStop");
+    const btnSimResetState = document.getElementById("btnSimResetState");
+    const btnResetSensorControls = document.getElementById("btnResetSensorControls");
+    const btnApplySensorOverrides = document.getElementById("btnApplySensorOverrides");
+    const btnEvaluateSimTelemetry = document.getElementById("btnEvaluateSimTelemetry");
+    const simScenarioSelect = document.getElementById("simScenarioSelect");
+    const simBuildingSelect = document.getElementById("simBuildingSelect");
+    const speedButtons = document.querySelectorAll(".sim-speed-btn");
+
+    // Telemetry sliders & inputs
+    const ctrlActivePowerKW = document.getElementById("ctrlActivePowerKW");
+    const valActivePowerKW = document.getElementById("valActivePowerKW");
+
+    const ctrlEnergyKWH = document.getElementById("ctrlEnergyKWH");
+    const valEnergyKWH = document.getElementById("valEnergyKWH");
+
+    const ctrlPowerFactor = document.getElementById("ctrlPowerFactor");
+    const valPowerFactor = document.getElementById("valPowerFactor");
+
+    const ctrlXfmrLoad = document.getElementById("ctrlXfmrLoad");
+    const valXfmrLoad = document.getElementById("valXfmrLoad");
+
+    const ctrlOccupancyCount = document.getElementById("ctrlOccupancyCount");
+    const valOccupancyCount = document.getElementById("valOccupancyCount");
+
+    const ctrlHvacLoadKW = document.getElementById("ctrlHvacLoadKW");
+    const valHvacLoadKW = document.getElementById("valHvacLoadKW");
+
+    const ctrlHvacStatus = document.getElementById("ctrlHvacStatus");
+    const ctrlEquipStatus = document.getElementById("ctrlEquipStatus");
+
+    const ctrlTempC = document.getElementById("ctrlTempC");
+    const valTempC = document.getElementById("valTempC");
+
+    const ctrlWaterFlow = document.getElementById("ctrlWaterFlow");
+    const valWaterFlow = document.getElementById("valWaterFlow");
+
+    const ctrlAirAqi = document.getElementById("ctrlAirAqi");
+    const valAirAqi = document.getElementById("valAirAqi");
+
+    const ctrlDgStatus = document.getElementById("ctrlDgStatus");
+
+    if (!btnSimStart && !simScenarioSelect) return;
+
+    // Helper: update live slider display labels
+    const syncSliderLabels = () => {
+        if (ctrlActivePowerKW && valActivePowerKW) valActivePowerKW.textContent = `${ctrlActivePowerKW.value} kW`;
+        if (ctrlEnergyKWH && valEnergyKWH) valEnergyKWH.textContent = `${ctrlEnergyKWH.value} kWh`;
+        if (ctrlPowerFactor && valPowerFactor) valPowerFactor.textContent = `${ctrlPowerFactor.value}`;
+        if (ctrlXfmrLoad && valXfmrLoad) valXfmrLoad.textContent = `${ctrlXfmrLoad.value}%`;
+        if (ctrlOccupancyCount && valOccupancyCount) valOccupancyCount.textContent = `${ctrlOccupancyCount.value}`;
+        if (ctrlHvacLoadKW && valHvacLoadKW) valHvacLoadKW.textContent = `${ctrlHvacLoadKW.value} kW`;
+        if (ctrlTempC && valTempC) valTempC.textContent = `${ctrlTempC.value}°C`;
+        if (ctrlWaterFlow && valWaterFlow) valWaterFlow.textContent = `${ctrlWaterFlow.value} L/min`;
+        if (ctrlAirAqi && valAirAqi) valAirAqi.textContent = `${ctrlAirAqi.value} AQI`;
+    };
+
+    // Attach input listeners for instant slider feedback
+    [ctrlActivePowerKW, ctrlEnergyKWH, ctrlPowerFactor, ctrlXfmrLoad, ctrlOccupancyCount, ctrlHvacLoadKW, ctrlTempC, ctrlWaterFlow, ctrlAirAqi].forEach(el => {
+        if (el) el.addEventListener("input", syncSliderLabels);
+    });
+
+    // Send control actions to backend
+    const sendControlAction = async (action, extraData = {}) => {
+        try {
+            const bodyData = { action, ...extraData };
+            const res = await fetch("/api/v1/iot-simulator/control", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(bodyData)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                updateSimulatorUI(data);
+                fetchStreamLog();
+            }
+        } catch (e) {
+            console.error("Simulation control error:", e);
+        }
+    };
+
+    // Control button bindings
+    btnSimStart?.addEventListener("click", () => sendControlAction("start"));
+    btnSimPause?.addEventListener("click", () => sendControlAction("pause"));
+    btnSimStep?.addEventListener("click", () => sendControlAction("step"));
+    btnSimStop?.addEventListener("click", () => sendControlAction("stop"));
+    btnSimResetState?.addEventListener("click", () => sendControlAction("reset_state"));
+
+    btnResetSensorControls?.addEventListener("click", async () => {
+        await sendControlAction("reset_controls");
+        fetchStatus();
+    });
+
+    // Speed button bindings
+    speedButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            speedButtons.forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            const speed = parseInt(btn.getAttribute("data-speed") || "1");
+            sendControlAction("set_speed", { speed });
+        });
+    });
+
+    // Scenario Preset select binding
+    simScenarioSelect?.addEventListener("change", async () => {
+        const scenarioKey = simScenarioSelect.value;
+        try {
+            const res = await fetch("/api/v1/iot-simulator/scenario", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ scenario_key: scenarioKey })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                updateSimulatorUI(data);
+                fetchStreamLog();
+            }
+        } catch (e) {
+            console.error("Scenario error:", e);
+        }
+    });
+
+    // Building selector binding
+    simBuildingSelect?.addEventListener("change", () => {
+        sendControlAction("start", { building_id: simBuildingSelect.value });
+    });
+
+    // Apply Sensor Overrides
+    btnApplySensorOverrides?.addEventListener("click", async () => {
+        const overrides = {
+            active_power_kw: parseFloat(ctrlActivePowerKW?.value || 145),
+            energy_kwh: parseFloat(ctrlEnergyKWH?.value || 36.3),
+            power_factor: parseFloat(ctrlPowerFactor?.value || 0.94),
+            transformer_load_pct: parseFloat(ctrlXfmrLoad?.value || 78),
+            occupancy_count: parseInt(ctrlOccupancyCount?.value || 140),
+            hvac_load_kw: parseFloat(ctrlHvacLoadKW?.value || 58),
+            hvac_status: ctrlHvacStatus?.value || "ON",
+            equipment_status: ctrlEquipStatus?.value || "NORMAL",
+            temperature_c: parseFloat(ctrlTempC?.value || 32),
+            water_flow_lmin: parseFloat(ctrlWaterFlow?.value || 50),
+            air_aqi: parseFloat(ctrlAirAqi?.value || 110),
+            dg_status: ctrlDgStatus?.value || "OFF"
+        };
+
+        try {
+            const res = await fetch("/api/v1/iot-simulator/sensors", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(overrides)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                updateSimulatorUI(data);
+            }
+        } catch (e) {
+            console.error("Sensor override error:", e);
+        }
+    });
+
+    // Evaluate DIF Engine button
+    btnEvaluateSimTelemetry?.addEventListener("click", async () => {
+        try {
+            const res = await fetch("/api/v1/iot-simulator/evaluate", { method: "POST" });
+            if (res.ok) {
+                const resData = await res.json();
+                const dif = resData.dif_analysis;
+                const elemLevel = document.getElementById("simDifAnomalyLevel");
+                const elemScore = document.getElementById("simDifAnomalyScore");
+                const elemExpected = document.getElementById("simDifExpectedKwh");
+                const elemActual = document.getElementById("simDifActualKwh");
+                const elemDev = document.getElementById("simDifDevPct");
+                const elemCost = document.getElementById("simDifCostSurge");
+                const elemShap = document.getElementById("simDifShapDriver");
+
+                if (elemLevel) {
+                    elemLevel.textContent = dif.anomaly_level;
+                    elemLevel.className = dif.anomaly_level.includes("NORMAL") ? "text-mint" : "text-red";
+                }
+                if (elemScore) elemScore.textContent = dif.anomaly_score;
+                if (elemExpected) elemExpected.textContent = `${dif.expected_baseline_kwh} kWh`;
+                if (elemActual) elemActual.textContent = `${resData.event_telemetry.energy_kwh} kWh`;
+                if (elemDev) {
+                    const sign = dif.relative_deviation_pct >= 0 ? "+" : "";
+                    elemDev.textContent = `${sign}${dif.relative_deviation_pct}% deviation`;
+                    elemDev.className = dif.relative_deviation_pct > 20 ? "text-red" : "text-mint";
+                }
+                if (elemCost) elemCost.textContent = `₹${dif.hourly_cost_inr.toLocaleString()} / hour`;
+                if (elemShap && dif.shap_attribution) {
+                    const drivers = Object.entries(dif.shap_attribution)
+                        .slice(0, 3)
+                        .map(([k, v]) => `${k} (${v > 0 ? "+" : ""}${v})`)
+                        .join(", ");
+                    elemShap.textContent = drivers || "Baseline steady-state operation";
+                }
+            }
+        } catch (e) {
+            console.error("DIF evaluation error:", e);
+        }
+    });
+
+    // Poll status from backend
+    const fetchStatus = async () => {
+        try {
+            const res = await fetch("/api/v1/iot-simulator/status");
+            if (res.ok) {
+                const status = await res.json();
+                updateSimulatorUI(status);
+            }
+        } catch (e) {
+            const conn = document.getElementById("simConnStatusText");
+            if (conn) {
+                conn.textContent = "DISCONNECTED";
+                conn.className = "text-red";
+            }
+        }
+    };
+
+    // Update UI from status object
+    const updateSimulatorUI = (status) => {
+        if (!status) return;
+
+        const badge = document.getElementById("simStatusBadge");
+        if (badge) {
+            badge.textContent = status.status;
+            badge.className = status.status === "RUNNING" ? "pill-badge badge-teal" :
+                              status.status === "PAUSED" ? "pill-badge badge-amber" : "pill-badge badge-red";
+        }
+
+        const clockVal = document.getElementById("simClockVal");
+        if (clockVal && status.simulated_timestamp) {
+            clockVal.textContent = status.simulated_timestamp.replace("T", " ").slice(0, 19);
+        }
+
+        const samplesCount = document.getElementById("simSamplesCount");
+        if (samplesCount) samplesCount.textContent = status.sample_count;
+
+        const speedDisp = document.getElementById("simSpeedDisplay");
+        if (speedDisp) speedDisp.textContent = `Speed: ${status.speed}×`;
+
+        const ingestionStatus = document.getElementById("simIngestionStatus");
+        if (ingestionStatus) {
+            ingestionStatus.textContent = status.status === "RUNNING" ? "LIVE STREAMING" : "IDLE / READY";
+            ingestionStatus.style.color = status.status === "RUNNING" ? "#00D09C" : "#0D9488";
+        }
+
+        const conn = document.getElementById("simConnStatusText");
+        if (conn) {
+            conn.textContent = "CONNECTED";
+            conn.className = "text-mint";
+        }
+
+        // Sync slider positions if not actively focused by user
+        if (status.sensors) {
+            const s = status.sensors;
+            if (document.activeElement !== ctrlActivePowerKW && ctrlActivePowerKW) ctrlActivePowerKW.value = s.active_power_kw;
+            if (document.activeElement !== ctrlEnergyKWH && ctrlEnergyKWH) ctrlEnergyKWH.value = s.energy_kwh;
+            if (document.activeElement !== ctrlPowerFactor && ctrlPowerFactor) ctrlPowerFactor.value = s.power_factor;
+            if (document.activeElement !== ctrlXfmrLoad && ctrlXfmrLoad) ctrlXfmrLoad.value = s.transformer_load_pct;
+            if (document.activeElement !== ctrlOccupancyCount && ctrlOccupancyCount) ctrlOccupancyCount.value = s.occupancy_count;
+            if (document.activeElement !== ctrlHvacLoadKW && ctrlHvacLoadKW) ctrlHvacLoadKW.value = s.hvac_load_kw;
+            if (document.activeElement !== ctrlHvacStatus && ctrlHvacStatus) ctrlHvacStatus.value = s.hvac_status;
+            if (document.activeElement !== ctrlEquipStatus && ctrlEquipStatus) ctrlEquipStatus.value = s.equipment_status;
+            if (document.activeElement !== ctrlTempC && ctrlTempC) ctrlTempC.value = s.temperature_c;
+            if (document.activeElement !== ctrlWaterFlow && ctrlWaterFlow) ctrlWaterFlow.value = s.water_flow_lmin;
+            if (document.activeElement !== ctrlAirAqi && ctrlAirAqi) ctrlAirAqi.value = s.air_aqi;
+            if (document.activeElement !== ctrlDgStatus && ctrlDgStatus) ctrlDgStatus.value = s.dg_status;
+            syncSliderLabels();
+        }
+    };
+
+    // Fetch Stream Log
+    const fetchStreamLog = async () => {
+        try {
+            const res = await fetch("/api/v1/iot-simulator/stream?limit=15");
+            if (res.ok) {
+                const streamData = await res.json();
+                const tbody = document.getElementById("simStreamTableBody");
+                if (tbody && streamData.stream) {
+                    tbody.innerHTML = streamData.stream.map(item => `
+                        <tr>
+                            <td style="padding:6px; font-family:monospace; font-size:11px;">${item.sample_id}</td>
+                            <td style="padding:6px;">${item.timestamp ? item.timestamp.replace("T", " ").slice(11, 19) : "--"}</td>
+                            <td style="padding:6px; font-weight:600;">${item.active_power_kw} kW</td>
+                            <td style="padding:6px;">${item.temperature_c}°C</td>
+                            <td style="padding:6px;"><span class="badge-amber" style="font-size:10px;">${item.data_source_mode || 'simulated_iot'}</span></td>
+                        </tr>
+                    `).join("");
+                }
+            }
+        } catch (e) {
+            console.error("Stream log error:", e);
+        }
+    };
+
+    // Initial fetch
+    fetchStatus();
+    fetchStreamLog();
+
+    // Auto refresh interval every 2.5s
+    setInterval(() => {
+        const iotTab = document.getElementById("contentIotSimulator");
+        if (iotTab && iotTab.classList.contains("active")) {
+            fetchStatus();
+            fetchStreamLog();
+        }
+    }, 2500);
+}
+
 
 

@@ -1056,26 +1056,114 @@ def ingest_device_telemetry(payload: Dict[str, Any]):
         "message": "Telemetry reading ingested successfully."
     }
 
-@app.get("/api/v1/devices")
-def list_registered_devices(user: Dict[str, Any] = Depends(require_permission("facility.read"))):
+# --- Standalone IoT Simulator & Device Registry API Endpoints ---
+from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+
+class RegisterSimulatorRequest(BaseModel):
+    instance_id: str = "SIM_CAMPUS_02"
+    instance_name: str = "Campus-Simulator-02"
+    pairing_code: str = "IQ-DEMO"
+    facility_id: str = "FAC_GEC_CAMPUS"
+    building_id: str = "Block B Hostel"
+
+class HeartbeatRequest(BaseModel):
+    active_devices_count: int = 1
+    scenario: str = "Normal Campus Operation"
+
+@app.post("/api/v1/iot/pair")
+def generate_simulator_pairing_code(user: Dict[str, Any] = Depends(require_permission("facility.read"))):
+    return GLOBAL_DEVICE_REGISTRY.generate_pairing_code()
+
+@app.post("/api/v1/iot/simulators/register")
+def register_standalone_simulator(req: RegisterSimulatorRequest, request: Request):
+    ip_addr = request.client.host if request.client else "127.0.0.1"
+    return GLOBAL_DEVICE_REGISTRY.register_simulator(
+        instance_id=req.instance_id,
+        instance_name=req.instance_name,
+        pairing_code=req.pairing_code,
+        facility_id=req.facility_id,
+        building_id=req.building_id,
+        ip_address=ip_addr
+    )
+
+@app.post("/api/v1/iot/simulators/{instance_id}/heartbeat")
+def record_simulator_heartbeat(instance_id: str, req: HeartbeatRequest = HeartbeatRequest()):
+    return GLOBAL_DEVICE_REGISTRY.record_heartbeat(
+        instance_id=instance_id,
+        active_devices_count=req.active_devices_count,
+        scenario=req.scenario
+    )
+
+@app.post("/api/v1/iot/simulators/{instance_id}/devices/register")
+def register_simulator_device(instance_id: str, device_payload: Dict[str, Any]):
+    device_payload["instance_id"] = instance_id
+    return GLOBAL_DEVICE_REGISTRY.register_device(device_payload)
+
+@app.post("/api/v1/iot/telemetry")
+def ingest_iot_telemetry(payload: Dict[str, Any]):
+    res = GLOBAL_DEVICE_REGISTRY.ingest_telemetry(payload)
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error", "INGESTION_FAILED"))
+    return res
+
+@app.post("/api/v1/iot/telemetry/batch")
+def ingest_iot_telemetry_batch(batch: List[Dict[str, Any]]):
+    ingested_count = 0
+    for payload in batch:
+        res = GLOBAL_DEVICE_REGISTRY.ingest_telemetry(payload)
+        if res.get("success"):
+            ingested_count += 1
+    return {"status": "ACCEPTED", "batch_size": len(batch), "ingested_count": ingested_count}
+
+@app.get("/api/v1/iot/simulators")
+def list_simulators():
+    stats = GLOBAL_DEVICE_REGISTRY.get_summary_stats()
     return {
-        "registered_devices": [
-            {"device_id": "METER-BLOCK-A-001", "building": "Academic Block A", "status": "ONLINE", "type": "Modbus Meter"},
-            {"device_id": "METER-BLOCK-B-001", "building": "Block B Hostel", "status": "ONLINE", "type": "Modbus Meter"},
-            {"device_id": "METER-CAFETERIA-001", "building": "Central Cafeteria", "status": "ONLINE", "type": "CT Sensor Gateway"}
-        ]
+        "stats": stats,
+        "simulators": list(GLOBAL_DEVICE_REGISTRY.simulators.values())
     }
 
-@app.get("/api/v1/devices/{device_id}/health")
-def get_device_health(device_id: str):
+@app.get("/api/v1/iot/simulators/{instance_id}")
+def get_simulator_details(instance_id: str):
+    sim = GLOBAL_DEVICE_REGISTRY.simulators.get(instance_id)
+    if not sim:
+        raise HTTPException(status_code=404, detail="SIMULATOR_NOT_FOUND")
+    devices = [d for d in GLOBAL_DEVICE_REGISTRY.devices.values() if d.instance_id == instance_id]
+    return {"simulator": sim, "devices": devices}
+
+@app.get("/api/v1/iot/devices")
+def list_iot_devices():
+    return {
+        "stats": GLOBAL_DEVICE_REGISTRY.get_summary_stats(),
+        "devices": list(GLOBAL_DEVICE_REGISTRY.devices.values())
+    }
+
+@app.get("/api/v1/iot/devices/{device_id}")
+def get_iot_device_details(device_id: str):
+    dev = GLOBAL_DEVICE_REGISTRY.devices.get(device_id)
+    if not dev:
+        raise HTTPException(status_code=404, detail="DEVICE_NOT_FOUND")
+    history = [t for t in GLOBAL_DEVICE_REGISTRY.telemetry_history if t.get("device_id") == device_id][:50]
+    return {"device": dev, "recent_telemetry": history}
+
+@app.get("/api/v1/iot/devices/{device_id}/telemetry/latest")
+def get_latest_device_telemetry(device_id: str):
+    dev = GLOBAL_DEVICE_REGISTRY.devices.get(device_id)
+    if not dev:
+        raise HTTPException(status_code=404, detail="DEVICE_NOT_FOUND")
     return {
         "device_id": device_id,
-        "status": "ONLINE",
-        "last_seen": pd.Timestamp.now().isoformat(),
-        "signal_strength_rssi": -65,
-        "power_factor": 0.94,
-        "quality": "OK"
+        "last_sample_at": dev.last_sample_at,
+        "telemetry": dev.last_telemetry,
+        "data_source_badge": dev.data_source_badge
     }
+
+@app.post("/api/v1/iot/simulators/{instance_id}/revoke")
+def revoke_simulator_instance(instance_id: str, user: Dict[str, Any] = Depends(require_permission("facility.read"))):
+    success = GLOBAL_DEVICE_REGISTRY.revoke_simulator(instance_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="SIMULATOR_NOT_FOUND")
+    return {"status": "REVOKED", "instance_id": instance_id}
 
 # --- Interactive IoT Simulator Endpoints ---
 from src.services.iot_simulator import GLOBAL_IOT_SIMULATOR
@@ -1328,3 +1416,257 @@ def get_ai_insights(domain: str = "overview", building_id: Optional[str] = None)
     from src.ai.insight_service import GLOBAL_AI_INSIGHT_SERVICE
     insight = GLOBAL_AI_INSIGHT_SERVICE.get_domain_insight(domain=domain, building_id=building_id)
     return insight.dict()
+
+# ==============================================================================
+# IoT DEVICE REGISTRY & STANDALONE SIMULATOR REST API ENDPOINTS
+# ==============================================================================
+
+class PairRequest(BaseModel):
+    pairing_code: str
+
+class SimulatorRegisterRequest(BaseModel):
+    instance_id: str
+    name: str
+    facility_id: str = "FAC_GEC_CAMPUS"
+    building_id: str = "Block B Hostel"
+    ip_address: Optional[str] = "127.0.0.1"
+    software_version: Optional[str] = "1.0.0"
+
+class HeartbeatRequest(BaseModel):
+    active_devices_count: int = 0
+    scenario: Optional[str] = "Normal Campus Operation"
+
+class SensorOverrideRequest(BaseModel):
+    active_power_kw: Optional[float] = None
+    energy_kwh: Optional[float] = None
+    voltage_v: Optional[float] = None
+    current_a: Optional[float] = None
+    power_factor: Optional[float] = None
+    transformer_load_pct: Optional[float] = None
+    occupancy_count: Optional[int] = None
+    hvac_load_kw: Optional[float] = None
+    hvac_status: Optional[str] = None
+    equipment_status: Optional[str] = None
+    temperature_c: Optional[float] = None
+    water_flow_lmin: Optional[float] = None
+    air_quality_aqi: Optional[float] = None
+    dg_status: Optional[str] = None
+
+class ScenarioRequest(BaseModel):
+    scenario: str
+
+@app.post("/api/v1/iot/pair")
+def pair_iot_simulator(req: PairRequest):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    auth_token = GLOBAL_DEVICE_REGISTRY.validate_pairing_code(req.pairing_code)
+    if not auth_token:
+        raise HTTPException(status_code=400, detail="Invalid or expired pairing code.")
+    return {"success": True, "auth_token": auth_token, "message": "Simulator paired successfully"}
+
+@app.post("/api/v1/iot/simulators/register")
+def register_simulator_instance(req: SimulatorRegisterRequest):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    inst = GLOBAL_DEVICE_REGISTRY.register_instance(
+        instance_id=req.instance_id,
+        name=req.name,
+        facility_id=req.facility_id,
+        building_id=req.building_id,
+        ip_address=req.ip_address,
+        software_version=req.software_version
+    )
+    return {"success": True, "instance": inst.dict()}
+
+@app.post("/api/v1/iot/simulators/{instance_id}/heartbeat")
+def simulator_heartbeat(instance_id: str, req: HeartbeatRequest):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    ok = GLOBAL_DEVICE_REGISTRY.record_heartbeat(instance_id, req.active_devices_count, req.scenario)
+    if not ok:
+        raise HTTPException(status_code=444, detail=f"Simulator instance '{instance_id}' not found.")
+    return {"success": True, "status": "HEARTBEAT_ACK"}
+
+@app.post("/api/v1/iot/simulators/{instance_id}/devices/register")
+def register_virtual_devices(instance_id: str, devices: List[Dict[str, Any]]):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    count = GLOBAL_DEVICE_REGISTRY.register_devices(instance_id, devices)
+    return {"success": True, "registered_count": count}
+
+@app.post("/api/v1/iot/telemetry")
+def ingest_iot_telemetry(payload: Dict[str, Any]):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    res = GLOBAL_DEVICE_REGISTRY.ingest_telemetry(payload)
+    if not res.get("accepted"):
+        raise HTTPException(status_code=400, detail=res.get("reason", "Telemetry validation failed"))
+    return res
+
+@app.post("/api/v1/iot/telemetry/batch")
+def ingest_iot_telemetry_batch(batch: List[Dict[str, Any]]):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    accepted_count = 0
+    rejected_count = 0
+    for payload in batch:
+        res = GLOBAL_DEVICE_REGISTRY.ingest_telemetry(payload)
+        if res.get("accepted"):
+            accepted_count += 1
+        else:
+            rejected_count += 1
+    return {"status": "ACCEPTED", "accepted_count": accepted_count, "rejected_count": rejected_count}
+
+@app.get("/api/v1/iot/simulators")
+def list_simulators():
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    instances = GLOBAL_DEVICE_REGISTRY.list_instances()
+    return {"count": len(instances), "simulators": [i.dict() for i in instances]}
+
+@app.get("/api/v1/iot/simulators/{instance_id}")
+def get_simulator_details(instance_id: str):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    inst = GLOBAL_DEVICE_REGISTRY.get_instance(instance_id)
+    if not inst:
+        raise HTTPException(status_code=404, detail="Simulator instance not found")
+    return inst.dict()
+
+@app.get("/api/v1/iot/devices")
+def list_registered_devices(facility_id: Optional[str] = None, building_id: Optional[str] = None):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    devices = GLOBAL_DEVICE_REGISTRY.list_devices(facility_id=facility_id, building_id=building_id)
+    return {"count": len(devices), "devices": [d.dict() for d in devices]}
+
+@app.get("/api/v1/iot/devices/{device_id}")
+def get_device_details(device_id: str):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    dev = GLOBAL_DEVICE_REGISTRY.get_device(device_id)
+    if not dev:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return dev.dict()
+
+@app.get("/api/v1/iot/devices/{device_id}/telemetry/latest")
+def get_device_latest_telemetry(device_id: str):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    sample = GLOBAL_DEVICE_REGISTRY.get_latest_telemetry(device_id)
+    return {"device_id": device_id, "latest_telemetry": sample}
+
+@app.get("/api/v1/iot/devices/{device_id}/telemetry/history")
+def get_device_telemetry_history(device_id: str, limit: int = 50):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    history = GLOBAL_DEVICE_REGISTRY.get_telemetry_history(device_id, limit=limit)
+    return {"device_id": device_id, "count": len(history), "history": history}
+
+@app.post("/api/v1/iot/simulators/{instance_id}/revoke")
+def revoke_simulator(instance_id: str):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    ok = GLOBAL_DEVICE_REGISTRY.revoke_instance(instance_id)
+    return {"success": ok, "revoked_instance_id": instance_id}
+
+@app.post("/api/v1/iot/devices/{device_id}/disable")
+def disable_device(device_id: str):
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    ok = GLOBAL_DEVICE_REGISTRY.disable_device(device_id)
+    return {"success": ok, "disabled_device_id": device_id}
+
+# --- Legacy & In-Memory IoT Simulator Control Endpoints ---
+
+@app.get("/api/v1/iot-simulator/status")
+def get_iot_simulator_status():
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return sim.get_status()
+
+@app.post("/api/v1/iot-simulator/start")
+def start_iot_simulator():
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return sim.start_simulation()
+
+@app.post("/api/v1/iot-simulator/pause")
+def pause_iot_simulator():
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return sim.pause_simulation()
+
+@app.post("/api/v1/iot-simulator/resume")
+def resume_iot_simulator():
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return sim.resume_simulation()
+
+@app.post("/api/v1/iot-simulator/stop")
+def stop_iot_simulator():
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return sim.stop_simulation()
+
+@app.post("/api/v1/iot-simulator/step")
+def step_iot_simulator():
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return sim.step_simulation()
+
+@app.post("/api/v1/iot-simulator/reset")
+def reset_iot_simulator():
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return sim.reset_state()
+
+@app.post("/api/v1/iot-simulator/speed")
+def set_iot_simulator_speed(speed: int = 1):
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return sim.set_speed(speed)
+
+@app.post("/api/v1/iot-simulator/sensors")
+def override_iot_simulator_sensors(req: SensorOverrideRequest):
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    overrides = req.dict(exclude_none=True)
+    return sim.update_sensors(overrides)
+
+@app.post("/api/v1/iot-simulator/scenario")
+def set_iot_simulator_scenario(req: ScenarioRequest):
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return sim.apply_scenario_preset(req.scenario)
+
+@app.get("/api/v1/iot-simulator/stream")
+def get_iot_simulator_stream(limit: int = 50):
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    return {"count": limit, "stream": sim.get_stream(limit=limit)}
+
+@app.post("/api/v1/iot-simulator/evaluate")
+def evaluate_iot_simulator_telemetry():
+    from src.services.iot_simulator import get_iot_simulator
+    sim = get_iot_simulator()
+    latest_stream = sim.get_stream(limit=1)
+    if not latest_stream:
+        raise HTTPException(status_code=400, detail="No telemetry available to evaluate.")
+    
+    event = latest_stream[0]
+    tel = event.get("telemetry", {})
+    
+    actual_power = tel.get("active_power_kw", 145.2)
+    actual_kwh = tel.get("energy_kwh", 36.3)
+    baseline_kwh = 22.5
+    dev_pct = round(((actual_kwh - baseline_kwh) / baseline_kwh) * 100.0, 1)
+    
+    level = "P1_CRITICAL_SURGE" if dev_pct > 50 else "P2_HIGH_ANOMALY" if dev_pct > 20 else "NORMAL_OPTIMAL"
+    anomaly_score = min(0.99, max(0.05, dev_pct / 100.0))
+    cost_surge = round(max(0.0, (actual_kwh - baseline_kwh) * 8.5 * 4), 2)
+    
+    dif_result = {
+        "event_id": event.get("sample_id"),
+        "timestamp": event.get("timestamp"),
+        "facility_id": event.get("facility_id"),
+        "building_id": event.get("building_id"),
+        "anomaly_level": level,
+        "anomaly_score": anomaly_score,
+        "expected_baseline_kwh": baseline_kwh,
+        "relative_deviation_pct": dev_pct,
+        "hourly_cost_inr": cost_surge,
+        "shap_attribution": {
+            "hvac_load_kw": round(tel.get("hvac_load_kw", 58.0) * 0.45, 2),
+            "occupancy_count": round(tel.get("occupancy_count", 140) * 0.12, 2),
+            "temperature_c": round(tel.get("temperature_c", 32.0) * 0.08, 2)
+        }
+    }
+    return {"event_telemetry": tel, "dif_analysis": dif_result}
+

@@ -40,7 +40,25 @@ class AIContextBuilder:
         # 2. Execute Data Requirement Planner for intent
         plan_data = self.planner.plan_and_fetch(route, user_query)
 
-        # 3. Base Query Metadata
+        # 3. Fetch IoT Device Registry Status
+        try:
+            from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+            simulators = [s.dict() for s in GLOBAL_DEVICE_REGISTRY.list_instances()]
+            devices = [d.dict() for d in GLOBAL_DEVICE_REGISTRY.list_devices()]
+            iot_registry_summary = {
+                "total_simulators": len(simulators),
+                "online_simulators": len([s for s in simulators if s.get("status") in ["CONNECTED", "STREAMING"]]),
+                "total_virtual_devices": len(devices),
+                "online_devices": len([d for d in devices if d.get("status") in ["ONLINE", "STREAMING"]]),
+                "stale_devices": len([d for d in devices if d.get("status") == "STALE"]),
+                "offline_devices": len([d for d in devices if d.get("status") == "OFFLINE"]),
+                "simulators_list": simulators[:5],
+                "devices_summary": [{"id": d.get("device_id"), "name": d.get("name"), "status": d.get("status"), "last_seen": d.get("last_seen_at")} for d in devices[:10]]
+            }
+        except Exception:
+            iot_registry_summary = {"total_simulators": 0, "total_virtual_devices": 0}
+
+        # 4. Base Query Metadata
         query_meta = {
             "user_query": user_query,
             "intent": route.intent.value,
@@ -49,7 +67,8 @@ class AIContextBuilder:
             "building_id": target_building,
             "analyzed_at": now.strftime("%Y-%m-%d %H:%M:%S"),
             "data_source": GLOBAL_DATASET_MANAGER.active_dataset.source_type,
-            "is_explanatory": route.is_explanatory
+            "is_explanatory": route.is_explanatory,
+            "iot_registry": iot_registry_summary
         }
 
         # Handle Greetings

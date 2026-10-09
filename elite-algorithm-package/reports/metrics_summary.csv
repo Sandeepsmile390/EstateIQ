@@ -1,0 +1,12 @@
+Metric Name,Component,Formula / Meaning,Measured Value,Evaluation Dataset,Test Period / Split,Sample Count,Interpretation
+Energy MAE (kWh),Specialist Model (Energy ML),Mean Absolute Error: sum(|y_true - y_pred|) / N,1.6426,facility.db / energy_telemetry,Chronological 15% Test Split,150,Average energy prediction error in kWh per 15-min interval.
+Energy RMSE (kWh),Specialist Model (Energy ML),Root Mean Squared Error: sqrt(sum((y_true - y_pred)^2) / N),2.0808,facility.db / energy_telemetry,Chronological 15% Test Split,150,Penalizes larger forecast errors in peak power intervals.
+Energy R² Score,Specialist Model (Energy ML),Coefficient of Determination: 1 - SS_res / SS_tot,0.9661,facility.db / energy_telemetry,Chronological 15% Test Split,150,Proportion of energy variance explained by features.
+Baseline Naive MAE (kWh),Reference Baseline (Naive),Predicts y_t = y_{t-1},3.3158,facility.db / energy_telemetry,Chronological 15% Test Split,150,Simple persistence benchmark.
+Baseline Historical Mean MAE (kWh),Reference Baseline (Mean),Predicts y_t = mean(y_train),10.3044,facility.db / energy_telemetry,Chronological 15% Test Split,150,Static average benchmark.
+Water Usage MAE (kL),Specialist Model (Water ML),Mean Absolute Error in kL,0.33,facility.db / water_telemetry,Chronological 15% Test Split,150,Average water volume prediction error.
+Waste Overflow F1-Score,Specialist Model (Waste ML),2 * (Precision * Recall) / (Precision + Recall),0.8687,facility.db / waste_telemetry,Chronological 15% Test Split,400,Harmonic mean of bin overflow precision and recall.
+Anomaly Precision,Anomaly Detector (Isolation Forest),TP / (TP + FP),1.0,facility.db / energy_telemetry,15% Test Split,300,Proportion of flagged anomalies that were true anomalies.
+Anomaly Recall,Anomaly Detector (Isolation Forest),TP / (TP + FN),1.0,facility.db / energy_telemetry,15% Test Split,300,Proportion of actual anomalies correctly detected.
+Model Agreement Rate (%),Elite Algorithm Decision Layer,Mean consensus agreement percentage across specialist models,78.5,Live Pipeline Evaluation Stream,Synthetic & Observed Telemetry Feed,100,Degree of multi-model consensus on operational decisions.
+False Alert Suppression Rate (%),Elite Algorithm Safety Gate,Suppressed minor noise alerts / Total decisions * 100,0.0,Live Pipeline Evaluation Stream,Synthetic & Observed Telemetry Feed,100,Noise reduction percentage preventing false maintenance calls.

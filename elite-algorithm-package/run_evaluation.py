@@ -126,7 +126,6 @@ The Elite Algorithm Decision Layer aggregates predictions from specialist models
 - **Priority 3 (Routine Baseline):** `{decision['priority_distribution']['P3_ROUTINE']}` signals
 
 ![Pipeline Architecture Flow](../charts/decision_pipeline_flow.png)
-![Decision Prioritization](../charts/decision_prioritization_chart.png)
 
 ---
 
@@ -182,8 +181,14 @@ def main():
     complexity_results = EmpiricalComplexityBenchmark.run_benchmark(sample_counts=[1, 10, 100, 500])
 
     print("[3/4] Exporting reports/metrics_summary.csv & generating markdown report...")
-    eval_results["summary_df"].to_csv(REPORTS_DIR / "metrics_summary.csv", index=False)
-    generate_markdown_report(eval_results, complexity_results)
+    try:
+        eval_results["summary_df"].to_csv(REPORTS_DIR / "metrics_summary.csv", index=False)
+    except Exception as e:
+        print(f"Warning: Could not save metrics_summary.csv ({e})")
+    try:
+        generate_markdown_report(eval_results, complexity_results)
+    except Exception as e:
+        print(f"Warning: Could not save markdown report ({e})")
 
     print("[4/4] Rendering publication-quality PNG charts in charts/...")
     ChartGenerator.generate_all_charts(eval_results)

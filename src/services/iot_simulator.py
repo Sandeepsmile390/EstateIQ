@@ -185,20 +185,38 @@ class IoTSimulatorEngine:
     def apply_scenario_preset(self, scenario_key: str) -> Dict[str, Any]:
         with self._lock:
             self.active_scenario = scenario_key
-            if scenario_key == "HVAC_PEAK_SURGE":
+            key_upper = scenario_key.upper()
+
+            if "HVAC" in key_upper or "SURGE" in key_upper or "SPIKE" in key_upper or "HIGH" in key_upper:
                 self.sensors.hvac_status = "ON"
                 self.sensors.hvac_load_kw = 95.0
                 self.sensors.active_power_kw = 245.0
-                self.sensors.energy_kwh = 61.2
+                self.sensors.energy_kwh = 165.0
                 self.sensors.temperature_c = 38.5
                 self.sensors.occupancy_count = 280
                 self.sensors.occupancy_pct = 95.0
                 self.sensors.transformer_load_pct = 92.0
-            elif scenario_key == "WATER_PIPE_LEAK":
+            elif "LEAK" in key_upper or "WATER" in key_upper:
                 self.sensors.water_flow_lmin = 185.0
                 self.sensors.cumulative_water_m3 = 45.8
                 self.sensors.tank_level_pct = 32.0
                 self.sensors.water_pressure_bar = 1.4
+            elif "WASTE" in key_upper or "LOW OCCUPANCY" in key_upper or "AFTER-HOURS" in key_upper:
+                self.sensors.hvac_status = "ON"
+                self.sensors.hvac_load_kw = 65.0
+                self.sensors.active_power_kw = 120.0
+                self.sensors.energy_kwh = 145.0
+                self.sensors.occupancy_count = 5
+                self.sensors.occupancy_pct = 2.0
+            elif "UNSTABLE" in key_upper or "VOLTAGE" in key_upper or "SUPPLY" in key_upper:
+                self.sensors.voltage_v = 185.0
+                self.sensors.current_a = 28.5
+                self.sensors.power_factor = 0.72
+            elif "OFFLINE" in key_upper or "STALE" in key_upper:
+                self.sensors.active_power_kw = 0.0
+                self.sensors.hvac_load_kw = 0.0
+            elif "RECOVERY" in key_upper or "NORMAL" in key_upper or "BASELINE" in key_upper:
+                self.sensors = SensorControlState()
             elif scenario_key == "BIN_OVERFLOW_HAZARD":
                 self.sensors.occupancy_count = 320
                 self.sensors.air_quality_aqi = 165.0
@@ -215,9 +233,9 @@ class IoTSimulatorEngine:
                 self.sensors.occupancy_count = 25
                 self.sensors.occupancy_pct = 12.0
                 self.sensors.transformer_load_pct = 35.0
-            else: # NORMAL_BASELINE
+            else:
                 self.sensors = SensorControlState()
-            
+
             self.latest_ingestion_status = f"SCENARIO_APPLIED_{scenario_key}"
             self._generate_sample_tick()
             return self._get_status_unlocked()

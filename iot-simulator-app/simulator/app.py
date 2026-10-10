@@ -82,7 +82,7 @@ class ScenarioApplyRequest(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 def index_page(request: Request):
     """Renders standalone simulator dashboard HTML page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 @app.get("/api/status")
 def get_status():

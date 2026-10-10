@@ -3,6 +3,7 @@ Stage 2 Validation Script: Model Selection Engine Test.
 """
 
 from src.data.generator import generate_energy_data
+import pandas as pd
 from src.features.engineering import extract_time_features, prepare_feature_matrix
 from src.evaluation.validation import chronological_split
 from src.models.selector import ModelSelectionEngine

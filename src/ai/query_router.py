@@ -119,10 +119,15 @@ class UniversalQueryRouter:
     ]
 
     IOT_PATTERNS = [
-        r"sensors?\s+(online|status|healthy)",
+        r"sensors?\s+(online|status|healthy|value|reading|data|telemetry)",
         r"are\s+sensors\s+online",
         r"device\s+status",
-        r"iot\s+health"
+        r"iot\s+(health|status|sensor|data|telemetry|value|reading|monitor)",
+        r"live\s+iot",
+        r"real\s+iot",
+        r"sensor\s+(reading|value|data|telemetry|status)",
+        r"connected\s+sensor",
+        r"telemetry\s+(value|reading|data)"
     ]
 
     DATASET_PATTERNS = [

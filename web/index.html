@@ -293,9 +293,9 @@
                     <i class="fa-solid fa-sliders"></i>
                     <span class="nav-label">What-If Simulator</span>
                 </a>
-                <a href="#iot-simulator" class="nav-item" id="navIotSimulator" data-tab-nav="iot-simulator" data-tooltip="Interactive IoT Telemetry Simulator">
-                    <i class="fa-solid fa-tower-broadcast text-mint"></i>
-                    <span class="nav-label">IoT Simulator</span>
+                <a href="#iot-monitor" class="nav-item" id="navIotMonitor" data-tab-nav="iot-monitor" data-tooltip="Live IoT Telemetry & Sensor Gateway Monitor">
+                    <i class="fa-solid fa-satellite-dish text-mint"></i>
+                    <span class="nav-label">Live IoT Monitor</span>
                     <span class="badge-count bg-mint">LIVE</span>
                 </a>
                 <a href="#ai-assistant" class="nav-item" id="navAiAssistant" data-tab-nav="ai-assistant" data-tooltip="AI Operational Co-Pilot">
@@ -343,6 +343,8 @@
                 </div>
 
                 <div class="header-right">
+
+
                     <!-- SaaS Plan Badge -->
                     <div class="saas-plan-pill" id="headerPlanPill" data-tab-nav="billing">
                         <i class="fa-solid fa-crown text-gold"></i>
@@ -636,6 +638,11 @@
                     <button class="tab-btn" data-tab="simulator" id="tabSimulator">
                         <i class="fa-solid fa-sliders"></i>
                         <span>What-If Simulator</span>
+                        <div class="tab-indicator"></div>
+                    </button>
+                    <button class="tab-btn" data-tab="iot-monitor" id="tabIotMonitor">
+                        <i class="fa-solid fa-satellite-dish text-mint"></i>
+                        <span>Live IoT Monitor</span>
                         <div class="tab-indicator"></div>
                     </button>
                     <button class="tab-btn" data-tab="faq" id="tabFaq">
@@ -1671,6 +1678,310 @@
                     </div>
                 </div>
 
+                <!-- TAB CONTENT: LIVE IOT TELEMETRY & SENSOR GATEWAY MONITOR -->
+                <div class="tab-content" id="contentIotMonitor">
+                    <div class="module-tab-wrapper">
+                        
+                        <!-- HERO / GATEWAY STATUS BANNER -->
+                        <div class="simulator-hero-card" style="background: linear-gradient(135deg, #0A2E26 0%, #124B3E 100%); border: 1px solid rgba(0, 208, 156, 0.3);">
+                            <div class="sim-hero-top" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                                <div class="sim-title" style="display: flex; align-items: center; gap: 16px;">
+                                    <div class="sim-icon-box" style="background: rgba(0, 208, 156, 0.15); color: #00D09C; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+                                        <i class="fa-solid fa-satellite-dish"></i>
+                                    </div>
+                                    <div>
+                                        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: #FFFFFF;">Live IoT Telemetry & Sensor Gateway Monitor</h2>
+                                        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #A3C9BE;">Real-time sensor telemetry streaming from standalone IoT simulators and edge gateway devices (`/api/v1/iot/telemetry`)</p>
+                                    </div>
+                                </div>
+
+                                <div class="sim-preset-pills" style="display: flex; align-items: center; gap: 12px;">
+                                    <span class="live-telemetry-pill" style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(0, 208, 156, 0.15); border: 1px solid rgba(0, 208, 156, 0.4); border-radius: 20px; font-size: 12px; font-weight: 700; color: #00D09C;">
+                                        <span class="pulse-dot" style="width: 8px; height: 8px; background: #00D09C; border-radius: 50%;"></span>
+                                        <span id="monConnState">LIVE STREAMING</span>
+                                    </span>
+                                    <a href="http://localhost:8502" target="_blank" class="btn btn-emerald btn-sm" style="display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 8px 16px; border-radius: 10px; background: #00D09C; color: #0E3D32; text-decoration: none;">
+                                        <i class="fa-solid fa-up-right-from-square"></i> Standalone Simulator App (Port 8502) ↗
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- GATEWAY KPI STRIP -->
+                            <div class="forecast-cards-grid" style="margin-top: 20px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                                <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
+                                    <span class="fc-label" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #A3C9BE;">Connected Instances</span>
+                                    <h3 class="fc-val text-mint" id="monSimInstancesCount" style="font-size: 1.4rem; margin: 4px 0;">1 Simulator</h3>
+                                    <span class="fc-sub text-muted" id="monSimIpLabel">IP: 127.0.0.1 (Paired)</span>
+                                </div>
+                                <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
+                                    <span class="fc-label" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #A3C9BE;">Monitored Devices</span>
+                                    <h3 class="fc-val text-mint" id="monDevicesActiveCount" style="font-size: 1.4rem; margin: 4px 0;">8 Devices</h3>
+                                    <span class="fc-sub text-mint">100% Sensors Online</span>
+                                </div>
+                                <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
+                                    <span class="fc-label" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #A3C9BE;">Ingestion Throughput</span>
+                                    <h3 class="fc-val text-amber" id="monThroughput" style="font-size: 1.4rem; margin: 4px 0;">12 Packets/min</h3>
+                                    <span class="fc-sub text-amber">HTTP REST / JSON Stream</span>
+                                </div>
+                                <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
+                                    <span class="fc-label" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #A3C9BE;">Total Packets Ingested</span>
+                                    <h3 class="fc-val text-gold" id="monTotalIngestedRecords" style="font-size: 1.4rem; margin: 4px 0;">--</h3>
+                                    <span class="fc-sub text-gold">Tagged: [SIMULATED IoT]</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4 REAL-TIME SENSOR GAUGES CARDS GRID -->
+                        <div class="grid-2col" style="margin-top: 24px; gap: 20px;">
+                            
+                            <!-- CARD 1: ELECTRICITY METER TELEMETRY -->
+                            <div class="interactive-card" style="background: linear-gradient(135deg, rgba(14, 61, 50, 0.75) 0%, rgba(8, 30, 25, 0.9) 100%); border: 1px solid rgba(0, 208, 156, 0.35); border-radius: 16px; padding: 22px; backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+                                <div class="card-header-styled" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+                                    <div style="display: flex; align-items: center; gap: 14px;">
+                                        <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(0, 208, 156, 0.15); border: 1px solid rgba(0, 208, 156, 0.4); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #00D09C;">
+                                            <i class="fa-solid fa-bolt"></i>
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Main Electrical Submeter (`DEV_ELEC_01`)</h3>
+                                            <p style="margin: 3px 0 0 0; font-size: 0.8rem; color: #A3C9BE;">Live active power demand, energy accumulator, line voltage & current</p>
+                                        </div>
+                                    </div>
+                                    <span class="pill-badge badge-teal" style="font-size: 11px; padding: 4px 10px;"><span class="pulse-dot"></span> ONLINE</span>
+                                </div>
+
+                                <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 208, 156, 0.3); border-top: 3px solid #00D09C;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Active Power</span>
+                                            <i class="fa-solid fa-arrow-trend-up text-mint" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #00D09C; margin: 6px 0; text-shadow: 0 0 12px rgba(0, 208, 156, 0.25);" id="liveMetricPowerKW">-- kW</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Peak Demand Load</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.3); border-top: 3px solid #34D399;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Energy Consumption</span>
+                                            <i class="fa-solid fa-chart-line text-mint" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #34D399; margin: 6px 0; text-shadow: 0 0 12px rgba(52, 211, 153, 0.25);" id="liveMetricEnergyKWH">-- kWh</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Hourly Accumulator</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25); border-top: 3px solid #F59E0B;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Line Voltage</span>
+                                            <i class="fa-solid fa-plug text-amber" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.45rem; font-weight: 800; color: #F59E0B; margin: 6px 0;" id="liveMetricVoltageV">-- V</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Nominal Target: 230 V</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(96, 165, 250, 0.25); border-top: 3px solid #60A5FA;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #DBEAFE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Line Current & PF</span>
+                                            <i class="fa-solid fa-wave-square text-blue" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.45rem; font-weight: 800; color: #60A5FA; margin: 6px 0;" id="liveMetricCurrentPF">-- A (PF: --)</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Single-Phase Active Load</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- CARD 2: HVAC THERMAL MONITOR TELEMETRY -->
+                            <div class="interactive-card" style="background: linear-gradient(135deg, rgba(14, 61, 50, 0.75) 0%, rgba(8, 30, 25, 0.9) 100%); border: 1px solid rgba(45, 212, 191, 0.35); border-radius: 16px; padding: 22px; backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+                                <div class="card-header-styled" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+                                    <div style="display: flex; align-items: center; gap: 14px;">
+                                        <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(45, 212, 191, 0.15); border: 1px solid rgba(45, 212, 191, 0.4); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #2DD4BF;">
+                                            <i class="fa-solid fa-snowflake"></i>
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">HVAC Chiller & Compressor Monitor (`DEV_HVAC_01`)</h3>
+                                            <p style="margin: 3px 0 0 0; font-size: 0.8rem; color: #A3C9BE;">Compressor electrical load, chiller loop temperature & fan RPM</p>
+                                        </div>
+                                    </div>
+                                    <span class="pill-badge badge-teal" style="font-size: 11px; padding: 4px 10px;"><span class="pulse-dot"></span> ACTIVE</span>
+                                </div>
+
+                                <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(45, 212, 191, 0.3); border-top: 3px solid #2DD4BF;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #CCFBF1; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Compressor Load</span>
+                                            <i class="fa-solid fa-gauge-high text-teal" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #2DD4BF; margin: 6px 0; text-shadow: 0 0 12px rgba(45, 212, 191, 0.25);" id="liveMetricHvacKW">-- kW</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Thermal Duty Cycle</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3); border-top: 3px solid #38BDF8;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #E0F2FE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Chiller Loop Temp</span>
+                                            <i class="fa-solid fa-temperature-arrow-down text-blue" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25);" id="liveMetricChillerTemp">-- °C</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Loop Water Return</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25); border-top: 3px solid #F59E0B;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>AHU Fan Speed</span>
+                                            <i class="fa-solid fa-fan text-amber" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.45rem; font-weight: 800; color: #F59E0B; margin: 6px 0;" id="liveMetricFanSpeed">-- RPM</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Air Distribution Flow</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25); border-top: 3px solid #34D399;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>HVAC Operating Status</span>
+                                            <i class="fa-solid fa-circle-check text-mint" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.45rem; font-weight: 800; color: #34D399; margin: 6px 0;" id="liveMetricHvacStatus">NORMAL</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Setpoint Active</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- CARD 3: WATER FLOW & RISER MONITOR TELEMETRY -->
+                            <div class="interactive-card" style="background: linear-gradient(135deg, rgba(14, 61, 50, 0.75) 0%, rgba(8, 30, 25, 0.9) 100%); border: 1px solid rgba(96, 165, 250, 0.35); border-radius: 16px; padding: 22px; backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+                                <div class="card-header-styled" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+                                    <div style="display: flex; align-items: center; gap: 14px;">
+                                        <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(96, 165, 250, 0.15); border: 1px solid rgba(96, 165, 250, 0.4); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #60A5FA;">
+                                            <i class="fa-solid fa-droplet"></i>
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Water Riser Flow & Tank Level (`DEV_WATER_01`)</h3>
+                                            <p style="margin: 3px 0 0 0; font-size: 0.8rem; color: #A3C9BE;">Real-time flow velocity, tank storage percentage & riser pressure</p>
+                                        </div>
+                                    </div>
+                                    <span class="pill-badge badge-teal" style="font-size: 11px; padding: 4px 10px;"><span class="pulse-dot"></span> STREAMING</span>
+                                </div>
+
+                                <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(96, 165, 250, 0.3); border-top: 3px solid #60A5FA;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #DBEAFE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Flow Rate</span>
+                                            <i class="fa-solid fa-water text-blue" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #60A5FA; margin: 6px 0; text-shadow: 0 0 12px rgba(96, 165, 250, 0.25);" id="liveMetricWaterFlow">-- L/min</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Riser Line Velocity</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3); border-top: 3px solid #38BDF8;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #E0F2FE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Tank Water Level</span>
+                                            <i class="fa-solid fa-box-archive text-blue" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25);" id="liveMetricTankLevel">-- %</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Overhead Reservoir Tank</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25); border-top: 3px solid #F59E0B;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Riser Pressure</span>
+                                            <i class="fa-solid fa-compress text-amber" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.45rem; font-weight: 800; color: #F59E0B; margin: 6px 0;" id="liveMetricWaterPressure">-- bar</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Line Hydraulics Bar</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25); border-top: 3px solid #34D399;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Cumulative Meter</span>
+                                            <i class="fa-solid fa-calculator text-mint" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.45rem; font-weight: 800; color: #34D399; margin: 6px 0;" id="liveMetricCumWater">-- m³</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Total Volumetric Flow</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- CARD 4: ENVIRONMENTAL & OCCUPANCY MONITOR TELEMETRY -->
+                            <div class="interactive-card" style="background: linear-gradient(135deg, rgba(14, 61, 50, 0.75) 0%, rgba(8, 30, 25, 0.9) 100%); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 16px; padding: 22px; backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.35);">
+                                <div class="card-header-styled" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+                                    <div style="display: flex; align-items: center; gap: 14px;">
+                                        <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #F59E0B;">
+                                            <i class="fa-solid fa-temperature-three-quarters"></i>
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Environmental & Occupancy Node (`DEV_ENV_01`)</h3>
+                                            <p style="margin: 3px 0 0 0; font-size: 0.8rem; color: #A3C9BE;">Ambient room temperature, occupancy count, humidity & indoor AQI</p>
+                                        </div>
+                                    </div>
+                                    <span class="pill-badge badge-amber" style="font-size: 11px; padding: 4px 10px;"><span class="pulse-dot"></span> SENSORS ON</span>
+                                </div>
+
+                                <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.3); border-top: 3px solid #F59E0B;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Ambient Room Temp</span>
+                                            <i class="fa-solid fa-temperature-high text-amber" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #F59E0B; margin: 6px 0; text-shadow: 0 0 12px rgba(245, 158, 11, 0.25);" id="liveMetricRoomTemp">-- °C</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Thermal Comfort Index</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 208, 156, 0.3); border-top: 3px solid #00D09C;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Occupancy Count</span>
+                                            <i class="fa-solid fa-users text-mint" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #00D09C; margin: 6px 0; text-shadow: 0 0 12px rgba(0, 208, 156, 0.25);" id="liveMetricOccupancyCount">-- People</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Zone Active Headcount</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(96, 165, 250, 0.25); border-top: 3px solid #60A5FA;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #DBEAFE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Relative Humidity</span>
+                                            <i class="fa-solid fa-droplet-slash text-blue" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.45rem; font-weight: 800; color: #60A5FA; margin: 6px 0;" id="liveMetricHumidity">-- %</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Target Standard: 45-60%</div>
+                                    </div>
+                                    <div style="background: rgba(4, 18, 15, 0.75); padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25); border-top: 3px solid #34D399;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Indoor AQI & CO2</span>
+                                            <i class="fa-solid fa-wind text-mint" style="font-size: 10px;"></i>
+                                        </div>
+                                        <div style="font-size: 1.45rem; font-weight: 800; color: #34D399; margin: 6px 0;" id="liveMetricAirAqi">-- AQI</div>
+                                        <div style="font-size: 11px; color: #9CA3AF; font-weight: 500;">Indoor Air Health Audit</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- REAL-TIME TELEMETRY STREAM PACKET LOG CONSOLE -->
+                        <div class="interactive-card" style="margin-top: 24px;">
+                            <div class="card-header-styled" style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <i class="fa-solid fa-terminal text-mint"></i>
+                                    <div>
+                                        <h3>Live Telemetry Packet Stream Log</h3>
+                                        <p>Real-time MQTT/HTTP JSON telemetry envelopes ingested into EstateIQ</p>
+                                    </div>
+                                </div>
+                                <button class="btn btn-secondary btn-sm" id="btnRefreshIotLog" style="font-size: 12px; padding: 6px 12px;">
+                                    <i class="fa-solid fa-rotate-right"></i> Refresh Log
+                                </button>
+                            </div>
+
+                            <div class="sim-table-wrapper" style="margin-top: 16px; overflow-x: auto;">
+                                <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.12); color: #A3C9BE; text-align: left;">
+                                            <th style="padding: 10px;">Message ID</th>
+                                            <th style="padding: 10px;">Timestamp</th>
+                                            <th style="padding: 10px;">Device ID</th>
+                                            <th style="padding: 10px;">Building / Zone</th>
+                                            <th style="padding: 10px;">Metric & Value</th>
+                                            <th style="padding: 10px;">Provenance</th>
+                                            <th style="padding: 10px;">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="monIotStreamTableBody">
+                                        <tr>
+                                            <td colspan="7" style="padding: 16px; text-align: center; color: rgba(255,255,255,0.5);">
+                                                <i class="fa-solid fa-circle-notch fa-spin"></i> Waiting for incoming streaming telemetry...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
                 <!-- TAB CONTENT 8: FAQ & SYSTEM KNOWLEDGE HUB -->
                 <div class="tab-content" id="contentFaq">
                     <div class="module-tab-wrapper">
@@ -2573,345 +2884,6 @@
                 </div>
 
                 <!-- TAB CONTENT: INTERACTIVE IOT TELEMETRY SIMULATOR -->
-                <div class="tab-content" id="contentIotSimulator">
-                    <!-- Header Hero Banner Card with Persistent Badge -->
-                    <div class="iot-sim-hero-card" style="background: linear-gradient(135deg, rgba(18, 75, 62, 0.96) 0%, rgba(10, 45, 37, 0.98) 100%); border: 1px solid rgba(0, 208, 156, 0.3); border-radius: 16px; padding: 22px 26px; box-shadow: 0 10px 28px rgba(10, 45, 37, 0.12); position: relative; overflow: hidden;">
-                        <!-- Ambient backdrop glow -->
-                        <div style="position: absolute; top: -60px; right: -60px; width: 240px; height: 240px; background: radial-gradient(circle, rgba(0, 208, 156, 0.18) 0%, transparent 70%); pointer-events: none;"></div>
-
-                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; position: relative; z-index: 1;">
-                            <div style="display: flex; align-items: center; gap: 16px; flex: 1; min-width: 280px;">
-                                <div style="width: 50px; height: 50px; border-radius: 14px; background: linear-gradient(135deg, rgba(0, 208, 156, 0.22), rgba(0, 208, 156, 0.06)); border: 1px solid rgba(0, 208, 156, 0.4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
-                                    <i class="fa-solid fa-tower-broadcast text-mint" style="font-size: 24px;"></i>
-                                </div>
-                                <div>
-                                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                        <h2 style="margin: 0; font-size: 21px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.3px;">Interactive IoT Telemetry Simulator</h2>
-                                        <span class="pill-badge" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #FBBF24; font-size: 0.75rem; font-weight: 700; padding: 4px 12px; border-radius: 20px; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 0 10px rgba(245, 158, 11, 0.18);">
-                                            <i class="fa-solid fa-triangle-exclamation"></i> SIMULATED IoT — NOT PHYSICAL SENSOR DATA
-                                        </span>
-                                    </div>
-                                    <p style="margin: 6px 0 0 0; color: #A3C9BE; font-size: 0.88rem; line-height: 1.5; max-width: 920px;">
-                                        Generate controllable live sensor streams, test operational anomalies, adjust telemetry sliders, and evaluate real-time EstateIQ-DIF decision scoring.
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
-                                <div style="font-size: 0.82rem; color: #A3C9BE; background: rgba(0, 0, 0, 0.35); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.12); display: flex; align-items: center; gap: 8px;">
-                                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #00D09C; box-shadow: 0 0 8px #00D09C; display: inline-block;"></span>
-                                    Backend State: <strong id="simConnStatusText" class="text-mint" style="font-weight: 700;">CONNECTED</strong>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- MAIN SIMULATOR LAYOUT -->
-                    <div style="display:flex; flex-direction:column; gap:20px; margin-top:20px;">
-                        
-                        <!-- SECTION 1: MASTER CONTROLS & SCENARIO PRESETS CARD -->
-                        <div class="model-card-item" style="background:#FFFFFF; border:1px solid rgba(18,75,62,0.15); border-radius:16px; padding:20px; box-shadow:0 4px 16px rgba(0,0,0,0.04);">
-                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #E2E8F0;">
-                                <div>
-                                    <h3 style="margin:0; font-size:16px; color:#1E293B; display:flex; align-items:center; gap:8px;">
-                                        <i class="fa-solid fa-gamepad text-mint"></i> Master Simulation Controls
-                                    </h3>
-                                    <span style="font-size:12.5px; color:#64748B;">Control playback, sample step, simulation speed, and operational scenario presets.</span>
-                                </div>
-                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                    <button class="btn btn-emerald btn-sm" id="btnSimStart"><i class="fa-solid fa-play"></i> Start</button>
-                                    <button class="btn btn-amber btn-sm" id="btnSimPause"><i class="fa-solid fa-pause"></i> Pause</button>
-                                    <button class="btn btn-secondary btn-sm" id="btnSimStep"><i class="fa-solid fa-forward-step"></i> Step (1 Sample)</button>
-                                    <button class="btn btn-secondary btn-sm" id="btnSimStop" style="color:#C5221F;"><i class="fa-solid fa-stop"></i> Stop</button>
-                                    <button class="btn btn-secondary btn-sm" id="btnSimResetState" title="Reset Simulation Clock & Sample Count"><i class="fa-solid fa-rotate-left"></i> Reset State</button>
-                                </div>
-                            </div>
-
-                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px;">
-                                <!-- Speed Multiplier -->
-                                <div>
-                                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:6px;">SIMULATION SPEED MULTIPLIER</label>
-                                    <div style="display:flex; gap:6px;" id="simSpeedGroup">
-                                        <button class="btn btn-secondary btn-sm sim-speed-btn active" data-speed="1">1×</button>
-                                        <button class="btn btn-secondary btn-sm sim-speed-btn" data-speed="2">2×</button>
-                                        <button class="btn btn-secondary btn-sm sim-speed-btn" data-speed="5">5×</button>
-                                        <button class="btn btn-secondary btn-sm sim-speed-btn" data-speed="10">10×</button>
-                                    </div>
-                                </div>
-
-                                <!-- Scenario Presets -->
-                                <div>
-                                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:6px;">SCENARIO PRESETS</label>
-                                    <select id="simScenarioSelect" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #CBD5E1; font-size:13px; outline:none; background:#F8FAFC;">
-                                        <option value="NORMAL_BASELINE">🌿 Normal Operational Baseline</option>
-                                        <option value="HVAC_PEAK_SURGE">⚡ HVAC Peak Heatwave Surge (245 kW)</option>
-                                        <option value="WATER_PIPE_LEAK">💧 Main Water Riser Seepage (185 L/min)</option>
-                                        <option value="BIN_OVERFLOW_HAZARD">🗑️ Cafeteria Bin Overflow & AQI Spike</option>
-                                        <option value="EQUIPMENT_VIBRATION_ANOMALY">⚙️ Chiller Bearing Vibration Anomaly</option>
-                                        <option value="OFF_PEAK_SAVER">🌙 Weekend Off-Peak Saver Schedule</option>
-                                    </select>
-                                </div>
-
-                                <!-- Target Building Selector -->
-                                <div>
-                                    <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:6px;">TARGET MONITORED BUILDING</label>
-                                    <select id="simBuildingSelect" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #CBD5E1; font-size:13px; outline:none; background:#F8FAFC;">
-                                        <option value="Block B Hostel">Block B Hostel</option>
-                                        <option value="Academic Block A">Academic Block A</option>
-                                        <option value="Central Cafeteria">Central Cafeteria</option>
-                                        <option value="Hostel A">Hostel A</option>
-                                        <option value="Admin Block">Admin Block</option>
-                                        <option value="Science & Tech Complex">Science & Tech Complex</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECTION 2: STATUS DASHBOARD METRICS CARDS -->
-                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
-                            <div class="metric-card" style="background:#FFFFFF; padding:16px; border-radius:12px; border:1px solid #E2E8F0;">
-                                <span style="font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase;">Simulation Status</span>
-                                <div style="margin-top:6px; font-size:20px; font-weight:800;" id="simStatusPillDisplay">
-                                    <span class="badge-amber" style="font-size:14px;" id="simStatusBadge">PAUSED</span>
-                                </div>
-                                <span style="font-size:11px; color:#94A3B8;" id="simSpeedDisplay">Speed: 1×</span>
-                            </div>
-
-                            <div class="metric-card" style="background:#FFFFFF; padding:16px; border-radius:12px; border:1px solid #E2E8F0;">
-                                <span style="font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase;">Simulation Clock</span>
-                                <div style="margin-top:6px; font-size:14px; font-weight:700; color:#0F172A;" id="simClockVal">2026-10-09 14:00:00</div>
-                                <span style="font-size:11px; color:#94A3B8;">15-Min Step Interval</span>
-                            </div>
-
-                            <div class="metric-card" style="background:#FFFFFF; padding:16px; border-radius:12px; border:1px solid #E2E8F0;">
-                                <span style="font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase;">Samples Generated</span>
-                                <div style="margin-top:6px; font-size:22px; font-weight:800; color:#124B3E;" id="simSamplesCount">1</div>
-                                <span style="font-size:11px; color:#94A3B8;">Ring Buffer Active (500 max)</span>
-                            </div>
-
-                            <div class="metric-card" style="background:#FFFFFF; padding:16px; border-radius:12px; border:1px solid #E2E8F0;">
-                                <span style="font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase;">Ingestion Status</span>
-                                <div style="margin-top:6px; font-size:14px; font-weight:700; color:#0D9488;" id="simIngestionStatus">READY</div>
-                                <span style="font-size:11px; color:#94A3B8;">Source: <strong style="color:#D97706;">simulated_iot</strong></span>
-                            </div>
-                        </div>
-
-                        <!-- SECTION 3: SENSOR CONTROLS (ELECTRICITY, OPERATIONS, ENVIRONMENT, WATER) -->
-                        <div class="model-card-item" style="background:#FFFFFF; border:1px solid rgba(18,75,62,0.15); border-radius:16px; padding:20px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #E2E8F0;">
-                                <div>
-                                    <h3 style="margin:0; font-size:16px; color:#1E293B; display:flex; align-items:center; gap:8px;">
-                                        <i class="fa-solid fa-sliders text-mint"></i> Telemetry Sensor Control Panel
-                                    </h3>
-                                    <span style="font-size:12.5px; color:#64748B;">Adjust telemetry parameters to test live anomaly thresholds and SHAP feature drivers.</span>
-                                </div>
-                                <div style="display:flex; gap:8px;">
-                                    <button class="btn btn-secondary btn-sm" id="btnResetSensorControls"><i class="fa-solid fa-rotate-left"></i> Reset Defaults</button>
-                                    <button class="btn btn-primary btn-sm" id="btnApplySensorOverrides"><i class="fa-solid fa-check"></i> Apply Overrides</button>
-                                </div>
-                            </div>
-
-                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px;">
-                                <!-- Category 1: Electricity & Power -->
-                                <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:14px;">
-                                    <h4 style="margin:0 0 12px 0; font-size:13.5px; color:#124B3E; display:flex; align-items:center; gap:6px;">
-                                        <i class="fa-solid fa-bolt text-amber"></i> Electricity & Power
-                                    </h4>
-
-                                    <div style="margin-bottom:12px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Active Power (kW)</span>
-                                            <span id="valActivePowerKW" class="text-mint">145.2 kW</span>
-                                        </div>
-                                        <input type="range" id="ctrlActivePowerKW" min="10" max="400" step="1" value="145" style="width:100%;">
-                                    </div>
-
-                                    <div style="margin-bottom:12px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Interval Energy (kWh)</span>
-                                            <span id="valEnergyKWH" class="text-mint">36.3 kWh</span>
-                                        </div>
-                                        <input type="range" id="ctrlEnergyKWH" min="2" max="100" step="0.5" value="36.3" style="width:100%;">
-                                    </div>
-
-                                    <div style="margin-bottom:12px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Power Factor</span>
-                                            <span id="valPowerFactor">0.94</span>
-                                        </div>
-                                        <input type="range" id="ctrlPowerFactor" min="0.6" max="1.0" step="0.01" value="0.94" style="width:100%;">
-                                    </div>
-
-                                    <div style="margin-bottom:8px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Transformer Load (%)</span>
-                                            <span id="valXfmrLoad">78.0%</span>
-                                        </div>
-                                        <input type="range" id="ctrlXfmrLoad" min="10" max="100" step="1" value="78" style="width:100%;">
-                                    </div>
-                                </div>
-
-                                <!-- Category 2: Building Operations -->
-                                <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:14px;">
-                                    <h4 style="margin:0 0 12px 0; font-size:13.5px; color:#124B3E; display:flex; align-items:center; gap:6px;">
-                                        <i class="fa-solid fa-building text-blue"></i> Operations & HVAC
-                                    </h4>
-
-                                    <div style="margin-bottom:12px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Occupancy (People)</span>
-                                            <span id="valOccupancyCount" class="text-blue">140</span>
-                                        </div>
-                                        <input type="range" id="ctrlOccupancyCount" min="0" max="400" step="5" value="140" style="width:100%;">
-                                    </div>
-
-                                    <div style="margin-bottom:12px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>HVAC Power (kW)</span>
-                                            <span id="valHvacLoadKW" class="text-blue">58.0 kW</span>
-                                        </div>
-                                        <input type="range" id="ctrlHvacLoadKW" min="0" max="150" step="1" value="58" style="width:100%;">
-                                    </div>
-
-                                    <div style="margin-bottom:12px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>HVAC Status</span>
-                                            <select id="ctrlHvacStatus" style="padding:2px 8px; font-size:12px; border-radius:4px; border:1px solid #CBD5E1;">
-                                                <option value="ON">ON (Active)</option>
-                                                <option value="SETBACK">SETBACK (Economy)</option>
-                                                <option value="OFF">OFF (Idle)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div style="margin-bottom:8px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Equipment Risk Status</span>
-                                            <select id="ctrlEquipStatus" style="padding:2px 8px; font-size:12px; border-radius:4px; border:1px solid #CBD5E1;">
-                                                <option value="NORMAL">NORMAL</option>
-                                                <option value="HIGH_VIBRATION_ALERT">HIGH_VIBRATION_ALERT</option>
-                                                <option value="BEARING_OVERHEAT">BEARING_OVERHEAT</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Category 3: Environment & Water -->
-                                <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:14px;">
-                                    <h4 style="margin:0 0 12px 0; font-size:13.5px; color:#124B3E; display:flex; align-items:center; gap:6px;">
-                                        <i class="fa-solid fa-temperature-three-quarters text-teal"></i> Environment & Water
-                                    </h4>
-
-                                    <div style="margin-bottom:12px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Ambient Temp (°C)</span>
-                                            <span id="valTempC" class="text-teal">32.0°C</span>
-                                        </div>
-                                        <input type="range" id="ctrlTempC" min="15" max="45" step="0.5" value="32" style="width:100%;">
-                                    </div>
-
-                                    <div style="margin-bottom:12px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Water Flow Rate (L/min)</span>
-                                            <span id="valWaterFlow" class="text-teal">50.0 L/min</span>
-                                        </div>
-                                        <input type="range" id="ctrlWaterFlow" min="5" max="250" step="5" value="50" style="width:100%;">
-                                    </div>
-
-                                    <div style="margin-bottom:12px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Air Quality Index (AQI)</span>
-                                            <span id="valAirAqi">110 AQI</span>
-                                        </div>
-                                        <input type="range" id="ctrlAirAqi" min="30" max="300" step="5" value="110" style="width:100%;">
-                                    </div>
-
-                                    <div style="margin-bottom:8px;">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; margin-bottom:4px;">
-                                            <span>Standby DG Status</span>
-                                            <select id="ctrlDgStatus" style="padding:2px 8px; font-size:12px; border-radius:4px; border:1px solid #CBD5E1;">
-                                                <option value="OFF">OFF (Standby)</option>
-                                                <option value="RUNNING">RUNNING (Grid Fail Over)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECTION 4: REAL-TIME EVALUATION & AI COPILOT INSIGHT -->
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;" class="grid-2col-responsive">
-                            <!-- DIF Decision Engine Evaluation Card -->
-                            <div class="model-card-item" style="background:#FFFFFF; border:1px solid rgba(18,75,62,0.15); border-radius:16px; padding:20px;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #E2E8F0;">
-                                    <h3 style="margin:0; font-size:15px; color:#1E293B; display:flex; align-items:center; gap:8px;">
-                                        <i class="fa-solid fa-brain text-mint"></i> Live EstateIQ-DIF Evaluation
-                                    </h3>
-                                    <button class="btn btn-secondary btn-sm" id="btnEvaluateSimTelemetry"><i class="fa-solid fa-play"></i> Re-Evaluate DIF</button>
-                                </div>
-
-                                <div id="simDifResultContainer">
-                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; background:#F8FAFC; padding:12px; border-radius:8px;">
-                                        <div>
-                                            <span style="font-size:11px; color:#64748B; font-weight:700;">ANOMALY STATUS</span>
-                                            <div style="font-size:18px; font-weight:800; color:#C5221F;" id="simDifAnomalyLevel">CRITICAL_SURGE</div>
-                                        </div>
-                                        <div style="text-align:right;">
-                                            <span style="font-size:11px; color:#64748B; font-weight:700;">ANOMALY SCORE</span>
-                                            <div style="font-size:20px; font-weight:800; color:#124B3E;" id="simDifAnomalyScore">0.865</div>
-                                        </div>
-                                    </div>
-
-                                    <div style="font-size:12.5px; color:#334155; line-height:1.5; margin-bottom:12px;">
-                                        <div>Expected Baseline: <strong id="simDifExpectedKwh">78.0 kWh</strong></div>
-                                        <div>Actual Simulated Energy: <strong id="simDifActualKwh">145.2 kWh</strong> (<span id="simDifDevPct" class="text-red">+86.1% surge</span>)</div>
-                                        <div>Avoidable Cost Surge: <strong id="simDifCostSurge" class="text-amber">₹1,380 / hour</strong></div>
-                                    </div>
-
-                                    <div style="background:#FFFBEB; border:1px solid #FCD34D; border-radius:8px; padding:10px; font-size:12px; color:#92400E;">
-                                        <strong>SHAP Primary Attribution:</strong> <span id="simDifShapDriver">HVAC Compressor Load (58.0 kW) & Ambient Temperature (32.0°C)</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Real-Time Simulated Telemetry Stream Table -->
-                            <div class="model-card-item" style="background:#FFFFFF; border:1px solid rgba(18,75,62,0.15); border-radius:16px; padding:20px;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #E2E8F0;">
-                                    <h3 style="margin:0; font-size:15px; color:#1E293B; display:flex; align-items:center; gap:8px;">
-                                        <i class="fa-solid fa-list-check text-blue"></i> Live Telemetry Stream Feed
-                                    </h3>
-                                    <span class="pill-badge badge-teal" style="font-size:0.7rem;">SIMULATED STREAM</span>
-                                </div>
-
-                                <div style="max-height:240px; overflow-y:auto; font-size:12px;">
-                                    <table style="width:100%; border-collapse:collapse;" id="simStreamTable">
-                                        <thead>
-                                            <tr style="border-bottom:1px solid #E2E8F0; text-align:left; color:#64748B;">
-                                                <th style="padding:6px;">Sample ID</th>
-                                                <th style="padding:6px;">Timestamp</th>
-                                                <th style="padding:6px;">Power</th>
-                                                <th style="padding:6px;">Temp</th>
-                                                <th style="padding:6px;">Provenance</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="simStreamTableBody">
-                                            <tr>
-                                                <td style="padding:6px;">SIM_IOT_000001</td>
-                                                <td style="padding:6px;">14:15:00</td>
-                                                <td style="padding:6px;">145.2 kW</td>
-                                                <td style="padding:6px;">32.0°C</td>
-                                                <td style="padding:6px;"><span class="badge-amber" style="font-size:10px;">simulated_iot</span></td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                <!-- TAB CONTENT: STAFF WORK ORDERS & OPERATIONS -->
                 <div class="tab-content" id="contentWorkOrders">
                     <div class="tab-header-banner">
                         <div class="banner-title-group">

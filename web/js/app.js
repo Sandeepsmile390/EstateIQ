@@ -15,7 +15,7 @@ let currentUserSession = {
     role_key: "admin",
     role_label: "Facility Lead & Admin",
     avatar_bg: "#124B3E",
-    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "iot-simulator", "faq", "decision-intelligence", "esg", "billing", "work-orders", "ai-assistant"],
+    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "iot-simulator", "iot-monitor", "faq", "decision-intelligence", "esg", "billing", "work-orders", "ai-assistant"],
     can_execute_rules: true,
     can_upgrade_subscription: true
 };
@@ -276,7 +276,7 @@ function initTabs() {
 
     const switchTab = (tabId) => {
         let activeTab = tabId;
-        if (!activeTab || activeTab === "decision-intelligence" || activeTab === "models") activeTab = "faq";
+        if (!activeTab || activeTab === "decision-intelligence" || activeTab === "models") activeTab = "overview";
 
         // Unrestricted tab opening policy: all tabs open directly for any active user session
         if (currentUserSession && currentUserSession.permissions && !currentUserSession.permissions.includes(activeTab)) {
@@ -302,25 +302,38 @@ function initTabs() {
             }
         }
 
-        const targetContent = document.getElementById(`content${capitalizeFirst(activeTab)}`) || document.getElementById("contentFaq");
+        const capName = capitalizeFirst(activeTab);
+        const targetContent = document.getElementById(`content${capName}`) || document.getElementById("contentOverview");
         if (targetContent) {
             targetContent.classList.add("active");
-        } else if (activeTab === "overview") {
-            document.getElementById("contentOverview")?.classList.add("active");
         }
 
-        // Scroll main viewport to top for clean tab presentation
+        // Sync URL hash seamlessly without full page jump glitch
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, "", `#${activeTab}`);
+        }
+
+        // Scroll main viewport smoothly to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Trigger chart resize & re-render so hidden tab canvases calculate full width & height
+        if (activeTab === "iot-monitor" || activeTab === "iot-simulator" || activeTab === "simulator") {
+            window.fetchIotStatus?.();
+            window.fetchIotStreamLog?.();
+        }
+
         setTimeout(() => {
             window.dispatchEvent(new Event('resize'));
         }, 40);
-        window.switchTab = switchTab;
     };
 
+    window.switchTab = switchTab;
+
     tabBtns.forEach(btn => {
-        btn.addEventListener("click", () => switchTab(btn.getAttribute("data-tab")));
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            switchTab(btn.getAttribute("data-tab"));
+        });
     });
 
     sidebarNavs.forEach(nav => {
@@ -330,7 +343,10 @@ function initTabs() {
         });
     });
 
-    headerPlanPill?.addEventListener("click", () => switchTab("billing"));
+    headerPlanPill?.addEventListener("click", (e) => {
+        e.preventDefault();
+        switchTab("billing");
+    });
 
     // Handle initial hash navigation on page load
     const initialHash = (window.location.hash || "").replace("#", "").trim();
@@ -364,6 +380,7 @@ function capitalizeFirst(str) {
     if (str === "ai-assistant") return "AiAssistant";
     if (str === "work-orders") return "WorkOrders";
     if (str === "iot-simulator") return "IotSimulator";
+    if (str === "iot-monitor") return "IotMonitor";
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
@@ -1531,28 +1548,76 @@ function showToast(message) {
     if (!toast) {
         toast = document.createElement("div");
         toast.id = "appToast";
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: #124B3E;
-            color: #FFFFFF;
-            padding: 12px 20px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: 500;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            z-index: 2000;
-            transition: opacity 0.3s ease;
-        `;
         document.body.appendChild(toast);
     }
-    toast.textContent = message;
-    toast.style.opacity = "1";
+    
+    const isCritical = message.includes("CRITICAL") || message.includes("Alert") || message.includes("Surge");
+    const isWarning = message.includes("HIGH") || message.includes("Stale") || message.includes("Warning");
+    
+    const themeColor = isCritical ? "#EF4444" : isWarning ? "#F59E0B" : "#00D09C";
+    const bgGradient = isCritical 
+        ? "linear-gradient(135deg, rgba(30, 10, 10, 0.96) 0%, rgba(60, 15, 15, 0.98) 100%)"
+        : "linear-gradient(135deg, rgba(10, 46, 38, 0.96) 0%, rgba(18, 75, 62, 0.98) 100%)";
+    const iconClass = isCritical ? "fa-triangle-exclamation" : isWarning ? "fa-bolt-lightning" : "fa-bell";
 
-    setTimeout(() => {
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: ${bgGradient};
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        color: #FFFFFF;
+        padding: 16px 20px;
+        border-radius: 16px;
+        font-family: inherit;
+        font-size: 13px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 25px ${themeColor}40;
+        border: 1px solid ${themeColor}80;
+        z-index: 3000;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 340px;
+        max-width: 480px;
+        transform: translateY(20px);
+        opacity: 0;
+        transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        pointer-events: auto;
+    `;
+
+    toast.innerHTML = `
+        <div style="background: ${themeColor}20; color: ${themeColor}; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; border: 1px solid ${themeColor}50;">
+            <i class="fa-solid ${iconClass}"></i>
+        </div>
+        <div style="flex: 1;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: ${themeColor}; margin-bottom: 2px;">
+                ${isCritical ? '⚡ Critical Anomaly Alert' : 'EstateIQ Intelligence Signal'}
+            </div>
+            <div style="font-size: 13px; font-weight: 600; color: #FFFFFF; line-height: 1.35;">
+                ${escapeHtml(message)}
+            </div>
+        </div>
+        <button id="closeAppToastBtn" style="background: transparent; border: none; color: rgba(255,255,255,0.5); font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    `;
+
+    document.getElementById("closeAppToastBtn")?.addEventListener("click", () => {
         toast.style.opacity = "0";
-    }, 3000);
+        toast.style.transform = "translateY(20px)";
+    });
+
+    requestAnimationFrame(() => {
+        toast.style.opacity = "1";
+        toast.style.transform = "translateY(0)";
+    });
+
+    if (window.toastTimer) clearTimeout(window.toastTimer);
+    window.toastTimer = setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(20px)";
+    }, 5000);
 }
 
 function escapeHtml(str) {
@@ -1746,8 +1811,6 @@ function initIotSimulator() {
     const valAirAqi = document.getElementById("valAirAqi");
 
     const ctrlDgStatus = document.getElementById("ctrlDgStatus");
-
-    if (!btnSimStart && !simScenarioSelect) return;
 
     // Helper: update live slider display labels
     const syncSliderLabels = () => {
@@ -1956,6 +2019,19 @@ function initIotSimulator() {
             conn.className = "text-mint";
         }
 
+        const connState = document.getElementById("monConnState");
+        if (connState) {
+            connState.textContent = status.status === "RUNNING" ? "LIVE STREAMING" : (status.status || "CONNECTED");
+        }
+        const monSimInstancesCount = document.getElementById("monSimInstancesCount");
+        if (monSimInstancesCount) {
+            monSimInstancesCount.textContent = `1 Simulator (${status.mode || 'Standard Mode'})`;
+        }
+        const monThroughput = document.getElementById("monThroughput");
+        if (monThroughput) {
+            monThroughput.textContent = `${(status.speed || 1) * 12} Packets/min`;
+        }
+
         // Sync slider positions if not actively focused by user
         if (status.sensors) {
             const s = status.sensors;
@@ -1972,6 +2048,47 @@ function initIotSimulator() {
             if (document.activeElement !== ctrlAirAqi && ctrlAirAqi) ctrlAirAqi.value = s.air_aqi;
             if (document.activeElement !== ctrlDgStatus && ctrlDgStatus) ctrlDgStatus.value = s.dg_status;
             syncSliderLabels();
+
+            // Populate Live IoT Monitor Tab Cards
+            const pKW = document.getElementById("liveMetricPowerKW");
+            const eKWH = document.getElementById("liveMetricEnergyKWH");
+            const vV = document.getElementById("liveMetricVoltageV");
+            const iPF = document.getElementById("liveMetricCurrentPF");
+
+            if (pKW) pKW.textContent = `${s.active_power_kw} kW`;
+            if (eKWH) eKWH.textContent = `${s.energy_kwh} kWh`;
+            if (vV) vV.textContent = `${s.voltage_v || 230} V`;
+            if (iPF) iPF.textContent = `${s.current_a || 18.4} A (PF: ${s.power_factor || 0.95})`;
+
+            const hKW = document.getElementById("liveMetricHvacKW");
+            const cTemp = document.getElementById("liveMetricChillerTemp");
+            const fSpeed = document.getElementById("liveMetricFanSpeed");
+            const hStat = document.getElementById("liveMetricHvacStatus");
+
+            if (hKW) hKW.textContent = `${s.hvac_load_kw} kW`;
+            if (cTemp) cTemp.textContent = `${s.chiller_temp_c || 7.2} °C`;
+            if (fSpeed) fSpeed.textContent = `${s.fan_speed_rpm || 1450} RPM`;
+            if (hStat) hStat.textContent = s.hvac_status || "NORMAL";
+
+            const wFlow = document.getElementById("liveMetricWaterFlow");
+            const tLvl = document.getElementById("liveMetricTankLevel");
+            const wPress = document.getElementById("liveMetricWaterPressure");
+            const cWater = document.getElementById("liveMetricCumWater");
+
+            if (wFlow) wFlow.textContent = `${s.water_flow_lmin} L/min`;
+            if (tLvl) tLvl.textContent = `${s.tank_level_pct || 78} %`;
+            if (wPress) wPress.textContent = `${s.water_pressure_bar || 3.4} bar`;
+            if (cWater) cWater.textContent = `${s.cumulative_water_m3 || 1240} m³`;
+
+            const rTemp = document.getElementById("liveMetricRoomTemp");
+            const oCount = document.getElementById("liveMetricOccupancyCount");
+            const rHum = document.getElementById("liveMetricHumidity");
+            const aAqi = document.getElementById("liveMetricAirAqi");
+
+            if (rTemp) rTemp.textContent = `${s.temperature_c} °C`;
+            if (oCount) oCount.textContent = `${s.occupancy_count} People`;
+            if (rHum) rHum.textContent = `${s.humidity_pct || 58} %`;
+            if (aAqi) aAqi.textContent = `${s.air_quality_aqi || s.air_aqi || 45} AQI (${s.co2_ppm || 650} ppm)`;
         }
     };
 
@@ -1983,15 +2100,40 @@ function initIotSimulator() {
                 const streamData = await res.json();
                 const tbody = document.getElementById("simStreamTableBody");
                 if (tbody && streamData.stream) {
-                    tbody.innerHTML = streamData.stream.map(item => `
+                    tbody.innerHTML = streamData.stream.map(item => {
+                        const pKW = item.active_power_kw ?? item.telemetry?.active_power_kw ?? 145.2;
+                        const tC = item.temperature_c ?? item.telemetry?.temperature_c ?? 24.5;
+                        return `
                         <tr>
                             <td style="padding:6px; font-family:monospace; font-size:11px;">${item.sample_id}</td>
                             <td style="padding:6px;">${item.timestamp ? item.timestamp.replace("T", " ").slice(11, 19) : "--"}</td>
-                            <td style="padding:6px; font-weight:600;">${item.active_power_kw} kW</td>
-                            <td style="padding:6px;">${item.temperature_c}°C</td>
-                            <td style="padding:6px;"><span class="badge-amber" style="font-size:10px;">${item.data_source_mode || 'simulated_iot'}</span></td>
+                            <td style="padding:6px; font-weight:600;">${pKW} kW</td>
+                            <td style="padding:6px;">${tC}°C</td>
+                            <td style="padding:6px;"><span class="badge-amber" style="font-size:10px;">${item.data_source || item.data_source_mode || 'simulated_iot'}</span></td>
                         </tr>
-                    `).join("");
+                    `}).join("");
+                }
+
+                // Populate Live IoT Monitor Tab Packet Table
+                const monTbody = document.getElementById("monIotStreamTableBody");
+                const monTotal = document.getElementById("monTotalIngestedRecords");
+                if (monTotal) monTotal.textContent = streamData.total_records || streamData.stream?.length || 0;
+
+                if (monTbody && streamData.stream) {
+                    monTbody.innerHTML = streamData.stream.map(item => {
+                        const pKW = item.active_power_kw ?? item.telemetry?.active_power_kw ?? 145.2;
+                        const tC = item.temperature_c ?? item.telemetry?.temperature_c ?? 24.5;
+                        return `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <td style="padding:10px; font-family:monospace; font-size:11px; color:#A3C9BE;">${item.sample_id}</td>
+                            <td style="padding:10px; font-size:12px;">${item.timestamp ? item.timestamp.replace("T", " ").slice(11, 19) : "--"}</td>
+                            <td style="padding:10px; font-weight:600; color:#38BDF8;">DEV_ELEC_01</td>
+                            <td style="padding:10px; font-size:12px;">${item.building_id || 'Block B Hostel'}</td>
+                            <td style="padding:10px; font-weight:700; color:#00D09C;">${pKW} kW / ${tC}°C</td>
+                            <td style="padding:10px;"><span class="badge-mint" style="font-size:10px;">${item.data_source || item.data_source_mode || 'simulated_iot'}</span></td>
+                            <td style="padding:10px;"><span class="text-mint" style="font-size:12px;"><i class="fa-solid fa-circle-check"></i> INGESTED</span></td>
+                        </tr>
+                    `}).join("");
                 }
             }
         } catch (e) {
@@ -1999,17 +2141,86 @@ function initIotSimulator() {
         }
     };
 
+    // Global Set to track notified unique alert keys so alerts are notified ONLY ONCE per session
+    window.notifiedAlertKeys = window.notifiedAlertKeys || new Set();
+
+    const syncGlobalTelemetryDashboard = async () => {
+        try {
+            // 1. Fetch live energy forecasts
+            loadBackendForecasts();
+
+            // 2. Fetch live anomalies & evaluate alerts
+            const res = await fetch("/api/v1/energy/anomalies");
+            if (res.ok) {
+                const data = await res.json();
+                
+                // Update badge counts
+                const sidebarBadge = document.getElementById("sidebarAlertCount");
+                const notifBadge = document.getElementById("notificationCount");
+                const notifUnreadBadge = document.getElementById("notifUnreadBadge");
+
+                if (sidebarBadge) sidebarBadge.textContent = data.active_anomalies_count;
+                if (notifBadge) notifBadge.textContent = data.active_anomalies_count;
+                if (notifUnreadBadge) notifUnreadBadge.textContent = `${data.active_anomalies_count} Active`;
+
+                // Loop through anomalies and notify ONLY ONCE per unique alert key
+                (data.anomalies || []).forEach(anom => {
+                    const alertKey = `${anom.issue}_${anom.building}`;
+                    if (!window.notifiedAlertKeys.has(alertKey)) {
+                        window.notifiedAlertKeys.add(alertKey);
+
+                        // 1. Trigger live glassmorphic toast notification (one time only)
+                        showToast(`⚡ Alert [${anom.severity}]: ${anom.issue} (${anom.observed_value}) in ${anom.building}`);
+
+                        // 2. Prepend live notification item into Notifications Dropdown
+                        const notifList = document.getElementById("notifListItems");
+                        if (notifList) {
+                            const notifItem = document.createElement("div");
+                            notifItem.className = `notif-item unread ${anom.severity === 'CRITICAL' ? 'p1-alert' : 'p2-alert'}`;
+                            notifItem.innerHTML = `
+                                <div class="notif-icon-box ${anom.severity === 'CRITICAL' ? 'bg-red' : 'bg-amber'}">
+                                    <i class="fa-solid ${anom.severity === 'CRITICAL' ? 'fa-bolt' : 'fa-triangle-exclamation'}"></i>
+                                </div>
+                                <div class="notif-content">
+                                    <div class="notif-top-row">
+                                        <span class="notif-severity ${anom.severity === 'CRITICAL' ? 'badge-red' : 'badge-amber'}">${anom.severity}</span>
+                                        <span class="notif-time">Just now</span>
+                                    </div>
+                                    <h4>${escapeHtml(anom.issue)} — ${escapeHtml(anom.building)}</h4>
+                                    <p>Observed ${escapeHtml(String(anom.observed_value))} baseline telemetry envelope.</p>
+                                </div>
+                            `;
+                            notifList.insertBefore(notifItem, notifList.firstChild);
+                        }
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Telemetry sync error:", e);
+        }
+    };
+
+    const btnRefreshIotLog = document.getElementById("btnRefreshIotLog");
+    if (btnRefreshIotLog) {
+        btnRefreshIotLog.addEventListener("click", () => {
+            fetchStreamLog();
+            showToast("Refreshing Live IoT Stream Log...");
+        });
+    }
+
+    window.fetchIotStatus = fetchStatus;
+    window.fetchIotStreamLog = fetchStreamLog;
+
     // Initial fetch
     fetchStatus();
     fetchStreamLog();
+    syncGlobalTelemetryDashboard();
 
-    // Auto refresh interval every 2.5s
+    // Auto refresh interval every 2.5s across all tabs
     setInterval(() => {
-        const iotTab = document.getElementById("contentIotSimulator");
-        if (iotTab && iotTab.classList.contains("active")) {
-            fetchStatus();
-            fetchStreamLog();
-        }
+        syncGlobalTelemetryDashboard();
+        fetchStatus();
+        fetchStreamLog();
     }, 2500);
 }
 

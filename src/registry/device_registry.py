@@ -226,8 +226,24 @@ class DeviceRegistryEngine:
     def record_heartbeat(self, instance_id: str, active_devices_count: int = 0, scenario: str = "Normal Campus Operation") -> Dict[str, Any]:
         """Updates heartbeat and connection status for a simulator instance."""
         sim = self.simulators.get(instance_id)
-        if not sim or sim.revoked:
+        if sim and sim.revoked:
             return {"success": False, "error": "UNAUTHORIZED_SIMULATOR"}
+
+        if not sim:
+            now_iso = datetime.datetime.now().isoformat()
+            sim = SimulatorInstance(
+                instance_id=instance_id,
+                instance_name=f"Simulator-{instance_id}",
+                facility_id="FAC_GEC_CAMPUS",
+                building_id="Block B Hostel",
+                status="CONNECTED",
+                registered_at=now_iso,
+                last_heartbeat_at=now_iso,
+                device_count=active_devices_count,
+                active_scenario=scenario,
+                auth_token=f"sim_tok_auto_{uuid.uuid4().hex[:8]}"
+            )
+            self.simulators[instance_id] = sim
 
         now_iso = datetime.datetime.now().isoformat()
         sim.last_heartbeat_at = now_iso
@@ -273,13 +289,52 @@ class DeviceRegistryEngine:
 
     def ingest_telemetry(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Ingests a telemetry envelope or batch, validates payload, and updates device state."""
-        envelope = TelemetryEnvelope(**payload) if "simulator_id" in payload else None
-        if not envelope:
-            return {"success": False, "error": "INVALID_ENVELOPE_SCHEMA"}
+        now_str = datetime.datetime.now().isoformat()
+        if "instance_id" in payload and "simulator_id" not in payload:
+            payload["simulator_id"] = payload["instance_id"]
+        if "simulator_id" not in payload:
+            payload["simulator_id"] = "SIM_DEFAULT_01"
+        if "device_id" not in payload:
+            payload["device_id"] = "DEV_GENERIC_01"
+        if "event_timestamp" not in payload:
+            payload["event_timestamp"] = payload.get("timestamp") or now_str
+        if "sent_timestamp" not in payload:
+            payload["sent_timestamp"] = now_str
+        if "metrics" not in payload or not payload["metrics"]:
+            if "metric" in payload and "value" in payload:
+                payload["metrics"] = [{"metric": payload["metric"], "value": payload["value"], "unit": payload.get("unit", "")}]
+            elif "reading" in payload and isinstance(payload["reading"], dict):
+                rd = payload["reading"]
+                payload["metrics"] = [{"metric": k, "value": v} for k, v in rd.items() if isinstance(v, (int, float))]
+            else:
+                payload["metrics"] = []
+
+        try:
+            envelope = TelemetryEnvelope(**payload)
+        except Exception:
+            return {"success": False, "accepted": False, "error": "INVALID_ENVELOPE_SCHEMA"}
 
         sim = self.simulators.get(envelope.simulator_id)
-        if not sim or sim.revoked:
-            return {"success": False, "error": "REVOKED_OR_UNKNOWN_SIMULATOR"}
+        if sim and sim.revoked:
+            return {"success": False, "accepted": False, "error": "REVOKED_SIMULATOR"}
+
+        if not sim:
+            # Auto-register simulator instance if unknown
+            now_iso = datetime.datetime.now().isoformat()
+            sim = SimulatorInstance(
+                instance_id=envelope.simulator_id,
+                instance_name=f"Simulator-{envelope.simulator_id}",
+                facility_id=envelope.facility_id,
+                building_id=envelope.building_id,
+                status="CONNECTED",
+                registered_at=now_iso,
+                last_heartbeat_at=now_iso,
+                last_telemetry_at=now_iso,
+                device_count=1,
+                active_scenario="Normal Campus Operation",
+                auth_token=f"sim_tok_auto_{uuid.uuid4().hex[:8]}"
+            )
+            self.simulators[envelope.simulator_id] = sim
 
         dev = self.devices.get(envelope.device_id)
         if not dev:
@@ -329,6 +384,7 @@ class DeviceRegistryEngine:
 
         return {
             "success": True,
+            "accepted": True,
             "message_id": envelope.message_id,
             "status": "ACCEPTED",
             "ingested_metrics_count": len(metrics_map)

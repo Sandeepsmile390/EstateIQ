@@ -13,9 +13,9 @@ from simulator.scenario_engine import ScenarioEngine
 
 class VirtualDeviceItem:
     def __init__(self, data: Dict[str, Any]):
-        self.device_id = data.get("device_id") or f"DEV_{uuid.uuid4().hex[:8].upper()}"
-        self.device_name = data.get("device_name", self.device_id)
-        self.device_type = data.get("device_type", "electricity_meter")
+        self.device_id = data.get("device_id") or data.get("id") or f"DEV_{uuid.uuid4().hex[:8].upper()}"
+        self.device_name = data.get("device_name") or data.get("name") or self.device_id
+        self.device_type = data.get("device_type") or data.get("profile") or "electricity_meter"
         self.facility_id = data.get("facility_id", GLOBAL_SIM_CONFIG.get("facility_id", "FAC_GEC_CAMPUS"))
         self.building_id = data.get("building_id", GLOBAL_SIM_CONFIG.get("building_id", "Block B Hostel"))
         self.floor_room = data.get("floor_room", "Floor 1 / Room 101")
@@ -25,8 +25,36 @@ class VirtualDeviceItem:
         self.created_at = data.get("created_at") or datetime.datetime.now().isoformat()
         self.last_sample_at = data.get("last_sample_at")
         self.overrides: Dict[str, Any] = data.get("overrides", {})
-        self.readings: Dict[str, Any] = data.get("readings", {})
+        self.readings: Dict[str, Any] = data.get("initial_readings") or data.get("readings", {})
         self.sequence_number: int = data.get("sequence_number", 1)
+        self._last_generated_sample: Optional[Dict[str, Any]] = None
+
+    @property
+    def name(self) -> str:
+        return self.device_name
+
+    @name.setter
+    def name(self, val: str):
+        self.device_name = val
+
+    @property
+    def profile(self) -> str:
+        return self.device_type
+
+    @profile.setter
+    def profile(self, val: str):
+        self.device_type = val
+
+    @property
+    def sample_count(self) -> int:
+        return self.sequence_number
+
+    @property
+    def last_generated_sample(self) -> Optional[Dict[str, Any]]:
+        return self._last_generated_sample
+
+    def set_sensor_override(self, sensor: str, value: float):
+        self.overrides[sensor] = float(value)
 
     def generate_next_sample(self) -> Dict[str, Any]:
         """Generates physics-based telemetry for active device profile."""
@@ -53,7 +81,7 @@ class VirtualDeviceItem:
                 "quality": "bad" if self.active_scenario == "Invalid Sensor Reading" and k == "active_power_kw" else "good"
             })
 
-        return {
+        sample = {
             "schema_version": "1.0",
             "message_id": f"MSG_{uuid.uuid4().hex[:8].upper()}",
             "simulator_id": GLOBAL_SIM_CONFIG.get("instance_id"),
@@ -66,12 +94,19 @@ class VirtualDeviceItem:
             "sequence_number": self.sequence_number,
             "metrics": formatted_metrics
         }
+        self._last_generated_sample = sample
+        return sample
+
+    def generate_sample(self) -> Dict[str, Any]:
+        return self.generate_next_sample()
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "device_id": self.device_id,
             "device_name": self.device_name,
+            "name": self.device_name,
             "device_type": self.device_type,
+            "profile": self.device_type,
             "facility_id": self.facility_id,
             "building_id": self.building_id,
             "floor_room": self.floor_room,
@@ -177,10 +212,31 @@ class DeviceManager:
     def initialize_default_devices(self):
         self._create_default_virtual_devices()
 
-    def create_device(self, data: Dict[str, Any]) -> VirtualDeviceItem:
-        item = VirtualDeviceItem(data)
+    def get_device(self, device_id: str) -> Optional[VirtualDeviceItem]:
+        return self.devices.get(device_id)
+
+    def add_device(self, item_or_dict: Any) -> VirtualDeviceItem:
+        if isinstance(item_or_dict, VirtualDeviceItem):
+            item = item_or_dict
+        else:
+            item = VirtualDeviceItem(item_or_dict)
         self.devices[item.device_id] = item
         return item
+
+    def create_device(self, data: Dict[str, Any]) -> VirtualDeviceItem:
+        return self.add_device(data)
+
+    def remove_device(self, device_id: str) -> bool:
+        if device_id in self.devices:
+            del self.devices[device_id]
+            return True
+        return False
+
+    def delete_device(self, device_id: str) -> bool:
+        return self.remove_device(device_id)
+
+    def get_active_devices(self) -> List[VirtualDeviceItem]:
+        return [d for d in self.devices.values() if d.status == "ONLINE"]
 
     def update_device_overrides(self, device_id: str, overrides: Dict[str, Any]) -> Optional[VirtualDeviceItem]:
         dev = self.devices.get(device_id)
@@ -203,13 +259,7 @@ class DeviceManager:
             return dev
         return None
 
-    def delete_device(self, device_id: str) -> bool:
-        if device_id in self.devices:
-            del self.devices[device_id]
-            return True
-        return False
-
-    def list_devices(self) -> List[Dict[str, Any]]:
-        return [d.to_dict() for d in self.devices.values()]
+    def list_devices(self) -> List[VirtualDeviceItem]:
+        return list(self.devices.values())
 
 GLOBAL_DEVICE_MANAGER = DeviceManager()

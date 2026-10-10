@@ -79,7 +79,10 @@ RESPONSE FORMAT RULES BASED ON USER QUERY:
    - Provide a concise executive "summary".
    - Fill "what_happened" with verified telemetry observations and source or time period.
    - Fill "why_it_happened" explaining ONLY what evidence supports. If evidence does NOT establish a cause, explicitly state that root cause is unverified by physical sensors and suggest relevant factors to inspect.
-2. IF the question is NOT explanatory (e.g. greetings, algorithm questions, summaries, simple data questions, recommendations):
+2. IF the question asks about IoT sensors, live sensor readings, or telemetry values:
+   - Provide exact numerical readings for DEV_ELEC_01, DEV_HVAC_01, DEV_WATER_01, and DEV_ENV_01 present in telemetry_observed or live_device_readings in "summary".
+   - Set "what_happened" to "" and "why_it_happened" to "".
+3. IF the question is NOT explanatory (e.g. greetings, algorithm questions, summaries, simple data questions, recommendations):
    - Answer in natural sentences or a short paragraph in "summary".
    - You MUST set "what_happened" to "" (empty string).
    - You MUST set "why_it_happened" to "" (empty string).

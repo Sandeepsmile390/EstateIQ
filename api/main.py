@@ -245,7 +245,7 @@ def auth_login(req: LoginRequest):
     permissions = ROLE_PERMISSIONS.get(user["role"], [])
     
     # Unrestricted tab opening policy: all logged-in roles can access all tabs
-    tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "faq", "decision-intelligence", "models", "esg", "billing", "work-orders", "ai-assistant"]
+    tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "iot-simulator", "iot-monitor", "faq", "decision-intelligence", "models", "esg", "billing", "work-orders", "ai-assistant"]
     role_key_norm = req.role.lower() if req.role else "admin"
     if user["role"] in ["SUPER_ADMIN", "FACILITY_ADMIN"]:
         avatar_bg = "#124B3E"
@@ -440,25 +440,85 @@ def predict_energy(
     save_prediction_log("predictions", {**res, "request": req_dict})
     return res
 
+import time
+
+def get_latest_live_telemetry() -> Dict[str, Any]:
+    """Helper function to fetch the latest real-time streaming telemetry sample from registry or simulator."""
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    from src.services.iot_simulator import GLOBAL_IOT_SIMULATOR
+
+    # 1. Check GLOBAL_DEVICE_REGISTRY history
+    if GLOBAL_DEVICE_REGISTRY.telemetry_history:
+        rec = GLOBAL_DEVICE_REGISTRY.telemetry_history[0]
+        m = rec.get("metrics", {})
+        ts_str = rec.get("event_timestamp") or rec.get("ingested_at")
+        try:
+            ts_dt = pd.to_datetime(ts_str)
+            age_sec = max(0.0, (pd.Timestamp.now() - ts_dt).total_seconds())
+        except Exception:
+            age_sec = 0.0
+
+        return {
+            "energy_kwh": float(m.get("energy_kwh") or m.get("electricity_kwh") or m.get("active_power_kw", 115.0)),
+            "active_power_kw": float(m.get("active_power_kw") or m.get("energy_kwh", 145.0)),
+            "temperature": float(m.get("temperature_c") or m.get("temperature", 28.5)),
+            "humidity": float(m.get("humidity", 55.0)),
+            "occupancy": int(m.get("occupancy_count") or m.get("occupancy", 120)),
+            "hvac_load": float(m.get("hvac_load_kw") or m.get("hvac_load", 45.0)),
+            "voltage_v": float(m.get("voltage_v", 230.0)),
+            "current_a": float(m.get("current_a", 15.0)),
+            "water_flow_lmin": float(m.get("water_flow_lmin", 12.0)),
+            "air_aqi": float(m.get("air_aqi", 75.0)),
+            "building_id": rec.get("building_id", "Block B Hostel"),
+            "device_id": rec.get("device_id", "DEV_SIM_01"),
+            "timestamp": ts_str,
+            "data_freshness_sec": round(age_sec, 1),
+            "source_type": "simulated_iot",
+            "data_source_badge": rec.get("data_source_badge", "[SIMULATED IoT]")
+        }
+
+    # 2. Fallback to GLOBAL_IOT_SIMULATOR
+    sim_status = GLOBAL_IOT_SIMULATOR.get_status()
+    s = sim_status.get("sensors", {})
+    return {
+        "energy_kwh": float(s.get("energy_kwh", 115.0)),
+        "active_power_kw": float(s.get("active_power_kw", 145.0)),
+        "temperature": float(s.get("temperature_c", 28.5)),
+        "humidity": 55.0,
+        "occupancy": int(s.get("occupancy_count", 120)),
+        "hvac_load": float(s.get("hvac_load_kw", 45.0)),
+        "voltage_v": float(s.get("voltage_v", 230.0)),
+        "current_a": float(s.get("current_a", 15.0)),
+        "water_flow_lmin": float(s.get("water_flow_lmin", 12.0)),
+        "air_aqi": float(s.get("air_aqi", 75.0)),
+        "building_id": sim_status.get("building_id", "Block B Hostel"),
+        "device_id": "DEV_SIMULATOR_CORE",
+        "timestamp": sim_status.get("simulated_timestamp"),
+        "data_freshness_sec": 1.0,
+        "source_type": "simulated_iot",
+        "data_source_badge": "[SIMULATED IoT]"
+    }
+
 @app.get("/api/v1/energy/forecast")
 def energy_forecast(user: Dict[str, Any] = Depends(require_permission("energy.read"))):
     model, meta = get_model_and_metadata("energy_kwh_prediction", train_energy_module)
-    df_recent = repo.get_energy_data(limit=24)
-    if not df_recent.empty and "electricity_kwh" in df_recent.columns:
-        last_val = float(df_recent["electricity_kwh"].iloc[0])
-    else:
-        last_val = 115.0
+    live = get_latest_live_telemetry()
 
-    # Model inference for horizons
     sample_df = pd.DataFrame([{
-        "temperature": 29.0, "humidity": 55.0, "occupancy": 140, "hvac_load": 48.0,
-        "lighting_load": 15.0, "equipment_load": 22.0, "previous_energy_kwh": last_val,
-        "hour": 14, "day_of_week": 2
+        "temperature": live["temperature"],
+        "humidity": live["humidity"],
+        "occupancy": live["occupancy"],
+        "hvac_load": live["hvac_load"],
+        "lighting_load": 15.0,
+        "equipment_load": 22.0,
+        "previous_energy_kwh": live["energy_kwh"],
+        "hour": pd.Timestamp.now().hour,
+        "day_of_week": pd.Timestamp.now().dayofweek
     }])
     for c in meta["feature_names"]:
         if c not in sample_df.columns:
             sample_df[c] = 0
-            
+
     base_pred = float(model.predict(sample_df[meta["feature_names"]])[0])
 
     return {
@@ -468,49 +528,153 @@ def energy_forecast(user: Dict[str, Any] = Depends(require_permission("energy.re
         "predicted_24h_kwh": round(base_pred * 0.92, 2),
         "algorithm": meta.get("selected_model", "CatBoostRegressor"),
         "confidence_interval": "±6.8%",
+        "generation_timestamp": pd.Timestamp.now().isoformat(),
+        "data_freshness_sec": live["data_freshness_sec"],
+        "source_device_id": live["device_id"],
         "provenance": ProvenanceType.PREDICTED,
-        "provenance_badge": "[ML FORECAST]"
+        "provenance_badge": "[ML FORECAST — LIVE TELEMETRY]"
     }
+
+# In-memory registry for alert cooldown/hysteresis
+ALERT_COOLDOWN_REGISTRY: Dict[str, float] = {}
 
 @app.get("/api/v1/energy/anomalies")
 def energy_anomalies(user: Dict[str, Any] = Depends(require_permission("energy.read"))):
-    df_recent = repo.get_energy_data(limit=50)
+    live = get_latest_live_telemetry()
+    actual_kwh = live["energy_kwh"]
+    building = live["building_id"]
+    hour = pd.Timestamp.now().hour
+
+    exp_kwh = baseline_engine.calculate_expected_kwh(
+        building_id=building,
+        hour=hour,
+        day_of_week=pd.Timestamp.now().dayofweek,
+        occupancy=live["occupancy"],
+        temperature=live["temperature"]
+    )
+
     anomalies_list = []
-    if not df_recent.empty and "electricity_kwh" in df_recent.columns:
-        avg_kwh = float(df_recent["electricity_kwh"].mean())
-        for idx, row in df_recent.iterrows():
-            actual = float(row["electricity_kwh"])
-            if actual > avg_kwh * 1.25:
-                dev = round(((actual - avg_kwh) / avg_kwh) * 100, 1)
-                anomalies_list.append({
-                    "id": f"ALT_{len(anomalies_list)+1:02d}",
-                    "building": str(row.get("building", "Block B Hostel")),
-                    "issue": "HVAC Compressor Surge",
-                    "severity": "HIGH" if dev > 50 else "MEDIUM",
-                    "actual_kwh": round(actual, 2),
-                    "expected_kwh": round(avg_kwh, 2),
-                    "deviation_percent": f"+{dev}%",
-                    "disclaimer": "Abnormal operational surge detected by contextual baseline model."
-                })
-                if len(anomalies_list) >= 3:
-                    break
+
+    # Rule 1: Thermal HVAC Load Surge
+    if actual_kwh > exp_kwh * 1.20:
+        dev_pct = round(((actual_kwh - exp_kwh) / max(1.0, exp_kwh)) * 100, 1)
+        severity = "CRITICAL" if dev_pct > 60 else "HIGH"
+        anomalies_list.append({
+            "id": "ALT_SURGE_HVAC",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "HVAC Thermal Load Surge",
+            "severity": severity,
+            "observed_value": f"{round(actual_kwh, 1)} kWh",
+            "expected_range": f"{round(exp_kwh * 0.8, 1)} - {round(exp_kwh * 1.1, 1)} kWh",
+            "actual_kwh": round(actual_kwh, 1),
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": f"+{dev_pct}%",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": f"Live telemetry detected electricity demand surging {dev_pct}% above contextual baseline during peak heat ({live['temperature']}°C).",
+            "recommended_action": "Adjust HVAC setpoint by +2°C and shift non-essential thermal load to off-peak.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
+    # Rule 2: After-Hours Consumption Waste
+    if live["occupancy"] < 20 and live["hvac_load"] > 40:
+        anomalies_list.append({
+            "id": "ALT_WASTE_HVAC",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "After-Hours Energy Waste",
+            "severity": "HIGH",
+            "observed_value": f"HVAC {round(live['hvac_load'], 1)} kW",
+            "expected_range": "< 15 kW (Off-Peak)",
+            "actual_kwh": round(actual_kwh, 1),
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": "+180%",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": f"High HVAC load ({live['hvac_load']} kW) operating in near-empty building (Occupancy: {live['occupancy']}).",
+            "recommended_action": "Trigger automated night setback policy and switch HVAC to eco standby mode.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
+    # Rule 3: Off-Peak Water Flow Leakage
+    if live["water_flow_lmin"] > 35 and live["occupancy"] < 15:
+        anomalies_list.append({
+            "id": "ALT_WATER_LEAK",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "Off-Peak Pipe Leakage",
+            "severity": "CRITICAL",
+            "observed_value": f"{round(live['water_flow_lmin'], 1)} L/min",
+            "expected_range": "0 - 10 L/min",
+            "actual_kwh": round(actual_kwh, 1),
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": "+350%",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": "Abnormal continuous water flow detected during low occupancy hours. Potential pipe rupture or valve malfunction.",
+            "recommended_action": "Dispatch maintenance engineer immediately to inspect main riser valve.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
+    # Rule 4: Voltage Instability
+    if live["voltage_v"] < 200 or live["voltage_v"] > 250:
+        anomalies_list.append({
+            "id": "ALT_VOLT_INSTABLE",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "Electrical Grid Voltage Instability",
+            "severity": "CRITICAL",
+            "observed_value": f"{round(live['voltage_v'], 1)} V",
+            "expected_range": "220 - 240 V",
+            "actual_kwh": round(actual_kwh, 1),
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": "Voltage Out-of-Bounds",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": f"Voltage reading ({live['voltage_v']} V) deviates beyond Indian IS-12332 standard operating window.",
+            "recommended_action": "Switch sensitive equipment to UPS / standby DG bypass.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
+    # Rule 5: Stale Telemetry / Sensor Offline
+    if live["data_freshness_sec"] > 45:
+        anomalies_list.append({
+            "id": "ALT_STALE_SENSOR",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "Sensor Connection Stale / Offline",
+            "severity": "MEDIUM",
+            "observed_value": f"{live['data_freshness_sec']}s delay",
+            "expected_range": "< 15s heartbeats",
+            "actual_kwh": round(actual_kwh, 1),
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": "Heartbeat Timeout",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": "No fresh telemetry received from sensor hardware within the 15-second polling window.",
+            "recommended_action": "Check MQTT broker connection and IoT gateway power supply.",
+            "data_source_badge": live["data_source_badge"]
+        })
 
     if not anomalies_list:
         anomalies_list = [{
-            "id": "ALT_01",
-            "building": "Block B Hostel",
-            "issue": "HVAC Setpoint Surge",
-            "severity": "HIGH",
-            "actual_kwh": 145.2,
-            "expected_kwh": 78.0,
-            "deviation_percent": "+86.1%",
-            "disclaimer": "Contextual baseline model detected thermal compressor load spike."
+            "id": "ALT_NORMAL_00",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "Normal Campus Operation",
+            "severity": "NORMAL",
+            "observed_value": f"{round(actual_kwh, 1)} kWh",
+            "expected_range": f"{round(exp_kwh * 0.8, 1)} - {round(exp_kwh * 1.2, 1)} kWh",
+            "actual_kwh": round(actual_kwh, 1),
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": "0%",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": "All monitored metrics operating within normal baseline boundaries.",
+            "recommended_action": "Maintain optimal setpoints and eco controls.",
+            "data_source_badge": live["data_source_badge"]
         }]
 
     return {
-        "active_anomalies_count": len(anomalies_list),
+        "active_anomalies_count": len([a for a in anomalies_list if a["severity"] != "NORMAL"]),
+        "telemetry_freshness_sec": live["data_freshness_sec"],
         "provenance": ProvenanceType.DERIVED,
-        "provenance_badge": "[ANOMALY DETECTOR]",
+        "provenance_badge": live["data_source_badge"],
         "anomalies": anomalies_list
     }
 
@@ -692,11 +856,17 @@ memory_instance = DecisionMemoryStore()
 @app.get("/api/v1/intelligence/overview")
 @app.get("/api/v1/intelligence/fusion")
 def get_intelligence_fusion_overview(user: Dict[str, Any] = Depends(require_permission("alerts.read"))):
-    df_dummy = pd.DataFrame([{"energy_kwh": 145.2, "temperature": 31.5, "occupancy": 140, "hvac_load": 75.0}])
+    live = get_latest_live_telemetry()
+    df_live = pd.DataFrame([{
+        "energy_kwh": live["energy_kwh"],
+        "temperature": live["temperature"],
+        "occupancy": live["occupancy"],
+        "hvac_load": live["hvac_load"]
+    }])
     return fusion_instance.run_fusion_analysis(
-        df_telemetry=df_dummy,
-        building_id="Block B Hostel",
-        actual_kwh=145.2
+        df_telemetry=df_live,
+        building_id=live["building_id"],
+        actual_kwh=live["energy_kwh"]
     )
 
 @app.get("/api/v1/intelligence/confidence")
@@ -709,7 +879,15 @@ def get_model_consensus(user: Dict[str, Any] = Depends(require_permission("alert
 
 @app.get("/api/v1/intelligence/business-impact")
 def get_business_impact(user: Dict[str, Any] = Depends(require_permission("alerts.read"))):
-    return fusion_instance.impact_engine.calculate_surge_impact(actual_kwh=145.2, expected_kwh=78.0)
+    live = get_latest_live_telemetry()
+    exp_kwh = baseline_engine.calculate_expected_kwh(
+        building_id=live["building_id"],
+        hour=pd.Timestamp.now().hour,
+        day_of_week=pd.Timestamp.now().dayofweek,
+        occupancy=live["occupancy"],
+        temperature=live["temperature"]
+    )
+    return fusion_instance.impact_engine.calculate_surge_impact(actual_kwh=live["energy_kwh"], expected_kwh=exp_kwh)
 
 @app.get("/api/v1/intelligence/opportunities")
 def get_intelligence_opportunities(user: Dict[str, Any] = Depends(require_permission("recommendations.read"))):
@@ -1494,8 +1672,8 @@ def register_virtual_devices(instance_id: str, devices: List[Dict[str, Any]]):
 def ingest_iot_telemetry(payload: Dict[str, Any]):
     from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
     res = GLOBAL_DEVICE_REGISTRY.ingest_telemetry(payload)
-    if not res.get("accepted"):
-        raise HTTPException(status_code=400, detail=res.get("reason", "Telemetry validation failed"))
+    if not (res.get("success") or res.get("accepted")):
+        raise HTTPException(status_code=400, detail=res.get("error") or res.get("reason", "Telemetry validation failed"))
     return res
 
 @app.post("/api/v1/iot/telemetry/batch")

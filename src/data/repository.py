@@ -124,6 +124,20 @@ class DataRepository:
         return df
 
     def get_latest_energy(self, building_id: Optional[str] = None) -> Dict[str, Any]:
+        from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+        live_records = GLOBAL_DEVICE_REGISTRY.telemetry_history
+        if live_records:
+            for r in live_records:
+                metrics = r.get("metrics", {})
+                if "active_power_kw" in metrics or "energy_kwh" in metrics:
+                    val = round(float(metrics.get("energy_kwh") or metrics.get("active_power_kw") or 145.2), 2)
+                    return {
+                        "energy_kwh": val,
+                        "unit": "kWh",
+                        "provenance": ProvenanceType.OBSERVED,
+                        "provenance_badge": "[LIVE IoT SIMULATOR]"
+                    }
+
         df = self.get_energy_data(limit=50, building_id=building_id)
         if not df.empty and "building_name" in df.columns and building_id:
             b_df = df[df["building_name"].str.contains(building_id, case=False, na=False)]
@@ -151,6 +165,20 @@ class DataRepository:
         return df
 
     def get_latest_water(self) -> Dict[str, Any]:
+        from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+        live_records = GLOBAL_DEVICE_REGISTRY.telemetry_history
+        if live_records:
+            for r in live_records:
+                metrics = r.get("metrics", {})
+                if "flow_rate_lmin" in metrics or "water_flow" in metrics:
+                    val = round(float(metrics.get("flow_rate_lmin") or metrics.get("water_flow") or 50.0), 1)
+                    return {
+                        "flow_rate_lmin": val,
+                        "status": "ANOMALY_SURGE" if val > 120 else "NORMAL",
+                        "provenance": ProvenanceType.OBSERVED,
+                        "provenance_badge": "[LIVE IoT SIMULATOR]"
+                    }
+
         df = self.get_water_data(limit=50)
         if not df.empty and "flow_rate" in df.columns:
             val = round(float(df["flow_rate"].mean()), 1)

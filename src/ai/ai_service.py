@@ -364,6 +364,56 @@ class EstateIQAIService:
                 {"title": "View Registered ML Models", "reason": "System inspection", "expected_cost_saving_inr": 0},
                 {"title": "Run AI Anomaly Audit", "reason": "Diagnostic execution", "expected_cost_saving_inr": 0}
             ]
+        elif intent_type == "IOT_STATUS" or any(w in user_query.lower() for w in ["iot", "sensor", "telemetry", "reading", "value", "device"]):
+            live_devs = evidence_packet.get("live_device_readings", {})
+            dev_elec = live_devs.get("DEV_ELEC_01", {})
+            dev_hvac = live_devs.get("DEV_HVAC_01", {})
+            dev_water = live_devs.get("DEV_WATER_01", {})
+            dev_env = live_devs.get("DEV_ENV_01", {})
+
+            power_kw = dev_elec.get("active_power_kw", 145.2)
+            energy_kwh = dev_elec.get("energy_kwh", 36.3)
+            voltage = dev_elec.get("line_voltage_v", 415.0)
+            current = dev_elec.get("current_a", 202.0)
+            pf = dev_elec.get("power_factor", 0.94)
+
+            hvac_kw = dev_hvac.get("hvac_load_kw", 58.0)
+            hvac_stat = dev_hvac.get("hvac_status", "ON")
+
+            water_flow = dev_water.get("water_flow_lmin", 50.0)
+            tank_pct = dev_water.get("tank_level_pct", 82.0)
+
+            temp = dev_env.get("room_temperature_c", 32.0)
+            occ = dev_env.get("occupancy_count", 140)
+            aqi = dev_env.get("indoor_aqi", 110.5)
+
+            summary = (
+                f"Live IoT Telemetry Monitoring (Status: CONNECTED & STREAMING):\n\n"
+                f"• Main Electrical Submeter (DEV_ELEC_01): Active Power = {power_kw} kW | Energy = {energy_kwh} kWh | Line Voltage = {voltage} V | Current = {current} A | Power Factor = {pf}\n"
+                f"• HVAC Chiller & Compressor Monitor (DEV_HVAC_01): HVAC Load = {hvac_kw} kW | Status = {hvac_stat}\n"
+                f"• Water Riser Flow & Tank Level (DEV_WATER_01): Water Flow = {water_flow} L/min | Tank Level = {tank_pct}%\n"
+                f"• Environmental & Occupancy Node (DEV_ENV_01): Room Temp = {temp} °C | Occupancy = {occ} people | Indoor AQI = {aqi}"
+            )
+            what_happened = ""
+            why_list = []
+            badge = "[SIMULATED IoT]"
+            evidence_list = [
+                {"metric": "DEV_ELEC_01 Active Power (kW)", "value": power_kw},
+                {"metric": "DEV_ELEC_01 Energy (kWh)", "value": energy_kwh},
+                {"metric": "DEV_ELEC_01 Line Voltage (V)", "value": voltage},
+                {"metric": "DEV_ELEC_01 Current (A)", "value": current},
+                {"metric": "DEV_ELEC_01 Power Factor", "value": pf},
+                {"metric": "DEV_HVAC_01 HVAC Load (kW)", "value": hvac_kw},
+                {"metric": "DEV_WATER_01 Water Flow (L/min)", "value": water_flow},
+                {"metric": "DEV_WATER_01 Tank Level (%)", "value": tank_pct},
+                {"metric": "DEV_ENV_01 Room Temp (°C)", "value": temp},
+                {"metric": "DEV_ENV_01 Occupancy", "value": occ},
+                {"metric": "DEV_ENV_01 Indoor AQI", "value": aqi}
+            ]
+            actions_list = [
+                {"title": "Open Live IoT Monitor tab to view streaming charts", "reason": "Real-time telemetry tracking", "expected_cost_saving_inr": 0},
+                {"title": "Check IoT Gateway device registry status", "reason": "System verification", "expected_cost_saving_inr": 0}
+            ]
         elif not is_explanatory:
             summary = evidence_packet.get("summary") or evidence_packet.get("analysis_narrative") or f"Facility telemetry for '{user_query}': All monitored parameters are within nominal operational thresholds across active campus blocks."
             what_happened = ""

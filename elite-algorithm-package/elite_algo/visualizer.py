@@ -37,7 +37,6 @@ class ChartGenerator:
         ChartGenerator.plot_confusion_matrix(eval_results["anomaly_results"])
         ChartGenerator.plot_roc_pr_curves(eval_results["anomaly_results"])
         ChartGenerator.plot_decision_pipeline_flow()
-        ChartGenerator.plot_prioritization_matrix(eval_results["decision_results"])
         ChartGenerator.plot_combined_master_dashboard(eval_results)
 
     @staticmethod
@@ -247,24 +246,21 @@ class ChartGenerator:
     @staticmethod
     def plot_combined_master_dashboard(eval_results: Dict[str, Any]):
         """
-        Combines all 5 core evaluation charts into one single high-resolution master diagram:
-        1. Model Performance Comparison (Bar Chart)
+        Combines the 4 core machine learning evaluation charts into one single 2x2 master diagram:
+        1. Model Performance Comparison (MAE vs RMSE Bar Chart)
         2. Actual vs Predicted Energy Consumption (Time Series)
         3. Error Residual Distribution (Histogram / Density)
         4. ROC & Precision-Recall Curves
-        5. Decision Prioritization & Triage Distribution
         """
         energy_res = eval_results["energy_results"]
         anomaly_res = eval_results["anomaly_results"]
-        decision_res = eval_results["decision_results"]
 
-        fig = plt.figure(figsize=(16, 12), dpi=300)
-        grid = plt.GridSpec(3, 2, figure=fig, hspace=0.35, wspace=0.25)
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10), dpi=300)
+        plt.subplots_adjust(hspace=0.32, wspace=0.25)
 
         # ----------------------------------------------------------------------
         # SUBPLOT 1 (Top-Left): Model Performance Comparison
         # ----------------------------------------------------------------------
-        ax1 = fig.add_subplot(grid[0, 0])
         models = ["Specialist ML", "Naive Baseline", "Historical Mean"]
         mae_vals = [
             energy_res["specialist_metrics"]["mae"],
@@ -281,7 +277,7 @@ class ChartGenerator:
         rects1 = ax1.bar(x - width/2, mae_vals, width, label='MAE (kWh)', color='#38bdf8')
         rects2 = ax1.bar(x + width/2, rmse_vals, width, label='RMSE (kWh)', color='#818cf8')
         ax1.set_ylabel('Error Metric (kWh)', fontsize=10, fontweight='bold')
-        ax1.set_title('(A) Model Performance Comparison (MAE vs RMSE)', fontsize=11, fontweight='bold')
+        ax1.set_title('(A) Model Performance Comparison (MAE vs RMSE)', fontsize=11, fontweight='bold', pad=8)
         ax1.set_xticks(x)
         ax1.set_xticklabels(models, fontsize=9, fontweight='bold')
         ax1.legend(frameon=True, facecolor='#1e293b', fontsize=8)
@@ -293,7 +289,6 @@ class ChartGenerator:
         # ----------------------------------------------------------------------
         # SUBPLOT 2 (Top-Right): Actual vs Predicted Energy Consumption
         # ----------------------------------------------------------------------
-        ax2 = fig.add_subplot(grid[0, 1])
         y_true = energy_res["y_true"][:80]
         y_spec = energy_res["y_pred_specialist"][:80]
         y_naive = energy_res["y_pred_naive"][:80]
@@ -303,13 +298,12 @@ class ChartGenerator:
         ax2.plot(t, y_naive, label='Naive Baseline (y_t-1)', color='#f59e0b', linestyle=':', linewidth=1.2, alpha=0.7)
         ax2.set_xlabel('15-min Intervals', fontsize=9, fontweight='bold')
         ax2.set_ylabel('Energy (kWh)', fontsize=10, fontweight='bold')
-        ax2.set_title('(B) Actual vs Predicted Energy Consumption', fontsize=11, fontweight='bold')
+        ax2.set_title('(B) Actual vs Predicted Energy Consumption', fontsize=11, fontweight='bold', pad=8)
         ax2.legend(loc='upper right', frameon=True, facecolor='#1e293b', fontsize=8)
 
         # ----------------------------------------------------------------------
-        # SUBPLOT 3 (Middle-Left): Residual Error Distribution
+        # SUBPLOT 3 (Bottom-Left): Residual Error Distribution
         # ----------------------------------------------------------------------
-        ax3 = fig.add_subplot(grid[1, 0])
         residuals = energy_res["y_true"] - energy_res["y_pred_specialist"]
         if HAS_SEABORN:
             sns.histplot(residuals, kde=True, ax=ax3, color='#38bdf8', bins=25, stat="density")
@@ -318,15 +312,14 @@ class ChartGenerator:
         ax3.axvline(0, color='#ef4444', linestyle='--', linewidth=1.5, label='Zero Error Baseline')
         mean_err = np.mean(residuals)
         std_err = np.std(residuals)
-        ax3.set_title(f'(C) Residual Error Distribution (Mean: {mean_err:.2f}, Std: {std_err:.2f})', fontsize=11, fontweight='bold')
+        ax3.set_title(f'(C) Residual Error Distribution (Mean: {mean_err:.2f}, Std: {std_err:.2f})', fontsize=11, fontweight='bold', pad=8)
         ax3.set_xlabel('Residual Error: y_true - y_pred (kWh)', fontsize=9, fontweight='bold')
         ax3.set_ylabel('Density', fontsize=9, fontweight='bold')
         ax3.legend(frameon=True, facecolor='#1e293b', fontsize=8)
 
         # ----------------------------------------------------------------------
-        # SUBPLOT 4 (Middle-Right): ROC & Precision-Recall Curves
+        # SUBPLOT 4 (Bottom-Right): ROC & Precision-Recall Curves
         # ----------------------------------------------------------------------
-        ax4 = fig.add_subplot(grid[1, 1])
         fpr = np.linspace(0, 1, 100)
         tpr = np.sqrt(fpr)
         tpr[0] = 0.0
@@ -335,28 +328,12 @@ class ChartGenerator:
         ax4.plot(fpr, tpr, color='#38bdf8', linewidth=1.8, label='ROC Curve (AUC = 1.00)')
         ax4.plot(rec, prec, color='#22c55e', linewidth=1.8, label='Precision-Recall (F1 = 1.00)')
         ax4.plot([0, 1], [0, 1], color='#94a3b8', linestyle='--', label='Random Classifier (AUC = 0.50)')
-        ax4.set_title('(D) ROC & Precision-Recall Anomaly Classifier Curves', fontsize=11, fontweight='bold')
+        ax4.set_title('(D) ROC & Precision-Recall Anomaly Classifier Curves', fontsize=11, fontweight='bold', pad=8)
         ax4.set_xlabel('False Positive Rate / Recall', fontsize=9, fontweight='bold')
         ax4.set_ylabel('True Positive Rate / Precision', fontsize=9, fontweight='bold')
         ax4.legend(loc='lower right', frameon=True, facecolor='#1e293b', fontsize=8)
 
-        # ----------------------------------------------------------------------
-        # SUBPLOT 5 (Bottom Full Width): Decision Prioritization & Triage Distribution
-        # ----------------------------------------------------------------------
-        ax5 = fig.add_subplot(grid[2, :])
-        dist = decision_res.get("priority_distribution", {"P1_CRITICAL": 44, "P2_HIGH": 14, "P3_ROUTINE": 42})
-        labels = list(dist.keys())
-        values = list(dist.values())
-        colors = ['#ef4444', '#f59e0b', '#22c55e']
-        bars = ax5.bar(labels, values, color=colors, width=0.4)
-        ax5.set_ylabel('Flagged Decision Signals Count', fontsize=10, fontweight='bold')
-        ax5.set_title('(E) Elite Algorithm Decision Priority Distribution & Triage Matrix', fontsize=11, fontweight='bold')
-        for bar in bars:
-            h = bar.get_height()
-            ax5.annotate(f'{h} Signals', xy=(bar.get_x() + bar.get_width()/2, h), xytext=(0, 2),
-                         textcoords="offset points", ha='center', va='bottom', fontsize=9, fontweight='bold')
-
-        fig.suptitle('EstateIQ Elite Algorithm — Unified Master Evaluation Dashboard', fontsize=15, fontweight='bold', y=0.98, color='#38bdf8')
+        fig.suptitle('EstateIQ Elite Algorithm — Model Evaluation Master Dashboard', fontsize=14, fontweight='bold', y=0.98, color='#38bdf8')
 
         plt.savefig(CHARTS_DIR / "elite_algorithm_master_dashboard.png")
         plt.close()

@@ -40,13 +40,13 @@ elite-algorithm-package/
 │   └── metrics_summary.csv            # Structured CSV metrics table
 │
 ├── charts/                            # Rendered Visualizations
+│   ├── elite_algorithm_master_dashboard.png # Single Combined Master 2x2 Evaluation Diagram
 │   ├── model_performance_comparison.png
 │   ├── actual_vs_predicted_energy.png
 │   ├── error_distribution.png
 │   ├── confusion_matrix.png
 │   ├── roc_pr_curves.png
-│   ├── decision_pipeline_flow.png
-│   └── decision_prioritization_chart.png
+│   └── decision_pipeline_flow.png
 │
 └── tests/                             # Package Unit Test Suite
     ├── test_pipeline.py

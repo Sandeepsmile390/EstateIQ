@@ -412,6 +412,14 @@ class DeviceRegistryEngine:
             "rejected_records": 0
         }
 
+    def list_instances(self) -> List[SimulatorInstance]:
+        """Returns list of all registered simulator instances."""
+        return list(self.simulators.values())
+
+    def list_devices(self) -> List[VirtualDevice]:
+        """Returns list of all registered virtual devices."""
+        return list(self.devices.values())
+
     def _update_stale_statuses(self):
         """Marks simulators/devices stale or offline if heartbeat/telemetry threshold exceeded."""
         now = time.time()

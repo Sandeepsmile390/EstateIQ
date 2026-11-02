@@ -4,12 +4,80 @@ Validates that different questions trigger different intent classification, data
 Verifies that universal queries like 'What can you do?' never return a default energy anomaly.
 """
 
+import os
+import json
 import unittest
+from unittest.mock import MagicMock, patch
+
 from src.ai.query_router import UniversalQueryRouter
 from src.ai.data_planner import DataRequirementPlanner
 from src.ai.context_builder import build_ai_context
 from src.ai.ai_service import EstateIQAIService
 from src.ai.domain_registry import DOMAIN_REGISTRY, get_domain_info
+
+
+def build_mock_groq_client():
+    """Mock Groq client for credential-independent unit tests."""
+    mock_groq = MagicMock()
+
+    def mock_chat_create(*args, **kwargs):
+        messages = kwargs.get("messages", [])
+        content = messages[-1]["content"].lower() if messages else ""
+        system = messages[0]["content"] if len(messages) > 1 else ""
+
+        # Extract user query
+        query_text = content.split("user query:")[-1].strip() if "user query:" in content else content
+
+        if "greeting" in system.lower() or query_text in ["hi", "hello", "hey"]:
+            summary = "Hello! I am EstateIQ Copilot, your campus energy intelligence assistant."
+            what_happened = ""
+            why = ""
+        elif "algorithm" in system.lower() or "which algorithm is used" in query_text:
+            summary = "EstateIQ uses the Elite algo (created by Team Elite). It routes natural language queries and converts user intent to evaluate contextual ML models."
+            what_happened = ""
+            why = ""
+        elif "capability" in system.lower() or "what can you do" in query_text or "capabilities" in query_text:
+            summary = "EstateIQ Copilot provides multi-domain monitoring across electricity, water, waste, and HVAC systems."
+            what_happened = ""
+            why = ""
+        elif "summarize recent energy use" in query_text:
+            summary = "Recent campus energy telemetry across all monitored blocks is operating within nominal baseline parameters with an average load of 42.5 kW over the past 24 hours."
+            what_happened = ""
+            why = ""
+        elif "why did energy use increase" in query_text:
+            summary = "Energy consumption in Block B increased above contextual baseline."
+            what_happened = "In Block B Hostel, actual energy consumption reached 145.2 kWh vs baseline."
+            why = "HVAC compressor override was engaged during peak tariff window."
+        elif "what happened to water consumption" in query_text:
+            summary = "Water consumption showed sustained flow in Hostel A riser."
+            what_happened = "Hostel A riser flow rate averaged 18.5 L/min across 3 consecutive intervals."
+            why = "Sanitary fixture valve remained unseated after off-hours cleaning."
+        else:
+            summary = "Facility telemetry evaluation shows monitored parameters operating within normal campus baselines."
+            what_happened = ""
+            why = ""
+
+        mock_res_json = {
+            "summary": summary,
+            "what_happened": what_happened,
+            "why_it_happened": why,
+            "evidence": ["Contextual baseline deviation evaluated"],
+            "confidence_percent": 91.0,
+            "business_impact": "Financial impact within normal budget allowance.",
+            "recommended_actions": ["Review baseline schedule", "Inspect sensor telemetry"],
+            "what_if_interpretation": "",
+            "assumptions": ["Nominal sensor operation"],
+            "limitations": ["Evaluated over active 15-min interval"],
+            "data_status": "SUCCESS",
+            "verification_status": "VERIFIED",
+            "provenance": "GROQ_LLM_INTERPRETATION"
+        }
+        res_obj = MagicMock()
+        res_obj.choices[0].message.content = json.dumps(mock_res_json)
+        return res_obj
+
+    mock_groq.chat.completions.create.side_effect = mock_chat_create
+    return mock_groq
 
 
 class TestUniversalAICopilotAntiStatic(unittest.TestCase):
@@ -20,6 +88,15 @@ class TestUniversalAICopilotAntiStatic(unittest.TestCase):
         cls.router = UniversalQueryRouter()
         cls.planner = DataRequirementPlanner()
         cls.ai_service = EstateIQAIService()
+        cls.patcher = None
+        if os.getenv("ESTATEIQ_LIVE_AI_TESTS") != "1":
+            cls.patcher = patch("src.ai.ai_service.get_groq_client", return_value=build_mock_groq_client())
+            cls.patcher.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.patcher:
+            cls.patcher.stop()
 
     def test_01_capability_query_anti_static(self):
         """1. 'What can you do?' must return SYSTEM_CAPABILITY and NOT a Block B anomaly."""
@@ -206,6 +283,15 @@ class TestAICopilotResponseFormatRules(unittest.TestCase):
     def setUpClass(cls):
         cls.router = UniversalQueryRouter()
         cls.ai_service = EstateIQAIService()
+        cls.patcher = None
+        if os.getenv("ESTATEIQ_LIVE_AI_TESTS") != "1":
+            cls.patcher = patch("src.ai.ai_service.get_groq_client", return_value=build_mock_groq_client())
+            cls.patcher.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.patcher:
+            cls.patcher.stop()
 
     def setUp(self):
         self.ai_service.clear_cache()

@@ -88,7 +88,8 @@ class TestAPIEndpoints(unittest.TestCase):
         
         def mock_chat_create(*args, **kwargs):
             messages = kwargs.get("messages", [])
-            user_msg = messages[-1]["content"].lower() if messages else ""
+            content = messages[-1]["content"].lower() if messages else ""
+            user_msg = content.split("user query:")[-1] if "user query:" in content else content
             
             if "bins" in user_msg or "waste" in user_msg or "collection" in user_msg:
                 resp_text = "Bin 01 at Central Cafeteria requires collection dispatch."

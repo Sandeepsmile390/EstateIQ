@@ -1726,8 +1726,73 @@
                                 <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
                                     <span class="fc-label" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #A3C9BE;">Total Packets Ingested</span>
                                     <h3 class="fc-val text-gold" id="monTotalIngestedRecords" style="font-size: 1.4rem; margin: 4px 0;">--</h3>
-                                    <span class="fc-sub text-gold">Tagged: [SIMULATED IoT]</span>
+                                    <span class="fc-sub text-gold" id="monProvenanceBadge">Tagged: [SIMULATED IoT]</span>
                                 </div>
+                            </div>
+                        <!-- SENSOR HARDWARE & DATA QUALITY STATUS MATRIX -->
+                        <div class="interactive-card" style="margin-top: 20px; background: rgba(10, 46, 38, 0.6); border: 1px solid rgba(0, 208, 156, 0.25); border-radius: 14px; padding: 18px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <i class="fa-solid fa-microchip text-mint" style="font-size: 18px;"></i>
+                                    <div>
+                                        <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #FFFFFF;">Hardware Metrology & Sensor Status Matrix</h4>
+                                        <span style="font-size: 11px; color: #A3C9BE;">Live telemetry verification across isolated RS-485 meter, Hall pulse counter, and analog inputs</span>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span class="badge-mint" style="font-size: 11px; padding: 4px 10px;" id="matrixMeterBadge"><i class="fa-solid fa-bolt"></i> Meter: Modbus RTU</span>
+                                    <span class="badge-blue" style="font-size: 11px; padding: 4px 10px;" id="matrixWaterBadge"><i class="fa-solid fa-water"></i> Water: YF-S201</span>
+                                    <span class="badge-amber" style="font-size: 11px; padding: 4px 10px;" id="matrixAuxBadge"><i class="fa-solid fa-shield-halved"></i> Aux: 150Ω Shunt Protected</span>
+                                </div>
+                            </div>
+
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #A3C9BE;">
+                                            <th style="padding: 8px;">Subsystem</th>
+                                            <th style="padding: 8px;">Hardware / Sensor Model</th>
+                                            <th style="padding: 8px;">Electrical Interface</th>
+                                            <th style="padding: 8px;">Usable Operating Range</th>
+                                            <th style="padding: 8px;">Data State</th>
+                                            <th style="padding: 8px;">Calibration / Safety Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sensorMatrixTableBody">
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                            <td style="padding: 8px; font-weight: 600; color: #FFFFFF;"><i class="fa-solid fa-bolt text-mint"></i> Electricity</td>
+                                            <td style="padding: 8px;">Eastron SDM630 Modbus</td>
+                                            <td style="padding: 8px; font-family: monospace; font-size: 11px;">RS-485 (Isolated UART2: GPIO16/17)</td>
+                                            <td style="padding: 8px;">0.05 - 100 A / 230-415 V</td>
+                                            <td style="padding: 8px;" id="matrixStatusElec"><span class="badge-mint" style="font-size: 10px;">MEASURED</span></td>
+                                            <td style="padding: 8px; color: #A3C9BE;">Big-Endian float32 (Reg 0x0034 W to kW / Reg 0x0156 kWh)</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                            <td style="padding: 8px; font-weight: 600; color: #FFFFFF;"><i class="fa-solid fa-droplet text-blue"></i> Water Flow</td>
+                                            <td style="padding: 8px;">YF-S201 Turbine Hall</td>
+                                            <td style="padding: 8px; font-family: monospace; font-size: 11px;">GPIO5 (10k/20k 5V-to-3.3V Divider)</td>
+                                            <td style="padding: 8px;">1.0 to 30.0 L/min</td>
+                                            <td style="padding: 8px;" id="matrixStatusWater"><span class="badge-mint" style="font-size: 10px;">MEASURED</span></td>
+                                            <td style="padding: 8px; color: #A3C9BE;">Nominal ~450 pulses/L (Requires 5L bucket calibration)</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                            <td style="padding: 8px; font-weight: 600; color: #FFFFFF;"><i class="fa-solid fa-gauge text-amber"></i> Water Pressure</td>
+                                            <td style="padding: 8px;">4–20 mA Industrial Loop</td>
+                                            <td style="padding: 8px; font-family: monospace; font-size: 11px;">GPIO34 (150 Ω Shunt: 0.60V–3.00V)</td>
+                                            <td style="padding: 8px;">0.0 to 10.0 bar</td>
+                                            <td style="padding: 8px;" id="matrixStatusPressure"><span class="badge-amber" style="font-size: 10px;">DISABLED (Pin -1)</span></td>
+                                            <td style="padding: 8px; color: #A3C9BE;">Safety: Standard 250Ω shunt (5V) strictly prohibited</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 8px; font-weight: 600; color: #FFFFFF;"><i class="fa-solid fa-layer-group text-muted"></i> Tank Level</td>
+                                            <td style="padding: 8px;">Ultrasonic AJ-SR04M</td>
+                                            <td style="padding: 8px; font-family: monospace; font-size: 11px;">GPIO12/13 (Trigger / Echo)</td>
+                                            <td style="padding: 8px;">20 - 450 cm distance</td>
+                                            <td style="padding: 8px;" id="matrixStatusTank"><span class="badge-amber" style="font-size: 10px;">DISABLED (Pin -1)</span></td>
+                                            <td style="padding: 8px; color: #A3C9BE;">Requires commissioned tank height geometry calibration</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 

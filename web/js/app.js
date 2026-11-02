@@ -2049,25 +2049,37 @@ function initIotSimulator() {
             if (document.activeElement !== ctrlDgStatus && ctrlDgStatus) ctrlDgStatus.value = s.dg_status;
             syncSliderLabels();
 
+            // Helper to format metric or show unavailable state honestly
+            const formatMetric = (val, unit, unavailableText = "--") => {
+                if (val === null || val === undefined || isNaN(val)) return unavailableText;
+                return `${val} ${unit}`.trim();
+            };
+
             // Populate Live IoT Monitor Tab Cards
             const pKW = document.getElementById("liveMetricPowerKW");
             const eKWH = document.getElementById("liveMetricEnergyKWH");
             const vV = document.getElementById("liveMetricVoltageV");
             const iPF = document.getElementById("liveMetricCurrentPF");
 
-            if (pKW) pKW.textContent = `${s.active_power_kw} kW`;
-            if (eKWH) eKWH.textContent = `${s.energy_kwh} kWh`;
-            if (vV) vV.textContent = `${s.voltage_v || 230} V`;
-            if (iPF) iPF.textContent = `${s.current_a || 18.4} A (PF: ${s.power_factor || 0.95})`;
+            if (pKW) pKW.textContent = formatMetric(s.active_power_kw, "kW");
+            if (eKWH) eKWH.textContent = formatMetric(s.energy_kwh, "kWh");
+            if (vV) vV.textContent = formatMetric(s.voltage_v, "V");
+            if (iPF) {
+                if (s.current_a !== null && s.current_a !== undefined) {
+                    iPF.textContent = `${s.current_a} A (PF: ${s.power_factor ?? '--'})`;
+                } else {
+                    iPF.textContent = "-- A (PF: --)";
+                }
+            }
 
             const hKW = document.getElementById("liveMetricHvacKW");
             const cTemp = document.getElementById("liveMetricChillerTemp");
             const fSpeed = document.getElementById("liveMetricFanSpeed");
             const hStat = document.getElementById("liveMetricHvacStatus");
 
-            if (hKW) hKW.textContent = `${s.hvac_load_kw} kW`;
-            if (cTemp) cTemp.textContent = `${s.chiller_temp_c || 7.2} °C`;
-            if (fSpeed) fSpeed.textContent = `${s.fan_speed_rpm || 1450} RPM`;
+            if (hKW) hKW.textContent = formatMetric(s.hvac_load_kw, "kW");
+            if (cTemp) cTemp.textContent = formatMetric(s.chiller_temp_c, "°C");
+            if (fSpeed) fSpeed.textContent = formatMetric(s.fan_speed_rpm, "RPM");
             if (hStat) hStat.textContent = s.hvac_status || "NORMAL";
 
             const wFlow = document.getElementById("liveMetricWaterFlow");
@@ -2075,20 +2087,40 @@ function initIotSimulator() {
             const wPress = document.getElementById("liveMetricWaterPressure");
             const cWater = document.getElementById("liveMetricCumWater");
 
-            if (wFlow) wFlow.textContent = `${s.water_flow_lmin} L/min`;
-            if (tLvl) tLvl.textContent = `${s.tank_level_pct || 78} %`;
-            if (wPress) wPress.textContent = `${s.water_pressure_bar || 3.4} bar`;
-            if (cWater) cWater.textContent = `${s.cumulative_water_m3 || 1240} m³`;
+            if (wFlow) wFlow.textContent = formatMetric(s.water_flow_lmin, "L/min");
+            if (tLvl) tLvl.textContent = (s.tank_level_pct !== null && s.tank_level_pct !== undefined) ? `${s.tank_level_pct} %` : "-- % (Uncalibrated)";
+            if (wPress) wPress.textContent = (s.water_pressure_bar !== null && s.water_pressure_bar !== undefined) ? `${s.water_pressure_bar} bar` : "-- bar (Disabled)";
+            if (cWater) cWater.textContent = formatMetric(s.cumulative_water_m3, "m³");
 
             const rTemp = document.getElementById("liveMetricRoomTemp");
             const oCount = document.getElementById("liveMetricOccupancyCount");
             const rHum = document.getElementById("liveMetricHumidity");
             const aAqi = document.getElementById("liveMetricAirAqi");
 
-            if (rTemp) rTemp.textContent = `${s.temperature_c} °C`;
-            if (oCount) oCount.textContent = `${s.occupancy_count} People`;
-            if (rHum) rHum.textContent = `${s.humidity_pct || 58} %`;
-            if (aAqi) aAqi.textContent = `${s.air_quality_aqi || s.air_aqi || 45} AQI (${s.co2_ppm || 650} ppm)`;
+            if (rTemp) rTemp.textContent = formatMetric(s.temperature_c, "°C");
+            if (oCount) oCount.textContent = (s.occupancy_count !== null && s.occupancy_count !== undefined) ? `${s.occupancy_count} People` : "-- People";
+            if (rHum) rHum.textContent = formatMetric(s.humidity_pct, "%");
+            if (aAqi) {
+                if (s.air_quality_aqi !== null && s.air_quality_aqi !== undefined) {
+                    aAqi.textContent = `${s.air_quality_aqi} AQI (${s.co2_ppm ?? '--'} ppm)`;
+                } else if (s.air_aqi !== null && s.air_aqi !== undefined) {
+                    aAqi.textContent = `${s.air_aqi} AQI`;
+                } else {
+                    aAqi.textContent = "-- AQI";
+                }
+            }
+
+            // Update Sensor Hardware Matrix Status Cells
+            const mElec = document.getElementById("matrixStatusElec");
+            const mWater = document.getElementById("matrixStatusWater");
+            if (mElec) {
+                const isElecActive = s.active_power_kw !== null && s.active_power_kw !== undefined;
+                mElec.innerHTML = isElecActive ? '<span class="badge-mint" style="font-size: 10px;">MEASURED</span>' : '<span class="badge-amber" style="font-size: 10px;">UNAVAILABLE</span>';
+            }
+            if (mWater) {
+                const isWaterActive = s.water_flow_lmin !== null && s.water_flow_lmin !== undefined;
+                mWater.innerHTML = isWaterActive ? '<span class="badge-mint" style="font-size: 10px;">MEASURED</span>' : '<span class="badge-amber" style="font-size: 10px;">UNAVAILABLE</span>';
+            }
         }
     };
 
@@ -2123,14 +2155,16 @@ function initIotSimulator() {
                     monTbody.innerHTML = streamData.stream.map(item => {
                         const pKW = item.active_power_kw ?? item.telemetry?.active_power_kw ?? 145.2;
                         const tC = item.temperature_c ?? item.telemetry?.temperature_c ?? 24.5;
+                        const isReal = (item.data_source || item.data_source_mode || item.source_type) === 'real_sensor';
+                        const provBadge = isReal ? '<span class="badge-mint" style="font-size:10px;">[REAL SENSOR]</span>' : '<span class="badge-amber" style="font-size:10px;">[SIMULATED IoT]</span>';
                         return `
                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                             <td style="padding:10px; font-family:monospace; font-size:11px; color:#A3C9BE;">${item.sample_id}</td>
                             <td style="padding:10px; font-size:12px;">${item.timestamp ? item.timestamp.replace("T", " ").slice(11, 19) : "--"}</td>
-                            <td style="padding:10px; font-weight:600; color:#38BDF8;">DEV_ELEC_01</td>
+                            <td style="padding:10px; font-weight:600; color:#38BDF8;">${item.device_id || 'DEV_ELEC_01'}</td>
                             <td style="padding:10px; font-size:12px;">${item.building_id || 'Block B Hostel'}</td>
                             <td style="padding:10px; font-weight:700; color:#00D09C;">${pKW} kW / ${tC}°C</td>
-                            <td style="padding:10px;"><span class="badge-mint" style="font-size:10px;">${item.data_source || item.data_source_mode || 'simulated_iot'}</span></td>
+                            <td style="padding:10px;">${provBadge}</td>
                             <td style="padding:10px;"><span class="text-mint" style="font-size:12px;"><i class="fa-solid fa-circle-check"></i> INGESTED</span></td>
                         </tr>
                     `}).join("");
@@ -2154,10 +2188,19 @@ function initIotSimulator() {
             if (res.ok) {
                 const data = await res.json();
                 
-                // Update badge counts
+                // Update badge counts and provenance badge
                 const sidebarBadge = document.getElementById("sidebarAlertCount");
                 const notifBadge = document.getElementById("notificationCount");
                 const notifUnreadBadge = document.getElementById("notifUnreadBadge");
+                const monProv = document.getElementById("monProvenanceBadge");
+
+                if (sidebarBadge) sidebarBadge.textContent = data.active_anomalies_count;
+                if (notifBadge) notifBadge.textContent = data.active_anomalies_count;
+                if (notifUnreadBadge) notifUnreadBadge.textContent = `${data.active_anomalies_count} Active`;
+                if (monProv && data.provenance_badge) {
+                    monProv.textContent = `Tagged: ${data.provenance_badge}`;
+                    monProv.className = data.provenance_badge.includes("REAL") ? "fc-sub text-mint" : "fc-sub text-gold";
+                }
 
                 if (sidebarBadge) sidebarBadge.textContent = data.active_anomalies_count;
                 if (notifBadge) notifBadge.textContent = data.active_anomalies_count;

@@ -108,3 +108,96 @@ class DataQualityEngine:
             "quality_grade": grade,
             "provenance": "DATA_QUALITY_ENGINE"
         }
+
+    def evaluate_sensor_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Evaluates a single telemetry sample or device state for sensor health,
+        out-of-range metrics, counter resets, and communication errors.
+        Returns a quality breakdown and an anomaly suppression recommendation.
+        """
+        issues: List[str] = []
+        is_reliable: bool = True
+        suppress_resource_anomalies: bool = False
+
+        metrics = record.get("metrics", {})
+        if not metrics and "energy_kwh" in record:
+            metrics = record
+
+        # 1. Check for explicit quality warnings, quarantined status, or sensor communication faults
+        if record.get("quarantined") or record.get("is_valid_sample") is False:
+            issues.append(f"Sample is quarantined / invalid timestamp: {record.get('timestamp_error', 'Invalid timestamp')}")
+            is_reliable = False
+            suppress_resource_anomalies = True
+
+        if record.get("is_late_sample"):
+            issues.append("Sample is late / out-of-order audit record; suppressed from live resource anomaly calculations.")
+            is_reliable = False
+            suppress_resource_anomalies = True
+
+        warnings = record.get("quality_warnings", [])
+        for w in warnings:
+            issues.append(f"Ingestion warning: {w}")
+            if "rollback" in w.lower() or "reset" in w.lower():
+                issues.append("Meter counter reset/rollover detected. Interval consumption calculation requires baseline re-anchoring.")
+                suppress_resource_anomalies = True
+                is_reliable = False
+
+        if record.get("sensor_fault") or record.get("communication_error"):
+            issues.append("Hardware sensor communication error (Modbus timeout or I2C bus error).")
+            is_reliable = False
+            suppress_resource_anomalies = True
+
+        # 2. Check for non-finite values and physical ranges
+        for k, v in metrics.items():
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                if np.isnan(v) or np.isinf(v):
+                    issues.append(f"Non-finite value '{v}' in metric '{k}'.")
+                    is_reliable = False
+                    suppress_resource_anomalies = True
+                    continue
+
+                # Negative check for physical counters & positive-only quantities
+                if k in ("active_power_kw", "energy_kwh", "cumulative_energy_kwh", "water_flow_lmin", "cumulative_water_m3", "occupancy", "hvac_load_kw") and v < 0:
+                    issues.append(f"Physical metric '{k}' cannot be negative ({v}).")
+                    is_reliable = False
+                    suppress_resource_anomalies = True
+
+                # Specific range validations
+                if k == "voltage_v" and (v < 80.0 or v > 480.0):
+                    issues.append(f"Voltage '{v} V' outside standard physical bounds [80, 480].")
+                elif k == "frequency_hz" and (v < 40.0 or v > 70.0):
+                    issues.append(f"Mains frequency '{v} Hz' outside electrical grid limits [40, 70].")
+                elif k == "power_factor" and (v < -1.0 or v > 1.0):
+                    issues.append(f"Power factor '{v}' outside mathematical domain [-1.0, 1.0].")
+                    is_reliable = False
+                elif k == "tank_level_pct" and (v < 0.0 or v > 100.0):
+                    issues.append(f"Water tank level '{v}%' outside range [0, 100].")
+                elif k == "water_pressure_bar" and (v < 0.0 or v > 25.0):
+                    issues.append(f"Water line pressure '{v} bar' outside hydraulic limits [0, 25].")
+
+        # 3. Flow and pulse consistency checks
+        flow = metrics.get("water_flow_lmin") or metrics.get("water_flow_lpm")
+        cum_water = metrics.get("cumulative_water_m3") or metrics.get("water_m3")
+        if flow is not None and flow > 1000.0:
+            issues.append(f"Extremely high water flow rate '{flow} L/min' suggests pulse meter multiplier misconfiguration.")
+            is_reliable = False
+
+        # 4. Freshness evaluation
+        age_sec = record.get("data_freshness_sec", 0.0)
+        if age_sec > 300.0:
+            issues.append(f"Telemetry is stale ({round(age_sec, 1)} seconds old).")
+            is_reliable = False
+            suppress_resource_anomalies = True
+
+        health_status = "HEALTHY" if is_reliable and not issues else ("DEGRADED" if not suppress_resource_anomalies else "FAULT")
+
+        return {
+            "is_reliable": is_reliable,
+            "suppress_resource_anomalies": suppress_resource_anomalies,
+            "health_status": health_status,
+            "issues": issues,
+            "quality_grade": "GOOD" if is_reliable else "DEGRADED"
+        }
+

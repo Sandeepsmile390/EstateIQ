@@ -48,6 +48,19 @@ from src.decisions.work_orders import GLOBAL_WORK_ORDER_ENGINE
 from src.decisions.notifications import GLOBAL_NOTIFICATION_ENGINE
 from src.ai.insight_service import GLOBAL_AI_INSIGHT_SERVICE
 
+from src.data.canonical_db import (
+    get_facility, list_facilities, list_zones, query_readings,
+    list_alerts, get_alert, update_alert, create_action, list_actions,
+    list_audit_events, SourceType, QualityFlag
+)
+from src.data.seed_data import seed_demo_dataset, reset_demo_dataset
+from src.ingestion.csv_import import get_csv_template, preview_csv_content, import_csv_data
+from src.analytics.kpis import calculate_facility_kpis
+from src.analytics.anomaly import detect_facility_anomalies
+from src.analytics.forecast import generate_energy_forecast
+from src.analytics.scenarios import simulate_energy_scenario
+from src.analytics.reports import generate_report_summary, export_readings_csv, generate_printable_html_report
+
 from src.ui.components import (
     get_icon, inject_custom_css, render_top_bar,
     render_status_banner, render_hero_metrics_grid,
@@ -116,6 +129,65 @@ user_role = st.sidebar.selectbox(
     label_visibility="collapsed"
 )
 
+# --- FACILITY & ZONE SCOPING CONTROLS ---
+st.sidebar.markdown(f'''
+<div style="font-size:0.75rem; font-weight:700; color:#A3C9BE; text-transform:uppercase; letter-spacing:0.8px; margin-top:14px; margin-bottom:6px;">
+    {get_icon("Building", "#2BB49B", 14)} FACILITY & ZONE SCOPE
+</div>
+''', unsafe_allow_html=True)
+
+selected_facility = st.sidebar.selectbox(
+    "Facility:",
+    ["COLLEGE_01 (GEC Smart Campus)", "FAC_GEC_01 (Main Campus)"],
+    index=0
+)
+facility_id_scoped = "COLLEGE_01" if "COLLEGE_01" in selected_facility else "FAC_GEC_01"
+
+selected_zone = st.sidebar.selectbox(
+    "Zone / Building:",
+    [
+        "All Campus Zones",
+        "BLOCK_B - Block B Hostel",
+        "BLOCK_A - Academic Block A",
+        "CS_BLOCK - Computer Science",
+        "CANTEEN - Central Cafeteria",
+        "LIBRARY - Central Library",
+        "ADMIN - Administration Block",
+        "UTILITY - Central Utility"
+    ],
+    index=0
+)
+zone_id_scoped = None if "All Campus Zones" in selected_zone else selected_zone.split(" - ")[0]
+
+selected_horizon = st.sidebar.selectbox(
+    "Time Horizon:",
+    ["Last 24 Hours", "Last 7 Days", "Last 14 Days", "All History"],
+    index=2
+)
+
+# Repeatable Local Demo Buttons
+st.sidebar.markdown(f'''
+<div style="font-size:0.72rem; font-weight:700; color:#A3C9BE; text-transform:uppercase; letter-spacing:0.8px; margin-top:10px; margin-bottom:4px;">
+    DEMO ACTIONS (OFFLINE REPEATABLE)
+</div>
+''', unsafe_allow_html=True)
+c_demo1, c_demo2 = st.sidebar.columns(2)
+with c_demo1:
+    if st.button("🌱 Seed Demo"):
+        seed_res = seed_demo_dataset()
+        st.sidebar.success(f"Seeded {seed_res['readings_seeded']} rows with anomalies!")
+        st.rerun()
+with c_demo2:
+    if st.button("🔄 Reset Demo"):
+        reset_res = reset_demo_dataset()
+        st.sidebar.info("Demo reset to clean state.")
+        st.rerun()
+
+if st.sidebar.button("⚡ Run Anomaly Analysis"):
+    anom_res = detect_facility_anomalies(facility_id=facility_id_scoped, zone_id=zone_id_scoped)
+    st.sidebar.success(f"Detected {len(anom_res)} anomalies!")
+    st.rerun()
+
 # Sidebar Tabs Menu
 st.sidebar.markdown(f'''
 <div style="font-size:0.75rem; font-weight:700; color:#A3C9BE; text-transform:uppercase; letter-spacing:0.8px; margin-top:16px; margin-bottom:8px;">
@@ -125,6 +197,7 @@ st.sidebar.markdown(f'''
 
 web_ui_tabs = [
     "Dashboard Overview",
+    "CSV Import & Data Quality",
     "Decision Intelligence",
     "Staff Work Orders & Tasks",
     "AI Suggestions & ROI",
@@ -133,6 +206,7 @@ web_ui_tabs = [
     "Waste Overflow",
     "Mobility & Air",
     "What-If Simulator",
+    "Reports & Scoped Exports",
     "AI Operational Co-Pilot",
     "ESG & Carbon Audit",
     "Subscription & Plans",
@@ -603,37 +677,74 @@ elif menu == "Mobility & Air":
 # ==============================================================================
 elif menu == "What-If Simulator":
     st.markdown(f"### {get_icon('SlidersHorizontal', '#38BDF8', 24)} Operational What-If Scenario Simulator {render_badge('simulated')}", unsafe_allow_html=True)
-    
+    st.caption("Calculate transparent energy & cost reductions under operational assumptions (Section 6.3 Final Report Specification)")
+
     sim_col1, sim_col2 = st.columns(2)
     with sim_col1:
-        hvac_mod = st.slider("Modify HVAC Setback Schedule (% of Baseline Load):", 50, 120, 85)
-        solar_capacity = st.slider("Rooftop Solar PV Addition (kWp):", 0, 500, 150)
+        reduction_pct = st.slider("Assumed Energy Reduction (%):", min_value=0.0, max_value=50.0, value=10.0, step=1.0)
+        baseline_load = st.number_input("Forecast Baseline Load (kWh):", min_value=100.0, max_value=50000.0, value=1000.0, step=50.0)
+        hvac_setback = st.slider("HVAC Thermostat Setback (+°C):", min_value=0.0, max_value=5.0, value=2.0, step=0.5)
+
     with sim_col2:
-        water_rec = st.slider("Greywater Recycling Efficiency (%):", 0, 60, 30)
-        tariff_rate = st.slider("Electricity Tariff Rate (₹ INR / kWh):", 6.0, 14.0, 9.5)
-        
-    base_kwh = 140.0
-    sim_kwh = (base_kwh * (hvac_mod / 100.0)) - (solar_capacity * 0.15)
-    sim_kwh = max(10.0, sim_kwh)
-    
-    monthly_savings_kwh = (base_kwh - sim_kwh) * 24 * 30
-    monthly_savings_inr = monthly_savings_kwh * tariff_rate
-    co2_saved_kg = monthly_savings_kwh * 0.82
-    
-    bm1, bm2, bm3 = st.columns(3)
-    with bm1: render_kpi_card("With-XAI Savings", f"{round(max(0, monthly_savings_inr), 0):,.0f}", " ₹/mo", "+7.0% Net Gain vs Heuristic", "down", "Sparkles", "#C084FC")
-    with bm2: render_kpi_card("CO2 Reduced", f"{round(max(0, co2_saved_kg), 1):,}", " kg/mo", "0.82 kg/kWh Baseline", "down", "Leaf", "#22C55E")
-    with bm3: render_kpi_card("Simulated Demand Target", f"{round(sim_kwh, 1)}", " kWh", f"{round(((sim_kwh-base_kwh)/base_kwh)*100, 1)}% Shift", "down", "Zap", "#F5C577")
+        tariff_rate = st.slider("Configurable Electricity Tariff (₹ INR / kWh):", min_value=5.0, max_value=18.0, value=9.50, step=0.25)
+        solar_capacity = st.slider("Rooftop Solar PV Addition (kWp):", min_value=0, max_value=500, value=150, step=25)
+        time_window = st.selectbox("Scenario Time Horizon:", [24, 168, 720], index=0, format_func=lambda x: f"{x} Hours ({'1 Day' if x==24 else ('1 Week' if x==168 else '1 Month')})")
+
+    # Execute simulation calculation
+    scen_result = simulate_energy_scenario(
+        facility_id=facility_id_scoped,
+        zone_id=zone_id_scoped,
+        reduction_pct=reduction_pct,
+        tariff_inr_per_kwh=tariff_rate,
+        time_window_hours=time_window,
+        baseline_kwh=baseline_load,
+        hvac_setback_deg=hvac_setback,
+        solar_addition_kwp=solar_capacity,
+        persist=False
+    )
+
+    b_info = scen_result["baseline"]
+    s_info = scen_result["scenario"]
+    d_info = scen_result["delta"]
 
     st.markdown("---")
+    bm1, bm2, bm3 = st.columns(3)
+    with bm1:
+        render_kpi_card("Baseline Demand", f"{b_info['baseline_kwh']:,.1f}", " kWh", f"₹{b_info['baseline_cost_inr']:,.0f} Total Cost", "neutral", "Zap", "#F5C577")
+    with bm2:
+        render_kpi_card("Scenario Target", f"{s_info['scenario_kwh']:,.1f}", " kWh", f"₹{s_info['scenario_cost_inr']:,.0f} Net Cost", "down", "SlidersHorizontal", "#2BB49B")
+    with bm3:
+        render_kpi_card("Estimated Savings", f"₹{d_info['cost_reduction_inr']:,.0f}", f" ({d_info['energy_reduction_kwh']:,.1f} kWh)", f"{reduction_pct:.1f}% Assumed Reduction", "down", "Sparkles", "#4ADE80")
+
+    # Important Disclaimer Alert Box
+    st.warning(f"⚠️ **Operational Disclaimer:** {s_info['disclaimer']}")
+
+    # Transparent Assumptions Expander
+    with st.expander("📋 View Transparent Model Assumptions & Tariff Source", expanded=True):
+        for a in scen_result["assumptions"]:
+            st.markdown(f"• {a}")
+
+    # Visual Demand Curve Comparison
     sim_df = pd.DataFrame({
         "Hour": list(range(24)),
-        "Baseline Demand (kWh)": [base_kwh + np.sin(h/4)*20 for h in range(24)],
-        "Simulated Target (kWh)": [sim_kwh + np.sin(h/4)*15 for h in range(24)]
+        "Forecast Baseline (kWh)": [baseline_load / 24.0 + np.sin(h/4)*15 for h in range(24)],
+        "Scenario Target (kWh)": [s_info['scenario_kwh'] / 24.0 + np.sin(h/4)*12 for h in range(24)]
     })
-    fig_sim = px.line(sim_df, x="Hour", y=["Baseline Demand (kWh)", "Simulated Target (kWh)"], title="24-Hour Simulated Demand Curve Comparison")
+    fig_sim = px.line(sim_df, x="Hour", y=["Forecast Baseline (kWh)", "Scenario Target (kWh)"], title="24-Hour Hourly Load Simulation Comparison")
     fig_sim = apply_plotly_theme(fig_sim)
     st.plotly_chart(fig_sim, use_container_width=True)
+
+    if st.button("💾 Persist Scenario Record to Database", type="primary"):
+        from src.data.canonical_db import record_scenario
+        record_scenario(
+            user_id="operator",
+            facility_id=facility_id_scoped,
+            inputs=scen_result["tariff_assumptions"],
+            baseline=b_info,
+            scenario=s_info,
+            assumptions=scen_result["assumptions"]
+        )
+        st.success("✅ Scenario successfully recorded in database audit ledger!")
 
 
 # ==============================================================================
@@ -1150,6 +1261,137 @@ elif menu == "AI REST API & Diagnostics":
 # ==============================================================================
 elif menu == "Data Explorer & Tools":
     st.markdown(f"### {get_icon('Database', '#38BDF8', 24)} Centralized Facility Data Explorer & Diagnostic Tools", unsafe_allow_html=True)
-    tbl = st.selectbox("Select Data Table:", ["facilities", "buildings", "energy_readings", "water_readings", "waste_readings", "air_quality_readings", "equipment_sensor_readings", "emissions"])
+    tbl = st.selectbox("Select Data Table:", ["facilities", "zones", "readings", "alerts", "actions", "audit_events", "buildings", "energy_readings", "water_readings", "waste_readings", "air_quality_readings", "equipment_sensor_readings", "emissions"])
     df = repo.query_table(tbl, limit=100)
     st.dataframe(df, use_container_width=True)
+
+
+# ==============================================================================
+# TAB: CSV IMPORT & DATA QUALITY
+# ==============================================================================
+elif menu == "CSV Import & Data Quality":
+    st.markdown(f"### {get_icon('UploadCloud', '#2BB49B', 24)} CSV Telemetry Ingestion & Data Quality Center {render_badge('observed')}", unsafe_allow_html=True)
+    st.caption("Upload facility telemetry CSV, preview first 20 rows, validate columns and value ranges, detect duplicates, and manage batch rollback.")
+
+    # 1. Download Template
+    st.markdown("#### 1. Download Canonical Telemetry CSV Template")
+    tpl = get_csv_template()
+    st.download_button(
+        label="📥 Download CSV Template (estateiq_reading_template.csv)",
+        data=tpl,
+        file_name="estateiq_reading_template.csv",
+        mime="text/csv"
+    )
+
+    st.markdown("---")
+
+    # 2. Upload / Input CSV
+    st.markdown("#### 2. Telemetry CSV Ingestion & Range Validation")
+    uploaded_file = st.file_uploader("Upload Telemetry CSV:", type=["csv"])
+    raw_csv_text = st.text_area(
+        "Or Paste CSV Content Directly:",
+        height=140,
+        placeholder="timestamp,facility_id,zone_id,metric_type,value,unit\n2026-11-01T08:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,45.2,kWh\n2026-11-01T08:00:00Z,COLLEGE_01,BLOCK_B,water_litre,85.0,L"
+    )
+
+    csv_data_to_process = None
+    csv_filename = "manual_entry.csv"
+    if uploaded_file is not None:
+        csv_data_to_process = uploaded_file.getvalue()
+        csv_filename = uploaded_file.name
+    elif raw_csv_text.strip():
+        csv_data_to_process = raw_csv_text.strip()
+        csv_filename = "pasted_telemetry.csv"
+
+    if csv_data_to_process:
+        prev_res = preview_csv_content(csv_data_to_process, limit=20)
+        st.markdown("##### 🔍 Preview First 20 Rows")
+        if prev_res.get("preview_rows"):
+            st.dataframe(pd.DataFrame(prev_res["preview_rows"]), use_container_width=True)
+            st.info(f"Detected Column Mapping: {prev_res.get('detected_mapping')}")
+        else:
+            st.warning(prev_res.get("error", "No data rows previewed."))
+
+        if st.button("🚀 Validate & Ingest CSV Batch", type="primary"):
+            with st.spinner("Validating timestamps, units, finite ranges, and facility references..."):
+                import_res = import_csv_data(
+                    csv_text_or_bytes=csv_data_to_process,
+                    selected_facility_id=facility_id_scoped,
+                    filename=csv_filename,
+                    user_id="operator"
+                )
+                if import_res["accepted_count"] > 0:
+                    st.success(f"✅ Ingestion Succeeded! Accepted {import_res['accepted_count']} of {import_res['total_rows']} rows under Batch ID: `{import_res['batch_id']}`")
+                if import_res["rejected_count"] > 0:
+                    st.error(f"⚠️ {import_res['rejected_count']} rows rejected due to schema/range violations.")
+                    st.markdown("##### ❌ Rejected Rows Audit Trail")
+                    st.dataframe(pd.DataFrame(import_res["rejected_rows"]), use_container_width=True)
+
+    st.markdown("---")
+
+    # 3. Batch Rollback
+    st.markdown("#### 3. Batch Management & Rollback")
+    rollback_batch_id = st.text_input("Enter Batch ID to Roll Back (e.g. BATCH_CSV_...):", "")
+    if st.button("↩️ Roll Back Batch", type="secondary"):
+        if rollback_batch_id:
+            from src.data.canonical_db import rollback_batch
+            rb_res = rollback_batch(batch_id=rollback_batch_id, user_id="operator")
+            if rb_res["success"]:
+                st.success(f"✅ Batch {rollback_batch_id} rolled back ({rb_res['deleted_count']} rows deleted).")
+            else:
+                st.error(rb_res["message"])
+        else:
+            st.warning("Please provide a valid Batch ID.")
+
+
+# ==============================================================================
+# TAB: REPORTS & SCOPED EXPORTS
+# ==============================================================================
+elif menu == "Reports & Scoped Exports":
+    st.markdown(f"### {get_icon('FileText', '#2BB49B', 24)} Scoped Executive Facility Reports & CSV Exports {render_badge('observed')}", unsafe_allow_html=True)
+    st.caption("Generate facility and zone-scoped operational reports, download filtered readings CSV, and view printable audit summaries.")
+
+    rep_summary = generate_report_summary(
+        facility_id=facility_id_scoped,
+        zone_id=zone_id_scoped
+    )
+
+    st.markdown("#### 📊 Active Scope Summary")
+    sc_col1, sc_col2, sc_col3, sc_col4 = st.columns(4)
+    with sc_col1: st.metric("Facility", rep_summary["scope"]["facility_name"])
+    with sc_col2: st.metric("Zone Scope", rep_summary["scope"]["zone_id"])
+    with sc_col3: st.metric("Data Freshness", f"{rep_summary['data_quality']['freshness_sec']}s")
+    with sc_col4: st.metric("Valid Readings %", f"{rep_summary['data_quality']['valid_pct']}%")
+
+    st.markdown("---")
+
+    # Action Buttons: CSV Export and Printable View
+    exp_c1, exp_c2 = st.columns(2)
+    with exp_c1:
+        csv_str = export_readings_csv(facility_id=facility_id_scoped, zone_id=zone_id_scoped)
+        st.download_button(
+            label="📥 Download Scoped Telemetry CSV",
+            data=csv_str,
+            file_name=f"estateiq_telemetry_{facility_id_scoped}.csv",
+            mime="text/csv"
+        )
+    with exp_c2:
+        if st.button("🖨️ View Standalone Printable Executive Report"):
+            st.session_state["show_printable_report"] = True
+
+    if st.session_state.get("show_printable_report", False):
+        html_rep = generate_printable_html_report(rep_summary)
+        st.markdown("##### Printable HTML Report Preview (Browser Print / PDF Ready)")
+        st.components.v1.html(html_rep, height=600, scrolling=True)
+
+    st.markdown("#### 📌 Recent Alerts in Selected Scope")
+    scoped_alerts = rep_summary["alerts_summary"]["recent_alerts"]
+    if scoped_alerts:
+        st.dataframe(pd.DataFrame(scoped_alerts)[["id", "zone_id", "metric_type", "severity", "observed_value", "baseline_value", "status", "explanation"]], use_container_width=True)
+    else:
+        st.info("No active alerts detected in selected scope.")
+
+    st.markdown("#### ⚠️ Operational Assumptions & Model Limitations")
+    for l in rep_summary["limitations"]:
+        st.caption(f"• {l}")
+

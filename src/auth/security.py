@@ -205,11 +205,21 @@ USERS_DB: Dict[str, Dict[str, Any]] = {
     }
 }
 
+USERS_DB["admin"] = USERS_DB["admin@estateiq.in"]
+USERS_DB["operations"] = USERS_DB["alex.chen@estateiq.in"]
+USERS_DB["sustainability"] = USERS_DB["priya.sharma@estateiq.in"]
+USERS_DB["viewer"] = USERS_DB["sam.taylor@estateiq.in"]
+
 # Legacy USER_ROLES_DB mapping for backward compatibility
 USER_ROLES_DB: Dict[str, Dict[str, Any]] = {
     "admin": USERS_DB["lead@estateiq.in"],
+    "administrator": USERS_DB["admin@estateiq.in"],
     "engineer": USERS_DB["alex.chen@estateiq.in"],
+    "operations": USERS_DB["alex.chen@estateiq.in"],
+    "operations_tech": USERS_DB["alex.chen@estateiq.in"],
     "auditor": USERS_DB["priya.sharma@estateiq.in"],
+    "sustainability": USERS_DB["priya.sharma@estateiq.in"],
+    "sustainability_officer": USERS_DB["priya.sharma@estateiq.in"],
     "viewer": USERS_DB["sam.taylor@estateiq.in"],
     "lead@estateiq.in": USERS_DB["lead@estateiq.in"],
     "admin@estateiq.in": USERS_DB["admin@estateiq.in"]
@@ -232,6 +242,26 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
     email_clean = email.strip().lower()
     user = USERS_DB.get(email_clean)
     if not user:
+        # Check canonical DB users table as fallback
+        try:
+            from src.data.canonical_db import get_user_by_username
+            db_user = get_user_by_username(email_clean)
+            if db_user:
+                user = {
+                    "user_id": db_user["id"],
+                    "email": db_user["username"],
+                    "name": db_user["username"].capitalize(),
+                    "initials": db_user["username"][:2].upper(),
+                    "facility_id": db_user.get("facility_id", "COLLEGE_01"),
+                    "role": db_user["role"].upper(),
+                    "role_label": db_user["role"].capitalize(),
+                    "password_hash": db_user["password_hash"],
+                    "status": "ACTIVE" if db_user.get("active", 1) else "INACTIVE"
+                }
+        except Exception:
+            pass
+
+    if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
     
     if not verify_password(password, user["password_hash"]):
@@ -240,6 +270,28 @@ def authenticate_user(email: str, password: str) -> Dict[str, Any]:
     if user.get("status") != "ACTIVE":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deactivated.")
     return user
+
+
+def require_role(allowed_roles: List[str]):
+    """Enforces server-side role check returning 403 Forbidden on unauthorized roles."""
+    def role_dependency(user: Dict[str, Any] = Depends(verify_current_user)):
+        user_role = user.get("role", "").upper()
+        # Map canonical aliases
+        normalized_allowed = [r.upper() for r in allowed_roles]
+        if "ADMINISTRATOR" in normalized_allowed:
+            normalized_allowed.extend(["SUPER_ADMIN", "FACILITY_ADMIN", "ADMIN"])
+        if "OPERATIONS" in normalized_allowed:
+            normalized_allowed.extend(["OPERATIONS_ENGINEER", "OPERATIONS_TECH", "ENGINEER"])
+        if "SUSTAINABILITY" in normalized_allowed:
+            normalized_allowed.extend(["ESG_AUDITOR", "SUSTAINABILITY_OFFICER", "AUDITOR"])
+
+        if user_role not in normalized_allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Forbidden: Role '{user.get('role_label', user_role)}' lacks authority for this endpoint."
+            )
+        return user
+    return role_dependency
 
 
 def create_user_token(user: Dict[str, Any]) -> str:

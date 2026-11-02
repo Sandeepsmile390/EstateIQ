@@ -128,6 +128,8 @@ class DataRepository:
         live_records = GLOBAL_DEVICE_REGISTRY.telemetry_history
         if live_records:
             for r in live_records:
+                if not r.get("is_valid_sample", True) or r.get("quarantined") or r.get("is_late_sample"):
+                    continue
                 metrics = r.get("metrics", {})
                 if "active_power_kw" in metrics or "energy_kwh" in metrics:
                     val = round(float(metrics.get("energy_kwh") or metrics.get("active_power_kw") or 145.2), 2)
@@ -169,6 +171,8 @@ class DataRepository:
         live_records = GLOBAL_DEVICE_REGISTRY.telemetry_history
         if live_records:
             for r in live_records:
+                if not r.get("is_valid_sample", True) or r.get("quarantined") or r.get("is_late_sample"):
+                    continue
                 metrics = r.get("metrics", {})
                 if "flow_rate_lmin" in metrics or "water_flow" in metrics:
                     val = round(float(metrics.get("flow_rate_lmin") or metrics.get("water_flow") or 50.0), 1)

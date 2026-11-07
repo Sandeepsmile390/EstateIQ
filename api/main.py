@@ -114,6 +114,22 @@ def startup_security_and_db():
     except Exception as e:
         print(f"Canonical schema init warning: {e}")
 
+    # Start MQTT consumer if enabled in environment
+    mqtt_enabled = os.getenv("MQTT_ENABLED", "false").lower() in ("true", "1", "yes")
+    if mqtt_enabled:
+        try:
+            from src.data.mqtt_consumer import MQTTTelemetryConsumer
+            broker_host = os.getenv("MQTT_BROKER_HOST", "localhost")
+            broker_port = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+            mqtt_consumer = MQTTTelemetryConsumer(broker_host=broker_host, broker_port=broker_port)
+            ok = mqtt_consumer.start()
+            if ok:
+                print(f"[MQTT] Telemetry Consumer background listener started on {broker_host}:{broker_port}")
+            else:
+                print(f"[MQTT] Consumer startup skipped (broker not reachable or paho not installed).")
+        except Exception as mqtt_err:
+            print(f"[MQTT] Consumer startup warning: {mqtt_err}")
+
 
 # --- Static File Serving ---
 if os.path.exists("web"):
@@ -1753,6 +1769,19 @@ def get_latest_device_telemetry(device_id: str):
 def get_device_telemetry_history(device_id: str, limit: int = 50):
     history = GLOBAL_DEVICE_REGISTRY.get_telemetry_history(device_id, limit=limit)
     return {"device_id": device_id, "count": len(history), "history": history}
+
+@app.get("/api/v1/iot/telemetry/stream")
+@app.get("/api/v1/iot/stream")
+def get_iot_telemetry_stream(limit: int = 50, device_id: Optional[str] = None):
+    """Returns recent real-time ingested telemetry packets across all devices or filtered by device_id."""
+    history = GLOBAL_DEVICE_REGISTRY.get_telemetry_history(device_id=device_id, limit=limit)
+    stats = GLOBAL_DEVICE_REGISTRY.get_summary_stats()
+    return {
+        "count": len(history),
+        "total_ingested": len(GLOBAL_DEVICE_REGISTRY.telemetry_history),
+        "stats": stats,
+        "stream": history
+    }
 
 @app.post("/api/v1/iot/simulators/{instance_id}/revoke")
 def revoke_simulator_instance(instance_id: str, user: Dict[str, Any] = Depends(require_permission("facility.read"))):

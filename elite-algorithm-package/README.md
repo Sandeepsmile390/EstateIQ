@@ -1,114 +1,44 @@
-# EstateIQ Elite Algorithm Package — Metric Evaluation & Pipeline Benchmark Suite
+# EstateIQ-DIF Evaluation Package
 
-Proprietary **Elite Algorithm / Decision Intelligence Framework (EstateIQ-DIF)** evaluation, metric verification, and publication-quality chart generation package for the **EstateIQ Facility Intelligence Platform** (BPUT Hackathon 2026).
+This package documents and evaluates the implemented EstateIQ Decision Intelligence Framework (DIF) path. “Elite” is the project name; the evaluated core is a robust seasonal contextual baseline, a two-sided residual score, operating-rule fusion, and bounded temporal persistence.
 
----
+## Evidence and scope
 
-## 🌟 Key Capabilities
+The bundled source telemetry is generated/simulated. There are 350,400 quarter-hour readings for ten buildings and 42 injected anomalous records in two episodes. Reported anomaly metrics are point-wise results on two generated episodes, not estimates of real-facility performance. Forecast scores are from a 7-day seasonal-naive reference and simple comparators, not a fitted Elite forecasting model. Water, waste, independent decision accuracy, calibration, causal savings, and external validation are **not evaluated**.
 
-1. **Integrated 8-Stage Decision Intelligence Pipeline:** Fuses specialist ML models (Energy CatBoost/Linear, Water Forecasting, Waste Classification, Equipment Risk) with contextual baselines, SHAP driver attributions, multi-model anomaly consensus, safety-gated confidence calibration, financial/CO2 impact scoring, and prioritized action center recommendations.
-2. **Scientific Baseline Benchmarking:** Rigorously compares specialist machine learning models against Naive Persistence ($y_t = y_{t-1}$) and Historical Mean ($\hat{y} = \bar{y}_{train}$) baselines using 70% Train / 15% Val / 15% Test chronological splits (Seed: 42).
-3. **Statistical & Classification Metrics:** Evaluates MAE, RMSE, R², MAPE, Precision, Recall, F1-Score, Confusion Matrix, and ROC-AUC for prediction and anomaly detection layers.
-4. **Decision Layer Evaluation:** Measures model agreement rate, false-alert suppression rate, confidence gate accuracy, priority triage distribution, and actionable ROI (INR).
-5. **Publication-Grade Chart Generator:** Automatically renders 7 high-resolution PNG charts in `charts/`.
-6. **Theoretical & Empirical Complexity Benchmark:** Analyzes Big-O Time & Space complexity for every pipeline stage and measures actual latency (ms) and memory usage (MB).
+The report deliberately does not claim that this code path executes CatBoost, XGBoost, LightGBM, Prophet, Isolation Forest, LOF, SHAP, calibrated uncertainty, or a trained optimization model. The optional fitted profile is `SeasonalBaselineModel`; the default DIF path can use a labeled heuristic cold-start baseline if no fitted artifact is supplied.
 
----
+## Reproduce
 
-## 📁 Package Directory Structure
+From the repository root:
 
-```text
-elite-algorithm-package/
-├── README.md                          # Comprehensive documentation & evaluation guide
-├── requirements.txt                   # Dependency manifest
-├── pyproject.toml                     # Python package configuration
-├── .gitignore                         # Version control exclusions
-├── run_evaluation.py                  # Master evaluation CLI runner script
-├── run_windows.bat                    # One-click Windows launcher
-├── run_linux_mac.sh                   # One-click Linux/macOS launcher
-│
-├── elite_algo/                        # Core Algorithm Package Modules
-│   ├── __init__.py
-│   ├── pipeline.py                    # 8-stage Elite Algorithm pipeline wrapper
-│   ├── evaluator.py                   # Chronological dataset evaluation engine
-│   ├── metrics.py                     # Regression, classification, baseline & decision metrics
-│   ├── complexity.py                  # Big-O derivations & empirical latency benchmark
-│   └── visualizer.py                  # Publication-quality chart generator
-│
-├── reports/                           # Exported Evaluation Reports
-│   ├── elite_algorithm_evaluation.md  # Comprehensive evaluation markdown report
-│   └── metrics_summary.csv            # Structured CSV metrics table
-│
-├── charts/                            # Rendered Visualizations
-│   ├── elite_algorithm_master_dashboard.png # Single Combined Master 2x2 Evaluation Diagram
-│   ├── model_performance_comparison.png
-│   ├── actual_vs_predicted_energy.png
-│   ├── error_distribution.png
-│   ├── confusion_matrix.png
-│   ├── roc_pr_curves.png
-│   └── decision_pipeline_flow.png
-│
-└── tests/                             # Package Unit Test Suite
-    ├── test_pipeline.py
-    ├── test_evaluator.py
-    └── test_metrics.py
+```powershell
+python elite-algorithm-package/run_evaluation.py
 ```
 
----
+To fit an inspectable profile, provide a timezone-aware cutoff explicitly:
 
-## ⚡ Quick Start Guide
-
-### 1. Install Dependencies
-```bash
-cd elite-algorithm-package
-pip install -r requirements.txt
+```powershell
+python elite-algorithm-package/train_dif_baseline.py --train-through 2026-10-31T23:45:00+05:30 --output models/dif_seasonal_baseline.json
 ```
 
-### 2. Run Metric Evaluation & Generate Reports/Charts
+The profile trainer reads only timestamp, building, and energy fields. Review the cutoff and dataset provenance before using the resulting artifact.
 
-#### Windows
-```cmd
-run_windows.bat
-```
+## Outputs
 
-#### Linux / macOS
-```bash
-chmod +x run_linux_mac.sh
-./run_linux_mac.sh
-```
+- `reports/evaluation_report.md` - evaluation protocol, results, complexity and benchmark notes.
+- `reports/evaluation_results.json` - machine-readable metrics and provenance.
+- `reports/metrics_summary.csv` - metric summary.
+- `charts/*.svg` - generated forecast, confusion-matrix, ROC/PR, and pipeline figures.
+- `../research/ieee/estateiq_elite_dif_research_paper.md` - editable generic IEEE-style manuscript.
+- `../output/pdf/estateiq_elite_dif_ieee_research_paper.pdf` - typeset research draft.
 
-#### Manual Python Execution
-```bash
-python run_evaluation.py
-```
+## Method summary
 
----
+For each building and weekly quarter-hour slot, the fitted baseline stores the median and a robust scale `max(1.4826 * MAD, relative floor, absolute floor)`. For residual `r = actual - expected`, `z = r / max(scale, epsilon)` and contextual score `C = 100 * (1 - exp(-abs(z)/3))`. The total score is the configured weighted sum of contextual score and a binary active-rule score. It is not a probability. Per-building persistence state is bounded and updated chronologically.
 
-## 🧪 Run Package Unit Tests
+Complexity: expected `O(N)` fit over `N` training rows; expected `O(1)` scalar lookup/scoring per event; retained profile and persistence memory `O(S+B)` for `S` slot profiles and at most `B` tracked buildings. An optional dataframe scan is `O(NF)` for `F` columns.
 
-```bash
-python -m pytest tests/
-```
+## IEEE publication note
 
----
-
-## 📊 Summary Metrics Overview
-
-| Component | Metric Name | Measured Value | Baseline Reference | Interpretation |
-| :--- | :--- | :---: | :---: | :--- |
-| **Specialist Model** | Energy MAE | **1.64 kWh** | Naive: 3.32 kWh | 50.5% error reduction over naive baseline |
-| **Specialist Model** | Energy RMSE | **2.08 kWh** | Naive: 4.09 kWh | Penalizes peak load prediction deviations |
-| **Specialist Model** | Energy R² Score | **0.966** | Mean: -0.035 | Explains 96.6% of consumption variance |
-| **Anomaly Classifier** | Anomaly Precision | **1.000** | Random: 0.100 | Zero false alarm rate avoiding operator fatigue |
-| **Anomaly Classifier** | Anomaly Recall | **1.000** | Random: 0.500 | Successfully catches 100% of abnormal surges |
-| **Anomaly Classifier** | F1-Score | **1.000** | Random: 0.167 | Perfect harmonic mean score |
-| **Decision Layer** | Model Agreement | **78.5%** | Single Model: N/A | High consensus across specialist models |
-| **Decision Layer** | Avg Confidence | **90.5%** | Raw Alerts: N/A | Calibrated decision confidence level |
-
----
-
-## 🔬 Scientific Validation Methodology
-
-1. **Data Leakage Prevention:** All time-series data is split chronologically into 70% Train, 15% Validation, and 15% Test partitions. No future information is leaked into feature calculations.
-2. **Deterministic Reproducibility:** Random seeds are fixed to `42` across dataset partitioning, baseline evaluations, and anomaly scoring.
-3. **Honest Reporting Policy:** Evaluates actual dataset records (`facility.db`). Metrics that cannot be meaningfully computed (e.g. single-class ground truth) report `NOT EVALUATED` rather than fabricated values.
+The paper is a generic conference-style research draft with blank author fields. Before submission, select a venue, adopt its current template/page limit, verify references and dataset redistribution terms, and replace simulated-data evidence with an external evaluation appropriate to the claimed contribution. See the [IEEE paper structure guidance](https://conferences.ieeeauthorcenter.ieee.org/write-your-paper/structure-your-paper/) and [submission process](https://journals.ieeeauthorcenter.ieee.org/submit-your-article-for-peer-review/the-ieee-article-submission-process/).

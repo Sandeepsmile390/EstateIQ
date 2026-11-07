@@ -1,113 +1,80 @@
-import os
+"""Complexity model and reproducible single-event latency microbenchmark."""
+
+from __future__ import annotations
+
+import platform
+import statistics
 import time
-import sys
-import datetime
-import numpy as np
-import pandas as pd
-from typing import Dict, Any, List
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
-try:
-    import psutil
-    HAS_PSUTIL = True
-except ImportError:
-    HAS_PSUTIL = False
+from src.intelligence.dif_engine import EstateIQDIF
+from src.intelligence.types import EventData
 
-from elite_algo.pipeline import GLOBAL_ELITE_PIPELINE
 
 COMPLEXITY_TABLE: List[Dict[str, str]] = [
-    {
-        "stage": "Stage 1: Feature Preprocessing & Normalization",
-        "time_complexity": "O(F)",
-        "space_complexity": "O(F)",
-        "assumptions": "F = Number of telemetry metrics (12-25 features per event)."
-    },
-    {
-        "stage": "Stage 2: Contextual Baseline Calculation",
-        "time_complexity": "O(H)",
-        "space_complexity": "O(1)",
-        "assumptions": "H = Lookback horizon for time-of-day/day-of-week contextual lookup table."
-    },
-    {
-        "stage": "Stage 3: Specialist ML Model Inference",
-        "time_complexity": "O(M * T)",
-        "space_complexity": "O(M)",
-        "assumptions": "M = Number of specialist models (6), T = Tree depth in ensemble models (100-300 trees)."
-    },
-    {
-        "stage": "Stage 4: Multi-Model Anomaly Consensus",
-        "time_complexity": "O(K * N)",
-        "space_complexity": "O(K)",
-        "assumptions": "K = Number of anomaly detectors (Isolation Forest, One-Class SVM, Rule Engine)."
-    },
-    {
-        "stage": "Stage 5: SHAP Explainability & Driver Attribution",
-        "time_complexity": "O(M * F^2)",
-        "space_complexity": "O(F)",
-        "assumptions": "Tree SHAP algorithm computed across top active feature interactions."
-    },
-    {
-        "stage": "Stage 6: Business Impact & Carbon Quantification",
-        "time_complexity": "O(1)",
-        "space_complexity": "O(1)",
-        "assumptions": "Closed-form tariff scaling and grid emission factor matrix lookup."
-    },
-    {
-        "stage": "Stage 7: Decision Priority Assignment",
-        "time_complexity": "O(P log P)",
-        "space_complexity": "O(P)",
-        "assumptions": "P = Candidate decision signals sorted by weighted severity score."
-    },
-    {
-        "stage": "Stage 8: Actionable Recommendation Ranking",
-        "time_complexity": "O(R log R)",
-        "space_complexity": "O(R)",
-        "assumptions": "R = Matched ROI recommendations ranked by cost-saving efficiency ratio."
-    }
+    {"stage": "Input validation and heuristic baseline", "time_complexity": "O(1)", "space_complexity": "O(1)",
+     "assumptions": "Fixed number of scalar fields; no dataframe supplied."},
+    {"stage": "Fitted seasonal baseline lookup", "time_complexity": "O(1)", "space_complexity": "O(1) per query",
+     "assumptions": "Hash lookup by building and 15-minute weekday slot; fitted profile storage O(S)."},
+    {"stage": "Rule checks and anomaly score fusion", "time_complexity": "O(1)", "space_complexity": "O(1)",
+     "assumptions": "Fixed number of scalar rules and evidence signals; no IF/LOF estimator is invoked."},
+    {"stage": "Temporal persistence state", "time_complexity": "O(1) expected", "space_complexity": "O(B)",
+     "assumptions": "Dictionary lookup/update; B is bounded by the configured building-state capacity."},
+    {"stage": "Impact, risk and priority arithmetic", "time_complexity": "O(1)", "space_complexity": "O(1)",
+     "assumptions": "Closed-form calculation; annualized impact is a continuation scenario."},
+    {"stage": "Optional dataframe quality scan", "time_complexity": "O(NF)", "space_complexity": "O(NF) worst case",
+     "assumptions": "N telemetry rows and F columns; used only when a dataframe is passed to analyze."},
+    {"stage": "Seasonal baseline fit", "time_complexity": "O(N) expected", "space_complexity": "O(N+S)",
+     "assumptions": "One-time grouped robust statistics on N training rows, yielding S building/time-slot profiles."},
+    {"stage": "Core event path", "time_complexity": "O(1) expected", "space_complexity": "O(1) incremental; O(S+B) retained",
+     "assumptions": "Fixed model/profile and no optional telemetry dataframe; average-case dictionary operations."},
 ]
 
+
 class EmpiricalComplexityBenchmark:
-    """Measures empirical latency and RAM footprint of the Elite Algorithm pipeline."""
+    """Measure warmed, deterministic per-event latency without RSS-delta claims."""
 
     @staticmethod
-    def run_benchmark(sample_counts: List[int] = [1, 10, 100, 500]) -> List[Dict[str, Any]]:
-        results = []
-        process = psutil.Process(os.getpid()) if HAS_PSUTIL else None
+    def run_benchmark(sample_counts: Optional[List[int]] = None) -> List[Dict[str, Any]]:
+        counts = sample_counts or [100, 1000]
+        if any(count < 1 for count in counts):
+            raise ValueError("sample counts must be positive")
+        rows = []
+        for count in counts:
+            engine = EstateIQDIF()
+            def process(index: int) -> None:
+                stamp = datetime(2026, 11, 1, tzinfo=timezone(timedelta(hours=5, minutes=30))) + timedelta(minutes=15 * index)
+                event = EventData(
+                    event_id=f"BENCH-{index}", facility_id="BENCH-FACILITY",
+                    building_id="BENCH-BUILDING",
+                    timestamp=stamp.isoformat(),
+                    actual_kwh=55.0 + (index % 7) * 0.1, hour=stamp.hour,
+                    day_of_week=stamp.weekday(), occupancy=100,
+                    temperature=25.0, hvac_load=20.0, interval_hours=0.25,
+                )
+                engine.analyze(event)
 
-        for count in sample_counts:
-            # Prepare synthetic sample events
-            events = [
-                {
-                    "facility_id": "FAC_GEC_CAMPUS",
-                    "building_id": "Block B Hostel",
-                    "timestamp": datetime.datetime.now() + datetime.timedelta(minutes=15 * i),
-                    "actual_kwh": 145.2 + np.random.uniform(-20, 50),
-                    "occupancy": int(140 + np.random.uniform(-30, 30)),
-                    "temperature_c": float(32.0 + np.random.uniform(-3, 5)),
-                    "hvac_load_kw": float(58.0 + np.random.uniform(-10, 20)),
-                    "water_flow_lmin": float(50.0 + np.random.uniform(-10, 30)),
-                    "air_aqi": float(110.0 + np.random.uniform(-20, 40))
-                }
-                for i in range(count)
-            ]
-
-            mem_before_mb = (process.memory_info().rss / (1024 * 1024)) if process else 42.0
-            start_time = time.perf_counter()
-
-            for evt in events:
-                GLOBAL_ELITE_PIPELINE.process_telemetry_event(**evt)
-
-            elapsed_sec = time.perf_counter() - start_time
-            mem_after_mb = (process.memory_info().rss / (1024 * 1024)) if process else 42.5
-            total_ms = elapsed_sec * 1000.0
-            per_event_ms = total_ms / count
-
-            results.append({
+            for warm_idx in range(20):
+                process(warm_idx)
+            latencies = []
+            overall = time.perf_counter()
+            for idx in range(count):
+                begin = time.perf_counter()
+                process(idx + 20)
+                latencies.append((time.perf_counter() - begin) * 1000.0)
+            elapsed = time.perf_counter() - overall
+            ordered = sorted(latencies)
+            p95 = ordered[min(len(ordered) - 1, int(0.95 * len(ordered)))]
+            p99 = ordered[min(len(ordered) - 1, int(0.99 * len(ordered)))]
+            rows.append({
                 "sample_count": count,
-                "total_time_ms": round(total_ms, 2),
-                "avg_latency_per_event_ms": round(per_event_ms, 3),
-                "throughput_events_per_sec": round(count / max(0.0001, elapsed_sec), 1),
-                "memory_used_mb": round(mem_after_mb - mem_before_mb, 2),
-                "total_rss_mem_mb": round(mem_after_mb, 2)
+                "warmup_count": 20,
+                "median_latency_ms": round(statistics.median(latencies), 4),
+                "p95_latency_ms": round(p95, 4),
+                "p99_latency_ms": round(p99, 4),
+                "throughput_events_per_sec": round(count / max(elapsed, 1e-12), 2),
+                "environment": f"Python {platform.python_version()} / {platform.system()} / {platform.machine()}",
+                "measurement_note": "No dataframe; heuristic cold-start baseline; memory delta not reported.",
             })
-
-        return results
+        return rows

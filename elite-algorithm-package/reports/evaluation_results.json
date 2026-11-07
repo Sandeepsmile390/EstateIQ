@@ -1,0 +1,160 @@
+{
+  "generated_at_utc": "2026-11-03T16:36:25.330361+00:00",
+  "source": "facility_dataset/data/raw/energy_readings.csv (simulated/generated)",
+  "energy": {
+    "status": "EVALUATED",
+    "model_name": "7-day seasonal naive reference (not a trained Elite model)",
+    "sample_count": 50304,
+    "test_start": "2026-11-07T06:00:00+05:30",
+    "test_end": "2026-12-31T23:45:00+05:30",
+    "evaluation_protocol": "Per-building chronological 70/15/15; final 15% one-step rolling-origin; weekly lag 672",
+    "provenance": "SIMULATED_IOT_GENERATED_DATASET",
+    "specialist_metrics": {
+      "mae": 1.591,
+      "rmse": 2.3554,
+      "r2": 0.9875,
+      "mape": 5.35,
+      "max_error": 16.782,
+      "sample_count": 50304
+    },
+    "naive_metrics": {
+      "mae": 2.184,
+      "rmse": 4.5601,
+      "r2": 0.953,
+      "mape": 7.47,
+      "max_error": 69.476,
+      "sample_count": 50304
+    },
+    "mean_metrics": {
+      "mae": 9.8093,
+      "rmse": 14.7426,
+      "r2": 0.5084,
+      "mape": 27.9,
+      "max_error": 65.596,
+      "sample_count": 50304
+    }
+  },
+  "anomaly": {
+    "status": "EVALUATED",
+    "confusion_matrix": {
+      "tp": 41,
+      "fp": 17,
+      "tn": 367,
+      "fn": 1
+    },
+    "accuracy": 0.9577,
+    "precision": 0.7069,
+    "recall": 0.9762,
+    "f1_score": 0.82,
+    "false_positive_rate": 0.0443,
+    "roc_auc": 0.9846,
+    "average_precision": 0.9712,
+    "sample_count": 426,
+    "positive_count": 42,
+    "evaluation_protocol": "Two generated, labeled energy-injection episodes; training history strictly precedes each episode; \u00b124-hour windows; score threshold fixed at 55/100",
+    "provenance": "SYNTHETIC_INJECTED_ANOMALIES_NOT_REAL_FACILITY_VALIDATION",
+    "baseline_metrics": {
+      "mae": 6.2599,
+      "rmse": 12.6666,
+      "r2": 0.6669,
+      "mape": 13.5,
+      "max_error": 52.966,
+      "sample_count": 418
+    },
+    "building_median_reference_metrics": {
+      "mae": 13.0877,
+      "rmse": 23.0478,
+      "r2": -0.1029,
+      "mape": 25.79,
+      "max_error": 78.4205,
+      "sample_count": 418
+    },
+    "episode_count": 2,
+    "threshold": 55.0,
+    "threshold_selection": "Pre-specified configuration default; not tuned on these test labels"
+  },
+  "water": {
+    "status": "NOT EVALUATED",
+    "reason": "No independent, held-out water model predictions are wired to Elite-DIF."
+  },
+  "waste": {
+    "status": "NOT EVALUATED",
+    "reason": "Waste overflow is outside Elite-DIF and has no independent evaluation protocol here."
+  },
+  "decision_layer": {
+    "status": "NOT EVALUATED",
+    "reason": "No independent operator decision labels; confidence and priority are not accuracy measures."
+  },
+  "complexity_model": [
+    {
+      "stage": "Input validation and heuristic baseline",
+      "time_complexity": "O(1)",
+      "space_complexity": "O(1)",
+      "assumptions": "Fixed number of scalar fields; no dataframe supplied."
+    },
+    {
+      "stage": "Fitted seasonal baseline lookup",
+      "time_complexity": "O(1)",
+      "space_complexity": "O(1) per query",
+      "assumptions": "Hash lookup by building and 15-minute weekday slot; fitted profile storage O(S)."
+    },
+    {
+      "stage": "Rule checks and anomaly score fusion",
+      "time_complexity": "O(1)",
+      "space_complexity": "O(1)",
+      "assumptions": "Fixed number of scalar rules and evidence signals; no IF/LOF estimator is invoked."
+    },
+    {
+      "stage": "Temporal persistence state",
+      "time_complexity": "O(1) expected",
+      "space_complexity": "O(B)",
+      "assumptions": "Dictionary lookup/update; B is bounded by the configured building-state capacity."
+    },
+    {
+      "stage": "Impact, risk and priority arithmetic",
+      "time_complexity": "O(1)",
+      "space_complexity": "O(1)",
+      "assumptions": "Closed-form calculation; annualized impact is a continuation scenario."
+    },
+    {
+      "stage": "Optional dataframe quality scan",
+      "time_complexity": "O(NF)",
+      "space_complexity": "O(NF) worst case",
+      "assumptions": "N telemetry rows and F columns; used only when a dataframe is passed to analyze."
+    },
+    {
+      "stage": "Seasonal baseline fit",
+      "time_complexity": "O(N) expected",
+      "space_complexity": "O(N+S)",
+      "assumptions": "One-time grouped robust statistics on N training rows, yielding S building/time-slot profiles."
+    },
+    {
+      "stage": "Core event path",
+      "time_complexity": "O(1) expected",
+      "space_complexity": "O(1) incremental; O(S+B) retained",
+      "assumptions": "Fixed model/profile and no optional telemetry dataframe; average-case dictionary operations."
+    }
+  ],
+  "latency_benchmark": [
+    {
+      "sample_count": 100,
+      "warmup_count": 20,
+      "median_latency_ms": 0.0424,
+      "p95_latency_ms": 0.0506,
+      "p99_latency_ms": 0.0575,
+      "throughput_events_per_sec": 22973.19,
+      "environment": "Python 3.11.0 / Windows / AMD64",
+      "measurement_note": "No dataframe; heuristic cold-start baseline; memory delta not reported."
+    },
+    {
+      "sample_count": 1000,
+      "warmup_count": 20,
+      "median_latency_ms": 0.043,
+      "p95_latency_ms": 0.0621,
+      "p99_latency_ms": 0.121,
+      "throughput_events_per_sec": 21415.84,
+      "environment": "Python 3.11.0 / Windows / AMD64",
+      "measurement_note": "No dataframe; heuristic cold-start baseline; memory delta not reported."
+    }
+  ]
+}

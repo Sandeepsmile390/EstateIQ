@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EstateIQ - Standalone Multi-Utility Resource Simulator</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome 6 Pro Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- HERO & BANNER -->
+        <div class="hero-card">
+            <div class="hero-top">
+                <div class="brand-group">
+                    <div class="brand-icon">
+                        <i class="fa-solid fa-microchip"></i>
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <h1 style="font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px;">Standalone Resource Simulator</h1>
+                            <span class="sim-badge">
+                                <i class="fa-solid fa-flask"></i> SIMULATED DATA — NOT PHYSICAL SENSOR TELEMETRY
+                            </span>
+                        </div>
+                        <p style="margin-top: 6px; font-size: 0.88rem; color: var(--text-muted);">
+                            Independent multi-utility physics demo generator for <strong>Electricity</strong>, <strong>Water</strong>, <strong>Air Quality</strong>, and <strong>Waste</strong>. Streams directly to EstateIQ Ingestion API.
+                        </p>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span id="apiStatusBadge" class="api-badge">
+                        <span class="pulse-dot"></span>
+                        <span id="apiStatusText">CONNECTING...</span>
+                    </span>
+                    <a href="http://localhost:8000" target="_blank" class="btn btn-outline-white" style="font-size: 0.78rem;">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Dashboard (8000)
+                    </a>
+                    <a href="http://localhost:8502" target="_blank" class="btn btn-outline-white" style="font-size: 0.78rem;">
+                        <i class="fa-solid fa-satellite-dish"></i> IoT App (8502)
+                    </a>
+                </div>
+            </div>
+
+            <!-- TOOLBAR -->
+            <div class="toolbar">
+                <div class="btn-group">
+                    <button id="btnStartAll" class="btn btn-primary"><i class="fa-solid fa-play"></i> Start All</button>
+                    <button id="btnPauseAll" class="btn btn-outline-mint"><i class="fa-solid fa-pause"></i> Pause All</button>
+                    <button id="btnStep" class="btn btn-outline-mint"><i class="fa-solid fa-forward-step"></i> Step (+1)</button>
+                    <button id="btnStopAll" class="btn btn-outline-red"><i class="fa-solid fa-stop"></i> Stop All</button>
+                    <button id="btnResetAll" class="btn btn-outline-white"><i class="fa-solid fa-rotate-left"></i> Reset Defaults</button>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label for="selectInterval" style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">Interval:</label>
+                        <select id="selectInterval" class="form-select" style="width: auto;">
+                            <option value="1.0">1.0s (High-Speed Demo)</option>
+                            <option value="2.0">2.0s (Fast Stream)</option>
+                            <option value="5.0" selected>5.0s (Default Live)</option>
+                            <option value="10.0">10.0s (Eco Mode)</option>
+                        </select>
+                    </div>
+                    <span style="font-size: 0.82rem; color: var(--text-muted); border-left: 1px solid var(--border-light); padding-left: 14px;">
+                        Last Step: <strong id="clockLastSample" style="color: var(--text-mint);">--:--:--</strong>
+                    </span>
+                    <span style="font-size: 0.82rem; color: var(--text-muted);">
+                        Samples: <strong id="lblSamplesCount" style="color: var(--text-white);">0</strong>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILTER SUBTABS -->
+        <div class="filter-tabs">
+            <button class="tab-btn active" data-view="all"><i class="fa-solid fa-layer-group"></i> All 4 Utilities</button>
+            <button class="tab-btn" data-view="electricity"><i class="fa-solid fa-bolt" style="color: var(--text-mint);"></i> Electricity</button>
+            <button class="tab-btn" data-view="water"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> Water</button>
+            <button class="tab-btn" data-view="air"><i class="fa-solid fa-wind" style="color: var(--accent-purple);"></i> Air Quality</button>
+            <button class="tab-btn" data-view="waste"><i class="fa-solid fa-trash-can" style="color: var(--accent-gold);"></i> Waste</button>
+        </div>
+
+        <!-- CARDS GRID -->
+        <div class="cards-grid">
+
+            <!-- 1. ELECTRICITY CARD -->
+            <div class="resource-card" id="cardElectricity">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon" style="background: rgba(0, 208, 156, 0.15); color: var(--text-mint);">
+                            <i class="fa-solid fa-bolt"></i>
+                        </div>
+                        <div>
+                            <h2 style="font-size: 1.15rem; font-weight: 700;">Electricity Submeter</h2>
+                            <span style="font-size: 0.76rem; color: var(--text-muted);">Device: <strong>SIM-ELEC-01</strong> | Block B Hostel</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span class="sim-badge" style="font-size: 0.68rem;">[SIMULATED]</span>
+                        <span id="badgeElecStatus" class="api-badge" style="font-size: 0.7rem; padding: 3px 10px;">ACTIVE</span>
+                    </div>
+                </div>
+
+                <div class="controls-row">
+                    <div>
+                        <label for="selElecScenario" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">Scenario:</label>
+                        <select id="selElecScenario" class="form-select">
+                            <option value="NORMAL">Normal Operation (Typical Diurnal)</option>
+                            <option value="PEAK_DEMAND">Peak Demand Surge (Chiller 1.85x)</option>
+                            <option value="AFTER_HOURS_WASTE">After-Hours Waste (Unoccupied Floor)</option>
+                            <option value="VOLTAGE_INSTABILITY">Voltage Instability (Sags & Fluctuations)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                            <label for="sldElecKw" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);">Baseline Load:</label>
+                            <span id="lblElecKwVal" style="font-size: 0.8rem; font-weight: 800; color: var(--text-mint);">55.0 kW</span>
+                        </div>
+                        <input type="range" id="sldElecKw" min="10" max="250" step="5" value="55" style="accent-color: var(--text-mint);">
+                    </div>
+                </div>
+
+                <div class="tiles-grid">
+                    <div class="tile">
+                        <span class="tile-label">Active Power</span>
+                        <strong id="valElecPower" class="tile-value" style="color: var(--text-mint);">55.0 kW</strong>
+                        <span class="tile-desc">Load kW</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Cumulative Energy</span>
+                        <strong id="valElecKwh" class="tile-value">3420.50 kWh</strong>
+                        <span class="tile-desc" style="color: var(--text-mint);">Monotonic totalizer</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Voltage</span>
+                        <strong id="valElecVolt" class="tile-value">230.2 V</strong>
+                        <span class="tile-desc">Phase L1 to Neutral</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Current</span>
+                        <strong id="valElecCurrent" class="tile-value">251.5 A</strong>
+                        <span class="tile-desc">I = 1000·P/(V·PF)</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Power Factor</span>
+                        <strong id="valElecPf" class="tile-value" style="color: var(--text-mint);">0.95</strong>
+                        <span class="tile-desc">cos φ</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Frequency</span>
+                        <strong id="valElecFreq" class="tile-value">50.01 Hz</strong>
+                        <span class="tile-desc">Nominal 50 Hz</span>
+                    </div>
+                </div>
+
+                <div class="chart-box">
+                    <canvas id="chartElec"></canvas>
+                </div>
+
+                <div class="footer-row">
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btnToggleElec" class="btn btn-outline-mint" style="font-size: 0.75rem; padding: 5px 12px;"><i class="fa-solid fa-pause"></i> Pause</button>
+                        <button id="btnResetElec" class="btn btn-outline-white" style="font-size: 0.75rem; padding: 5px 12px;"><i class="fa-solid fa-rotate-left"></i> Reset kWh</button>
+                    </div>
+                    <span style="font-size: 0.72rem; color: var(--text-dim);">P = V · I · PF / 1000 Verified</span>
+                </div>
+            </div>
+
+            <!-- 2. WATER CARD -->
+            <div class="resource-card" id="cardWater">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-blue);">
+                            <i class="fa-solid fa-droplet"></i>
+                        </div>
+                        <div>
+                            <h2 style="font-size: 1.15rem; font-weight: 700;">Water Flow Meter</h2>
+                            <span style="font-size: 0.76rem; color: var(--text-muted);">Device: <strong>SIM-WATER-01</strong> | Block B Hostel</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span class="sim-badge" style="font-size: 0.68rem;">[SIMULATED]</span>
+                        <span id="badgeWaterStatus" class="api-badge" style="font-size: 0.7rem; padding: 3px 10px;">ACTIVE</span>
+                    </div>
+                </div>
+
+                <div class="controls-row">
+                    <div>
+                        <label for="selWaterScenario" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">Scenario:</label>
+                        <select id="selWaterScenario" class="form-select">
+                            <option value="NORMAL">Normal Operation (Intermittent Use)</option>
+                            <option value="SUSTAINED_LEAK">Sustained Pipe Leak (+26.5 L/min continuous)</option>
+                            <option value="BURST_FLOW">Burst / Pipe Rupture (4.2x Surge & Pressure Sag)</option>
+                            <option value="LOW_FLOW">Low / No Flow (Night Shutoff)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                            <label for="sldWaterLmin" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);">Baseline Flow:</label>
+                            <span id="lblWaterLminVal" style="font-size: 0.8rem; font-weight: 800; color: var(--accent-blue);">35.0 L/min</span>
+                        </div>
+                        <input type="range" id="sldWaterLmin" min="5" max="150" step="5" value="35" style="accent-color: var(--accent-blue);">
+                    </div>
+                </div>
+
+                <div class="tiles-grid">
+                    <div class="tile">
+                        <span class="tile-label">Flow Rate</span>
+                        <strong id="valWaterFlow" class="tile-value" style="color: var(--accent-blue);">35.0 L/min</strong>
+                        <span class="tile-desc">Volumetric flow</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Cumulative Volume</span>
+                        <strong id="valWaterM3" class="tile-value">842.150 m³</strong>
+                        <span class="tile-desc" style="color: var(--accent-blue);">Monotonic totalizer</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Water Pressure</span>
+                        <strong id="valWaterPressure" class="tile-value" style="color: var(--accent-gold);">3.40 bar</strong>
+                        <span class="tile-desc">Mains hydrostatic</span>
+                    </div>
+                </div>
+
+                <div class="chart-box">
+                    <canvas id="chartWater"></canvas>
+                </div>
+
+                <div class="footer-row">
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btnToggleWater" class="btn btn-outline-mint" style="font-size: 0.75rem; padding: 5px 12px;"><i class="fa-solid fa-pause"></i> Pause</button>
+                        <button id="btnResetWater" class="btn btn-outline-white" style="font-size: 0.75rem; padding: 5px 12px;"><i class="fa-solid fa-rotate-left"></i> Reset m³</button>
+                    </div>
+                    <span style="font-size: 0.72rem; color: var(--text-dim);">1 m³ = 1000 Liters Totalized</span>
+                </div>
+            </div>
+
+            <!-- 3. AIR QUALITY CARD -->
+            <div class="resource-card" id="cardAir">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon" style="background: rgba(167, 139, 250, 0.15); color: var(--accent-purple);">
+                            <i class="fa-solid fa-wind"></i>
+                        </div>
+                        <div>
+                            <h2 style="font-size: 1.15rem; font-weight: 700;">Indoor Air Quality Hub</h2>
+                            <span style="font-size: 0.76rem; color: var(--text-muted);">Device: <strong>SIM-AIR-01</strong> | Block B Hostel</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span class="sim-badge" style="font-size: 0.68rem;">[SIMULATED]</span>
+                        <span id="badgeAirStatus" class="api-badge" style="font-size: 0.7rem; padding: 3px 10px;">ACTIVE</span>
+                    </div>
+                </div>
+
+                <div class="controls-row">
+                    <div>
+                        <label for="selAirScenario" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">Scenario:</label>
+                        <select id="selAirScenario" class="form-select">
+                            <option value="NORMAL">Normal Indoor (Good Air)</option>
+                            <option value="POOR_VENTILATION">Poor Ventilation (Fresh Air Damped, High CO₂)</option>
+                            <option value="PARTICULATE_SPIKE">Particulate Spike (Smog Intrusion)</option>
+                            <option value="SENSOR_FAULT">Sensor Fault / Thermal Drift</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                            <label for="sldAirOcc" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);">Occupancy:</label>
+                            <span id="lblAirOccVal" style="font-size: 0.8rem; font-weight: 800; color: var(--accent-purple);">120 people</span>
+                        </div>
+                        <input type="range" id="sldAirOcc" min="0" max="400" step="10" value="120" style="accent-color: var(--accent-purple);">
+                    </div>
+                </div>
+
+                <div class="tiles-grid">
+                    <div class="tile">
+                        <span class="tile-label">CO₂ Concentration</span>
+                        <strong id="valAirCo2" class="tile-value" style="color: var(--accent-purple);">625 ppm</strong>
+                        <span class="tile-desc">Respiration scaling</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">PM2.5 (Fine Dust)</span>
+                        <strong id="valAirPm25" class="tile-value">16.5 µg/m³</strong>
+                        <span class="tile-desc">Respirable dust</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">EPA Air Quality Index</span>
+                        <strong id="valAirAqi" class="tile-value" style="color: var(--text-mint);">45 (Good)</strong>
+                        <span class="tile-desc">EPA AQI scale</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">PM10 (Coarse)</span>
+                        <strong id="valAirPm10" class="tile-value">27.0 µg/m³</strong>
+                        <span class="tile-desc">PM10 ~ 1.6·PM2.5</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Temperature</span>
+                        <strong id="valAirTemp" class="tile-value">23.2 °C</strong>
+                        <span class="tile-desc">Indoor comfort</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Relative Humidity</span>
+                        <strong id="valAirHum" class="tile-value">48.5 %</strong>
+                        <span class="tile-desc">Optimal 40-60%</span>
+                    </div>
+                </div>
+
+                <div class="chart-box">
+                    <canvas id="chartAir"></canvas>
+                </div>
+
+                <div class="footer-row">
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btnToggleAir" class="btn btn-outline-mint" style="font-size: 0.75rem; padding: 5px 12px;"><i class="fa-solid fa-pause"></i> Pause</button>
+                    </div>
+                    <span style="font-size: 0.72rem; color: var(--text-dim);">CO₂ = 410 + 1.8·Occ</span>
+                </div>
+            </div>
+
+            <!-- 4. WASTE CARD -->
+            <div class="resource-card" id="cardWaste">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <div class="card-icon" style="background: rgba(245, 197, 119, 0.15); color: var(--accent-gold);">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </div>
+                        <div>
+                            <h2 style="font-size: 1.15rem; font-weight: 700;">Smart Dumpster Bin</h2>
+                            <span style="font-size: 0.76rem; color: var(--text-muted);">Device: <strong>SIM-WASTE-01</strong> | Block B Hostel</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span class="sim-badge" style="font-size: 0.68rem;">[SIMULATED]</span>
+                        <span id="badgeWasteStatus" class="api-badge" style="font-size: 0.7rem; padding: 3px 10px;">ACTIVE</span>
+                    </div>
+                </div>
+
+                <div class="controls-row">
+                    <div>
+                        <label for="selWasteScenario" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">Scenario:</label>
+                        <select id="selWasteScenario" class="form-select">
+                            <option value="NORMAL">Normal Weekday Accumulation</option>
+                            <option value="EVENT_RAPID">Campus Event / Rapid Fill (+14%/step)</option>
+                            <option value="BIN_FULL">Bin Full / Overflow Risk (&gt;90%)</option>
+                            <option value="RESET_EMPTIED">Emptied / Post-Collection Reset</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                            <label for="sldWasteRate" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);">Accumulation Rate:</label>
+                            <span id="lblWasteRateVal" style="font-size: 0.8rem; font-weight: 800; color: var(--accent-gold);">2.5% / step</span>
+                        </div>
+                        <input type="range" id="sldWasteRate" min="0.5" max="15.0" step="0.5" value="2.5" style="accent-color: var(--accent-gold);">
+                    </div>
+                </div>
+
+                <!-- Waste fill bar -->
+                <div style="background: rgba(6, 29, 23, 0.6); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-light);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">1100L Dumpster Volumetric Fill:</span>
+                        <strong id="valWasteFill" style="font-size: 0.88rem; color: var(--text-mint);">38.0 %</strong>
+                    </div>
+                    <div class="progress-container">
+                        <div id="barWasteFill" class="progress-bar" style="width: 38%;"></div>
+                    </div>
+                </div>
+
+                <div class="tiles-grid">
+                    <div class="tile">
+                        <span class="tile-label">Estimated Mass</span>
+                        <strong id="valWasteKg" class="tile-value" style="color: var(--accent-gold);">62.7 kg</strong>
+                        <span class="tile-desc">Density ~0.15 kg/L</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Overflow Risk</span>
+                        <strong id="valWasteRisk" class="tile-value" style="color: var(--text-mint);">LOW</strong>
+                        <span class="tile-desc">&lt;50% Low, &gt;90% Critical</span>
+                    </div>
+                    <div class="tile">
+                        <span class="tile-label">Collection Status</span>
+                        <strong id="valWasteStatusTxt" class="tile-value" style="font-size: 1.05rem;">Normal Operation</strong>
+                        <span class="tile-desc">Pickup recommendation</span>
+                    </div>
+                </div>
+
+                <div class="chart-box">
+                    <canvas id="chartWaste"></canvas>
+                </div>
+
+                <div class="footer-row">
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btnToggleWaste" class="btn btn-outline-mint" style="font-size: 0.75rem; padding: 5px 12px;"><i class="fa-solid fa-pause"></i> Pause</button>
+                        <button id="btnResetWaste" class="btn btn-outline-white" style="font-size: 0.75rem; padding: 5px 12px;"><i class="fa-solid fa-truck"></i> Emptied Reset</button>
+                    </div>
+                    <span style="font-size: 0.72rem; color: var(--text-dim);">Bin capacity: 1100L (max ~165 kg)</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Standalone Controller Script -->
+    <script src="static/app.js"></script>
+</body>
+</html>
+

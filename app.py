@@ -206,6 +206,7 @@ web_ui_tabs = [
     "Waste Overflow",
     "Mobility & Air",
     "What-If Simulator",
+    "Resource Simulator (IoT)",
     "Reports & Scoped Exports",
     "AI Operational Co-Pilot",
     "ESG & Carbon Audit",
@@ -750,6 +751,522 @@ elif menu == "What-If Simulator":
 # ==============================================================================
 # TAB 8: AI OPERATIONAL CO-PILOT
 # ==============================================================================
+
+elif menu == "Resource Simulator (IoT)":
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    import datetime
+
+    st.markdown(f"### {get_icon('SlidersHorizontal', '#00D09C', 24)} Dedicated Multi-Utility Resource Simulator {render_badge('simulated')}", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="background: rgba(245, 197, 119, 0.12); border: 1.5px solid #F5C577; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px; font-weight: 800; color: #F5C577; font-size: 0.85rem; letter-spacing: 0.5px;">
+            ⚠️ SIMULATED DATA — NOT PHYSICAL SENSOR TELEMETRY
+        </div>
+        <p style="margin: 6px 0 0 0; font-size: 0.82rem; color: #E2E8F0;">
+            All metrics generated on this page are synthetic physics-governed demo streams for <strong>Electricity</strong>, <strong>Water</strong>, <strong>Air Quality</strong>, and <strong>Waste</strong>.
+            Readings are transmitted with <code>source_type: "simulated_iot"</code> and <code>is_verified_hardware: False</code>. They never overwrite physical hardware telemetry.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Initialize Simulator Session State
+    if "res_sim_state" not in st.session_state:
+        st.session_state.res_sim_state = {
+            "running": True,
+            "interval_sec": 5.0,
+            "sample_count": 0,
+            "elec": {
+                "baseline_kw": 55.0,
+                "scenario": "Normal Operation",
+                "cumulative_kwh": 3420.5,
+                "history": {"time": [], "power": [], "kwh": [], "voltage": [], "current": [], "pf": []}
+            },
+            "water": {
+                "baseline_lmin": 35.0,
+                "scenario": "Normal Operation",
+                "cumulative_m3": 842.15,
+                "history": {"time": [], "flow": [], "m3": [], "pressure": []}
+            },
+            "air": {
+                "occupancy": 120,
+                "scenario": "Normal Indoor",
+                "history": {"time": [], "co2": [], "pm25": [], "aqi": [], "temp": []}
+            },
+            "waste": {
+                "rate_pct": 2.5,
+                "scenario": "Normal Weekday Accumulation",
+                "fill_pct": 38.0,
+                "history": {"time": [], "fill": [], "mass": []}
+            }
+        }
+
+    sim_state = st.session_state.res_sim_state
+
+    # Top Global Controls Toolbar
+    gc1, gc2, gc3, gc4, gc5 = st.columns([1.2, 1.2, 1.2, 1.4, 2.0])
+    with gc1:
+        if st.button("▶ Start All", use_container_width=True, key="btn_app_start_all"):
+            sim_state["running"] = True
+            st.rerun()
+    with gc2:
+        if st.button("⏸ Pause All", use_container_width=True, key="btn_app_pause_all"):
+            sim_state["running"] = False
+            st.rerun()
+    with gc3:
+        if st.button("🔄 Step +1", use_container_width=True, key="btn_app_step_one"):
+            # Trigger single simulation step
+            sim_state["sample_count"] += 1
+    with gc4:
+        if st.button("⏪ Reset Defaults", use_container_width=True, key="btn_app_reset_all"):
+            sim_state["elec"]["baseline_kw"] = 55.0
+            sim_state["elec"]["scenario"] = "Normal Operation"
+            sim_state["elec"]["cumulative_kwh"] = 3420.5
+            sim_state["water"]["baseline_lmin"] = 35.0
+            sim_state["water"]["scenario"] = "Normal Operation"
+            sim_state["water"]["cumulative_m3"] = 842.15
+            sim_state["air"]["occupancy"] = 120
+            sim_state["air"]["scenario"] = "Normal Indoor"
+            sim_state["waste"]["rate_pct"] = 2.5
+            sim_state["waste"]["scenario"] = "Normal Weekday Accumulation"
+            sim_state["waste"]["fill_pct"] = 38.0
+            st.success("All simulators reset to default baselines.")
+            st.rerun()
+    with gc5:
+        sim_state["interval_sec"] = st.selectbox(
+            "Reporting Interval:",
+            [1.0, 2.0, 5.0, 10.0],
+            index=2,
+            format_func=lambda x: f"{x}s ({'High-Speed' if x==1.0 else ('Fast' if x==2.0 else ('Default Live' if x==5.0 else 'Eco'))})",
+            key="sb_app_sim_interval"
+        )
+
+    st.markdown("---")
+
+    # Four Dedicated Resource Tabs
+    tab_elec, tab_water, tab_air, tab_waste = st.tabs([
+        "⚡ Electricity (kW/kWh)",
+        "💧 Water (L/min, m³)",
+        "🍃 Air Quality (CO₂, PM2.5, AQI)",
+        "🗑️ Waste & Dumpster Fill (%)"
+    ])
+
+    dt_sec = sim_state["interval_sec"]
+    now_iso = datetime.datetime.now().isoformat()
+    now_time = datetime.datetime.now().strftime("%H:%M:%S")
+
+    # --- 1. ELECTRICITY TAB ---
+    with tab_elec:
+        e_col1, e_col2 = st.columns([1, 1.2])
+        with e_col1:
+            st.markdown("#### Electricity Parameters")
+            sim_state["elec"]["scenario"] = st.selectbox(
+                "Operational Scenario:",
+                ["Normal Operation", "Peak Demand Surge", "After-Hours Waste", "Voltage Instability"],
+                index=["Normal Operation", "Peak Demand Surge", "After-Hours Waste", "Voltage Instability"].index(sim_state["elec"]["scenario"]),
+                key="sel_app_elec_scen"
+            )
+            sim_state["elec"]["baseline_kw"] = st.slider(
+                "Baseline Active Power (kW):",
+                min_value=10.0, max_value=250.0,
+                value=float(sim_state["elec"]["baseline_kw"]),
+                step=5.0,
+                key="sld_app_elec_kw"
+            )
+            if st.button("Reset Electricity Totalizer (kWh)", key="btn_app_reset_elec"):
+                sim_state["elec"]["cumulative_kwh"] = 3420.5
+                st.info("Electricity cumulative totalizer reset to 3420.5 kWh.")
+
+        # Compute physics
+        e_scen = sim_state["elec"]["scenario"]
+        base_kw = sim_state["elec"]["baseline_kw"]
+        noise_kw = np.random.normal(0, 0.02 * base_kw)
+        if e_scen == "Peak Demand Surge":
+            p_kw = base_kw * 1.85 + noise_kw
+            v_volt = 224.0 + np.random.normal(0, 1.5)
+            pf = float(np.clip(0.91 + np.random.normal(0, 0.01), 0.82, 0.94))
+            freq = 49.88 + np.random.normal(0, 0.04)
+        elif e_scen == "After-Hours Waste":
+            p_kw = base_kw * 1.35 + noise_kw
+            v_volt = 232.0 + np.random.normal(0, 1.0)
+            pf = float(np.clip(0.89 + np.random.normal(0, 0.01), 0.80, 0.93))
+            freq = 50.02 + np.random.normal(0, 0.03)
+        elif e_scen == "Voltage Instability":
+            p_kw = base_kw * 1.10 + np.random.normal(0, 0.08 * base_kw)
+            v_volt = float(np.clip(230.0 + np.random.normal(0, 15.0), 205.0, 255.0))
+            pf = float(np.clip(0.76 + np.random.normal(0, 0.05), 0.62, 0.86))
+            freq = float(np.clip(50.0 + np.random.normal(0, 0.35), 49.1, 50.9))
+        else: # Normal
+            p_kw = base_kw * 1.0 + noise_kw
+            v_volt = 230.2 + np.random.normal(0, 1.2)
+            pf = float(np.clip(0.95 + np.random.normal(0, 0.01), 0.88, 0.98))
+            freq = 50.01 + np.random.normal(0, 0.03)
+
+        p_kw = float(np.clip(round(p_kw, 2), 1.0, 500.0))
+        v_volt = float(np.clip(round(v_volt, 1), 180.0, 280.0))
+        pf = float(np.clip(round(pf, 2), 0.50, 0.99))
+        freq = float(np.clip(round(freq, 2), 48.0, 52.0))
+        current_a = float(round((1000.0 * p_kw) / (v_volt * pf), 1))
+
+        # Monotonic energy increment
+        delta_kwh = (p_kw * dt_sec) / 3600.0
+        sim_state["elec"]["cumulative_kwh"] = float(round(sim_state["elec"]["cumulative_kwh"] + delta_kwh, 3))
+        cum_kwh = sim_state["elec"]["cumulative_kwh"]
+
+        # History buffer update
+        eh = sim_state["elec"]["history"]
+        eh["time"].append(now_time)
+        eh["power"].append(p_kw)
+        eh["kwh"].append(cum_kwh)
+        eh["voltage"].append(v_volt)
+        eh["current"].append(current_a)
+        eh["pf"].append(pf)
+        if len(eh["time"]) > 25:
+            for k in eh: eh[k].pop(0)
+
+        with e_col2:
+            st.markdown("#### Live Electrical Readouts")
+            em1, em2, em3 = st.columns(3)
+            em1.metric("Active Power", f"{p_kw} kW", delta=f"{round(p_kw - base_kw, 1)} kW" if e_scen != "Normal Operation" else None)
+            em2.metric("Cumulative Energy", f"{cum_kwh:.2f} kWh", delta="Monotonic Totalizer")
+            em3.metric("Voltage (V)", f"{v_volt} V", delta=None)
+
+            em4, em5, em6 = st.columns(3)
+            em4.metric("Current", f"{current_a} A")
+            em5.metric("Power Factor", f"{pf}")
+            em6.metric("Grid Frequency", f"{freq} Hz")
+
+        # Electricity Plotly Chart
+        df_elec = pd.DataFrame({"Time": eh["time"], "Power (kW)": eh["power"], "Voltage (V)": eh["voltage"]})
+        if not df_elec.empty:
+            fig_elec = px.line(df_elec, x="Time", y="Power (kW)", title="Electricity: Active Power Trend (kW) — Last 25 Steps", markers=True)
+            fig_elec.update_traces(line_color="#00D09C")
+            fig_elec.update_layout(height=260, margin=dict(l=20, r=20, t=35, b=20), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_elec, use_container_width=True)
+
+        st.caption("✅ Electrical Relationship: Active Power $P = V \times I \times \text{PF} / 1000$ validated dynamically.")
+
+    # --- 2. WATER TAB ---
+    with tab_water:
+        w_col1, w_col2 = st.columns([1, 1.2])
+        with w_col1:
+            st.markdown("#### Water Simulation Parameters")
+            sim_state["water"]["scenario"] = st.selectbox(
+                "Water Flow Scenario:",
+                ["Normal Operation", "Sustained Pipe Leak", "Burst / Major Rupture", "Low / No Flow"],
+                index=["Normal Operation", "Sustained Pipe Leak", "Burst / Major Rupture", "Low / No Flow"].index(sim_state["water"]["scenario"]),
+                key="sel_app_water_scen"
+            )
+            sim_state["water"]["baseline_lmin"] = st.slider(
+                "Baseline Flow Rate (L/min):",
+                min_value=5.0, max_value=150.0,
+                value=float(sim_state["water"]["baseline_lmin"]),
+                step=5.0,
+                key="sld_app_water_lmin"
+            )
+            if st.button("Reset Water Totalizer (m³)", key="btn_app_reset_water"):
+                sim_state["water"]["cumulative_m3"] = 842.15
+                st.info("Water volume totalizer reset to 842.15 m³.")
+
+        w_scen = sim_state["water"]["scenario"]
+        base_lmin = sim_state["water"]["baseline_lmin"]
+        if w_scen == "Sustained Pipe Leak":
+            flow_lmin = base_lmin + 26.5 + np.random.normal(0, 1.5)
+            pressure_bar = float(np.clip(2.8 + np.random.normal(0, 0.1), 2.2, 3.2))
+        elif w_scen == "Burst / Major Rupture":
+            flow_lmin = base_lmin * 4.2 + np.random.normal(0, 4.0)
+            pressure_bar = float(np.clip(1.4 + np.random.normal(0, 0.2), 0.8, 2.0))
+        elif w_scen == "Low / No Flow":
+            flow_lmin = float(np.clip(0.5 + np.random.normal(0, 0.2), 0.0, 1.5))
+            pressure_bar = float(np.clip(1.8 + np.random.normal(0, 0.2), 1.2, 2.4))
+        else: # Normal
+            flow_lmin = base_lmin * (1.0 + np.random.normal(0, 0.06))
+            pressure_bar = float(np.clip(3.4 + np.random.normal(0, 0.1), 3.0, 3.8))
+
+        flow_lmin = float(np.clip(round(flow_lmin, 1), 0.0, 600.0))
+        pressure_bar = float(round(pressure_bar, 2))
+
+        # Monotonic m3 increment: 1 m3 = 1000 Liters
+        delta_m3 = (flow_lmin * (dt_sec / 60.0)) / 1000.0
+        sim_state["water"]["cumulative_m3"] = float(round(sim_state["water"]["cumulative_m3"] + delta_m3, 4))
+        cum_m3 = sim_state["water"]["cumulative_m3"]
+
+        wh = sim_state["water"]["history"]
+        wh["time"].append(now_time)
+        wh["flow"].append(flow_lmin)
+        wh["m3"].append(cum_m3)
+        wh["pressure"].append(pressure_bar)
+        if len(wh["time"]) > 25:
+            for k in wh: wh[k].pop(0)
+
+        with w_col2:
+            st.markdown("#### Live Water Readouts")
+            wm1, wm2, wm3 = st.columns(3)
+            wm1.metric("Flow Rate", f"{flow_lmin} L/min", delta=f"{round(flow_lmin - base_lmin, 1)} L/min" if w_scen != "Normal Operation" else None)
+            wm2.metric("Cumulative Volume", f"{cum_m3:.3f} m³", delta="Monotonic Totalizer")
+            wm3.metric("Hydro Pressure", f"{pressure_bar} bar")
+
+        # Water Plotly Chart
+        df_water = pd.DataFrame({"Time": wh["time"], "Flow (L/min)": wh["flow"], "Pressure (bar)": wh["pressure"]})
+        if not df_water.empty:
+            fig_water = px.line(df_water, x="Time", y="Flow (L/min)", title="Water: Flow Rate Trend (L/min) — Last 25 Steps", markers=True)
+            fig_water.update_traces(line_color="#38BDF8")
+            fig_water.update_layout(height=260, margin=dict(l=20, r=20, t=35, b=20), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_water, use_container_width=True)
+
+        st.caption("✅ Hydraulic Relationship: Flow friction inverse to pressure drop validated.")
+
+    # --- 3. AIR QUALITY TAB ---
+    with tab_air:
+        a_col1, a_col2 = st.columns([1, 1.2])
+        with a_col1:
+            st.markdown("#### Air Quality Parameters")
+            sim_state["air"]["scenario"] = st.selectbox(
+                "Indoor Air Quality Scenario:",
+                ["Normal Indoor", "Poor Ventilation (High CO₂)", "Particulate Spike (Smog)", "Sensor Fault / Drift"],
+                index=["Normal Indoor", "Poor Ventilation (High CO₂)", "Particulate Spike (Smog)", "Sensor Fault / Drift"].index(sim_state["air"]["scenario"]),
+                key="sel_app_air_scen"
+            )
+            sim_state["air"]["occupancy"] = st.slider(
+                "Building Occupancy (People):",
+                min_value=0, max_value=400,
+                value=int(sim_state["air"]["occupancy"]),
+                step=10,
+                key="sld_app_air_occ"
+            )
+
+        a_scen = sim_state["air"]["scenario"]
+        occ = sim_state["air"]["occupancy"]
+        if a_scen == "Poor Ventilation (High CO₂)":
+            co2_ppm = float(round(1450.0 + (occ * 3.2) + np.random.normal(0, 30.0)))
+            pm25 = float(round(36.0 + np.random.normal(0, 3.0), 1))
+            pm10 = float(round(pm25 * 1.55 + np.random.normal(0, 4.0), 1))
+            temp_c = float(round(25.6 + np.random.normal(0, 0.4), 1))
+            hum_pct = float(round(68.0 + np.random.normal(0, 2.0), 1))
+            aqi = int(np.clip(115 + int(pm25 * 0.8), 100, 160))
+            aqi_cat = "Unhealthy for Sensitive"
+        elif a_scen == "Particulate Spike (Smog)":
+            co2_ppm = float(round(620.0 + (occ * 1.5) + np.random.normal(0, 15.0)))
+            pm25 = float(round(125.0 + np.random.normal(0, 15.0), 1))
+            pm10 = float(round(pm25 * 1.65 + np.random.normal(0, 20.0), 1))
+            temp_c = float(round(24.0 + np.random.normal(0, 0.4), 1))
+            hum_pct = float(round(52.0 + np.random.normal(0, 2.0), 1))
+            aqi = int(np.clip(170 + int(pm25 * 0.4), 151, 230))
+            aqi_cat = "Unhealthy"
+        elif a_scen == "Sensor Fault / Drift":
+            co2_ppm = float(round(np.clip(1800.0 + np.random.normal(0, 500.0), 300.0, 5000.0)))
+            pm25 = float(round(np.clip(85.0 + np.random.normal(0, 35.0), 5.0, 300.0), 1))
+            pm10 = float(round(pm25 * 1.5, 1))
+            temp_c = float(round(31.0 + np.random.normal(0, 2.5), 1))
+            hum_pct = float(round(np.clip(35.0 + np.random.normal(0, 10.0), 15.0, 95.0), 1))
+            aqi = int(np.clip(pm25 * 1.2, 50, 300))
+            aqi_cat = "Sensor Fault / Degraded"
+        else: # Normal
+            co2_ppm = float(round(np.clip(410.0 + (occ * 1.8) + np.random.normal(0, 12.0), 400.0, 1100.0)))
+            pm25 = float(round(np.clip(15.0 + np.random.normal(0, 2.0), 5.0, 25.0), 1))
+            pm10 = float(round(pm25 * 1.6 + np.random.normal(0, 2.5), 1))
+            temp_c = float(round(23.0 + np.random.normal(0, 0.3), 1))
+            hum_pct = float(round(50.0 + np.random.normal(0, 1.5), 1))
+            aqi = int(np.clip(35 + int(pm25 * 0.8), 25, 50))
+            aqi_cat = "Good"
+
+        ah = sim_state["air"]["history"]
+        ah["time"].append(now_time)
+        ah["co2"].append(co2_ppm)
+        ah["pm25"].append(pm25)
+        ah["aqi"].append(aqi)
+        ah["temp"].append(temp_c)
+        if len(ah["time"]) > 25:
+            for k in ah: ah[k].pop(0)
+
+        with a_col2:
+            st.markdown("#### Live Air Quality Readouts")
+            am1, am2, am3 = st.columns(3)
+            am1.metric("CO₂ Concentration", f"{int(co2_ppm)} ppm", delta=f"{int(co2_ppm - 410)} ppm over fresh air" if co2_ppm > 800 else None)
+            am2.metric("PM2.5 (Fine Dust)", f"{pm25} µg/m³")
+            am3.metric("EPA AQI", f"{aqi}", delta=f"{aqi_cat}")
+
+            am4, am5, am6 = st.columns(3)
+            am4.metric("PM10 (Coarse)", f"{pm10} µg/m³")
+            am5.metric("Temperature", f"{temp_c} °C")
+            am6.metric("Relative Humidity", f"{hum_pct} %")
+
+        df_air = pd.DataFrame({"Time": ah["time"], "CO₂ (ppm)": ah["co2"], "PM2.5 (µg/m³)": ah["pm25"]})
+        if not df_air.empty:
+            fig_air = px.line(df_air, x="Time", y="CO₂ (ppm)", title="Air Quality: CO₂ Accumulation Trend (ppm) — Last 25 Steps", markers=True)
+            fig_air.update_traces(line_color="#A78BFA")
+            fig_air.update_layout(height=260, margin=dict(l=20, r=20, t=35, b=20), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_air, use_container_width=True)
+
+        st.caption("✅ Respiration & Particulate: Occupancy scales CO₂ proportionally.")
+
+    # --- 4. WASTE TAB ---
+    with tab_waste:
+        wst_col1, wst_col2 = st.columns([1, 1.2])
+        with wst_col1:
+            st.markdown("#### Waste & Bin Parameters")
+            sim_state["waste"]["scenario"] = st.selectbox(
+                "Waste Accumulation Scenario:",
+                ["Normal Weekday Accumulation", "Campus Event / Rapid Fill", "Bin Full / Overflow Risk", "Emptied / Post-Collection Reset"],
+                index=["Normal Weekday Accumulation", "Campus Event / Rapid Fill", "Bin Full / Overflow Risk", "Emptied / Post-Collection Reset"].index(sim_state["waste"]["scenario"]),
+                key="sel_app_waste_scen"
+            )
+            sim_state["waste"]["rate_pct"] = st.slider(
+                "Accumulation Rate (% per step):",
+                min_value=0.5, max_value=15.0,
+                value=float(sim_state["waste"]["rate_pct"]),
+                step=0.5,
+                key="sld_app_waste_rate"
+            )
+            if st.button("Truck Emptied Bin Reset", key="btn_app_reset_waste"):
+                sim_state["waste"]["fill_pct"] = 4.0
+                sim_state["waste"]["scenario"] = "Normal Weekday Accumulation"
+                st.success("Dumpster bin emptied: fill level reset to 4.0%.")
+
+        wst_scen = sim_state["waste"]["scenario"]
+        rate = sim_state["waste"]["rate_pct"]
+        current_fill = sim_state["waste"]["fill_pct"]
+
+        if wst_scen == "Campus Event / Rapid Fill":
+            current_fill += rate * 3.5 + np.random.normal(0, 0.4)
+        elif wst_scen == "Bin Full / Overflow Risk":
+            current_fill = float(np.clip(94.0 + np.random.normal(0, 1.5), 90.0, 99.5))
+        elif wst_scen == "Emptied / Post-Collection Reset":
+            current_fill = float(np.clip(4.0 + np.random.normal(0, 0.4), 1.0, 8.0))
+            sim_state["waste"]["scenario"] = "Normal Weekday Accumulation"
+        else: # Normal
+            current_fill += rate + np.random.normal(0, 0.15)
+
+        current_fill = float(np.clip(round(current_fill, 1), 0.0, 100.0))
+        sim_state["waste"]["fill_pct"] = current_fill
+
+        # Derived waste mass (1100L bin at 0.15 kg/L => max ~165 kg)
+        est_kg = float(round((current_fill / 100.0) * 165.0 * (0.95 + np.random.normal(0, 0.02)), 1))
+        est_kg = float(np.clip(est_kg, 1.0, 185.0))
+
+        if current_fill < 50.0:
+            overflow_risk = "LOW"
+            col_status = "Normal Operation"
+        elif current_fill < 75.0:
+            overflow_risk = "MEDIUM"
+            col_status = "Approaching Capacity"
+        elif current_fill < 90.0:
+            overflow_risk = "HIGH"
+            col_status = "Collection Recommended"
+        else:
+            overflow_risk = "CRITICAL"
+            col_status = "Immediate Dispatch Required"
+
+        wsth = sim_state["waste"]["history"]
+        wsth["time"].append(now_time)
+        wsth["fill"].append(current_fill)
+        wsth["mass"].append(est_kg)
+        if len(wsth["time"]) > 25:
+            for k in wsth: wsth[k].pop(0)
+
+        with wst_col2:
+            st.markdown("#### Live Dumpster Readouts")
+            st.progress(current_fill / 100.0, text=f"Volumetric Fill Level: {current_fill}%")
+            wm1, wm2, wm3 = st.columns(3)
+            wm1.metric("Estimated Mass", f"{est_kg} kg")
+            wm2.metric("Overflow Risk", f"{overflow_risk}")
+            wm3.metric("Collection Status", f"{col_status}")
+
+        df_waste = pd.DataFrame({"Time": wsth["time"], "Fill Level (%)": wsth["fill"], "Mass (kg)": wsth["mass"]})
+        if not df_waste.empty:
+            fig_waste = px.line(df_waste, x="Time", y="Fill Level (%)", title="Waste: Dumpster Fill Level (%) — Last 25 Steps", markers=True)
+            fig_waste.update_traces(line_color="#F5C577")
+            fig_waste.update_layout(height=260, margin=dict(l=20, r=20, t=35, b=20), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_waste, use_container_width=True)
+
+        st.caption("✅ Volume to Mass: 1100L commercial bin with density factor ~0.15 kg/L.")
+
+    # --- INGEST TELEMETRY TO BACKEND DEVICE REGISTRY ---
+    telemetry_packets = [
+        {
+            "device_id": "SIM-ELEC-01",
+            "simulator_id": "SIM_RESOURCE_DEMO_01",
+            "facility_id": "FAC_GEC_CAMPUS",
+            "building_id": "Block B Hostel",
+            "source_type": "simulated_iot",
+            "is_verified_hardware": False,
+            "data_source_badge": "[SIMULATED IoT]",
+            "event_timestamp": now_iso,
+            "measurements": {
+                "active_power_kw": p_kw,
+                "cumulative_energy_kwh": cum_kwh,
+                "voltage_v": v_volt,
+                "current_a": current_a,
+                "power_factor": pf,
+                "frequency_hz": freq
+            }
+        },
+        {
+            "device_id": "SIM-WATER-01",
+            "simulator_id": "SIM_RESOURCE_DEMO_01",
+            "facility_id": "FAC_GEC_CAMPUS",
+            "building_id": "Block B Hostel",
+            "source_type": "simulated_iot",
+            "is_verified_hardware": False,
+            "data_source_badge": "[SIMULATED IoT]",
+            "event_timestamp": now_iso,
+            "measurements": {
+                "water_flow_lmin": flow_lmin,
+                "cumulative_water_m3": cum_m3,
+                "water_pressure_bar": pressure_bar
+            }
+        },
+        {
+            "device_id": "SIM-AIR-01",
+            "simulator_id": "SIM_RESOURCE_DEMO_01",
+            "facility_id": "FAC_GEC_CAMPUS",
+            "building_id": "Block B Hostel",
+            "source_type": "simulated_iot",
+            "is_verified_hardware": False,
+            "data_source_badge": "[SIMULATED IoT]",
+            "event_timestamp": now_iso,
+            "measurements": {
+                "co2_ppm": co2_ppm,
+                "pm25": pm25,
+                "pm10": pm10,
+                "temperature_c": temp_c,
+                "humidity_pct": hum_pct,
+                "air_quality_aqi": float(aqi)
+            }
+        },
+        {
+            "device_id": "SIM-WASTE-01",
+            "simulator_id": "SIM_RESOURCE_DEMO_01",
+            "facility_id": "FAC_GEC_CAMPUS",
+            "building_id": "Block B Hostel",
+            "source_type": "simulated_iot",
+            "is_verified_hardware": False,
+            "data_source_badge": "[SIMULATED IoT]",
+            "event_timestamp": now_iso,
+            "measurements": {
+                "fill_level_percent": current_fill,
+                "estimated_waste_kg": est_kg
+            }
+        }
+    ]
+
+    ingest_success = 0
+    for pkt in telemetry_packets:
+        try:
+            res = GLOBAL_DEVICE_REGISTRY.ingest_telemetry(pkt)
+            if res.get("success") or res.get("accepted"):
+                ingest_success += 1
+        except Exception:
+            pass
+
+    st.markdown("---")
+    st.markdown(f"""
+    <div style="background: rgba(0, 208, 156, 0.08); border: 1px solid rgba(0, 208, 156, 0.3); border-radius: 10px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #A3C9BE;">
+        <span>Backend Ingestion: <strong>{ingest_success}/4 Packets Accepted</strong> by <code>GLOBAL_DEVICE_REGISTRY</code></span>
+        <span>Provenance: <strong style="color: #F5C577;">[SIMULATED IoT]</strong> | Hardware Flags: <strong style="color: #00D09C;">is_verified_hardware=False</strong></span>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 elif menu == "AI Operational Co-Pilot":
     st.markdown(f"### {get_icon('Sparkles', '#C084FC', 24)} AI Operational Decision Assistant (Groq Cloud LLM)", unsafe_allow_html=True)
     st.caption("Powered by Groq Cloud (llama-3.3-70b-versatile) & Grounded EstateIQ-DIF Evidence Packets")

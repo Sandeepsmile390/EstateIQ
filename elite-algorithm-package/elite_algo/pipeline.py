@@ -7,8 +7,6 @@ SHAP explainability, and priority decision engines to run unified facility intel
 import os
 import sys
 import datetime
-import numpy as np
-import pandas as pd
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -19,21 +17,16 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.intelligence.dif_engine import EstateIQDIF
+from src.intelligence.config import DIFConfig
+from src.intelligence.seasonal_baseline import SeasonalBaselineModel
 from src.intelligence.types import EventData, DecisionResult
-from src.models.baseline import ContextualBaselineEngine
-from src.explainability.shap_engine import SHAPExplainabilityEngine
-from src.scoring.business_impact import BusinessImpactEngine
-from src.priority.engine import FacilityPriorityEngine
 
 class EliteAlgorithmPipeline:
     """Unified Pipeline Wrapper executing EstateIQ's Elite Decision Intelligence Engine."""
 
-    def __init__(self):
-        self.dif_engine = EstateIQDIF()
-        self.baseline_engine = ContextualBaselineEngine()
-        self.shap_engine = SHAPExplainabilityEngine()
-        self.impact_engine = BusinessImpactEngine()
-        self.priority_engine = FacilityPriorityEngine()
+    def __init__(self, config: Optional[DIFConfig] = None,
+                 baseline_model: Optional[SeasonalBaselineModel] = None):
+        self.dif_engine = EstateIQDIF(config=config, baseline_model=baseline_model)
 
     def process_telemetry_event(
         self,
@@ -45,18 +38,12 @@ class EliteAlgorithmPipeline:
         temperature_c: float = 32.0,
         hvac_load_kw: float = 58.0,
         water_flow_lmin: float = 50.0,
-        air_aqi: float = 110.0
+        air_aqi: float = 110.0,
+        interval_hours: float = 0.25
     ) -> Dict[str, Any]:
         """
-        Executes 8-Stage Elite Algorithm Pipeline on a telemetry event:
-        1. Telemetry Ingestion & Preprocessing
-        2. Contextual Baseline Calculation
-        3. Multi-Model Anomaly Consensus
-        4. SHAP Explainability & Driver Attribution
-        5. Confidence Gate Calibration
-        6. Business Impact & CO2 Quantification
-        7. Decision Priority Assignment
-        8. Actionable Recommendation Generation
+        Executes the current Elite-DIF decision path. Trained-model inference,
+        SHAP attribution, and validated action recommendations are not wired in.
         """
         ts = timestamp or datetime.datetime.now()
         ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
@@ -72,7 +59,8 @@ class EliteAlgorithmPipeline:
             day_of_week=ts.weekday(),
             occupancy=occupancy,
             temperature=temperature_c,
-            hvac_load=hvac_load_kw
+            hvac_load=hvac_load_kw,
+            interval_hours=interval_hours
         )
 
         # Run primary DIF Decision Intelligence engine
@@ -95,11 +83,16 @@ class EliteAlgorithmPipeline:
             "contextual_baseline": {
                 "expected_kwh": round(decision.contextual.expected_kwh, 2),
                 "residual_kwh": round(decision.contextual.residual_kwh, 2),
-                "relative_deviation_pct": round(decision.contextual.relative_deviation_pct, 1)
+                "relative_deviation_pct": round(decision.contextual.relative_deviation_pct, 1),
+                "scale_kwh": round(decision.contextual.std_dev, 3),
+                "source": decision.contextual.baseline_source,
+                "training_observations": decision.contextual.baseline_observations,
+                "operating_rules_triggered": decision.contextual.active_rules
             },
             "anomaly": {
                 "anomaly_level": decision.anomaly.anomaly_level.value,
                 "anomaly_score": round(decision.anomaly.anomaly_score, 4),
+                "evidence_support_pct": round(decision.anomaly.evidence_support_pct, 1),
                 "model_agreement_pct": round(decision.anomaly.model_agreement_pct, 1),
                 "evidence_points": decision.anomaly.evidence
             },

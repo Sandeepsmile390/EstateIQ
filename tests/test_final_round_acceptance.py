@@ -100,9 +100,9 @@ class TestFinalRoundAcceptance(unittest.TestCase):
         """T-03: Import valid CSV. Accepted count matches expected; records are queryable."""
         csv_data = (
             "timestamp,facility_id,zone_id,metric_type,value,unit\n"
-            "2026-11-01T10:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,55.5,kWh\n"
-            "2026-11-01T11:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,62.0,kWh\n"
-            "2026-11-01T10:00:00Z,COLLEGE_01,BLOCK_B,water_litre,120.0,L\n"
+            "2026-11-20T10:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,55.5,kWh\n"
+            "2026-11-20T11:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,62.0,kWh\n"
+            "2026-11-20T10:00:00Z,COLLEGE_01,BLOCK_B,water_litre,120.0,L\n"
         )
         res = import_csv_data(
             csv_text_or_bytes=csv_data,
@@ -123,10 +123,10 @@ class TestFinalRoundAcceptance(unittest.TestCase):
         csv_data = (
             "timestamp,facility_id,zone_id,metric_type,value,unit\n"
             "invalid_date_xxx,COLLEGE_01,BLOCK_A,energy_kwh,55.5,kWh\n"  # row 2: bad timestamp
-            "2026-11-01T12:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,55.5,\n"     # row 3: missing unit
-            "2026-11-01T13:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,-999.0,kWh\n" # row 4: impossible negative value
-            "2026-11-01T14:00:00Z,COLLEGE_01,UNKNOWN_ZONE_999,energy_kwh,55.5,kWh\n" # row 5: unknown zone
-            "2026-11-01T15:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,55.5,kWh\n"  # row 6: valid row
+            "2026-11-21T12:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,55.5,\n"     # row 3: missing unit
+            "2026-11-21T13:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,-999.0,kWh\n" # row 4: impossible negative value
+            "2026-11-21T14:00:00Z,COLLEGE_01,UNKNOWN_ZONE_999,energy_kwh,55.5,kWh\n" # row 5: unknown zone
+            "2026-11-21T15:00:00Z,COLLEGE_01,BLOCK_A,energy_kwh,55.5,kWh\n"  # row 6: valid row
         )
         res = import_csv_data(
             csv_text_or_bytes=csv_data,

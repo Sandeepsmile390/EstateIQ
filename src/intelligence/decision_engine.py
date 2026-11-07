@@ -23,7 +23,7 @@ class EstateIQDecisionEngine:
         confidence: ConfidenceResult,
         impact: ImpactResult,
         risk: RiskResult,
-        opportunity_score: float = 65.0
+        opportunity_score: float = 0.0
     ) -> Dict[str, Any]:
         # Normalize impact score (0 to 100) based on annual cost of inaction
         impact_score = min(100.0, (impact.annual_cost_of_inaction_inr / 500000.0) * 100.0)
@@ -44,7 +44,7 @@ class EstateIQDecisionEngine:
         # Priority Classification
         if decision_score >= 75.0 and confidence.confidence_pct >= self.config.high_confidence_gate:
             priority = PriorityLevel.P1_CRITICAL
-            next_step = "Immediate Automated BMS Setpoint Adjustment & Work Order Dispatch"
+            next_step = "Urgent operator review; no equipment action is authorized by this score"
         elif decision_score >= 55.0:
             priority = PriorityLevel.P2_HIGH
             next_step = "Operations Technician Inspection Required"

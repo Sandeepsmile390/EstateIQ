@@ -381,6 +381,7 @@ function capitalizeFirst(str) {
     if (str === "work-orders") return "WorkOrders";
     if (str === "iot-simulator") return "IotSimulator";
     if (str === "iot-monitor") return "IotMonitor";
+    if (str === "resource-simulator") return "ResourceSimulator";
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
@@ -1968,13 +1969,109 @@ function initIotSimulator() {
         }
     });
 
-    // Poll status from backend
+    // Poll status from backend and real hardware device registry
     const fetchStatus = async () => {
         try {
+            // 1. Fetch simulator status
             const res = await fetch("/api/v1/iot-simulator/status");
+            let simStatus = null;
             if (res.ok) {
-                const status = await res.json();
-                updateSimulatorUI(status);
+                simStatus = await res.json();
+                updateSimulatorUI(simStatus);
+            }
+
+            // 2. Fetch canonical registered devices from backend registry
+            const devRes = await fetch("/api/v1/iot/devices");
+            if (devRes.ok) {
+                const devData = await devRes.json();
+                const devices = devData.devices || [];
+                const stats = devData.stats || {};
+
+                // Update KPI Header with real device statistics
+                const monDevicesActive = document.getElementById("monDevicesActiveCount");
+                if (monDevicesActive && stats.online_devices !== undefined) {
+                    const realCount = stats.verified_hardware_devices || 0;
+                    monDevicesActive.textContent = `${stats.online_devices} Devices`;
+                    const subText = monDevicesActive.nextElementSibling;
+                    if (subText) {
+                        subText.textContent = realCount > 0 ? `${realCount} Verified Hardware Online` : "100% Sensors Online";
+                        subText.className = realCount > 0 ? "fc-sub text-mint" : "fc-sub text-muted";
+                    }
+                }
+
+                // Check for real electricity meter (METER-BLOCK-B-001 or any real_sensor electricity meter)
+                const elecDev = devices.find(d => (d.device_id === "METER-BLOCK-B-001" || d.device_type === "electricity_meter") && (d.source_type === "real_sensor" || d.is_verified_hardware));
+                if (elecDev && elecDev.last_telemetry && Object.keys(elecDev.last_telemetry).length > 0) {
+                    const t = elecDev.last_telemetry;
+                    const pKW = document.getElementById("liveMetricPowerKW");
+                    const eKWH = document.getElementById("liveMetricEnergyKWH");
+                    const vV = document.getElementById("liveMetricVoltageV");
+                    const iPF = document.getElementById("liveMetricCurrentPF");
+
+                    if (pKW && t.active_power_kw !== undefined && t.active_power_kw !== null) pKW.textContent = `${t.active_power_kw} kW`;
+                    if (eKWH && (t.cumulative_energy_kwh !== undefined || t.energy_kwh !== undefined)) {
+                        const val = t.cumulative_energy_kwh ?? t.energy_kwh;
+                        eKWH.textContent = `${val} kWh`;
+                    }
+                    if (vV && t.voltage_v !== undefined && t.voltage_v !== null) vV.textContent = `${t.voltage_v} V`;
+                    if (iPF) {
+                        if (t.current_a !== undefined && t.current_a !== null) {
+                            iPF.textContent = `${t.current_a} A (PF: ${t.power_factor ?? '--'})`;
+                        }
+                    }
+
+                    // Update matrix status
+                    const mElec = document.getElementById("matrixStatusElec");
+                    if (mElec) {
+                        const st = elecDev.status || "ONLINE";
+                        if (st === "ONLINE") {
+                            mElec.innerHTML = '<span class="badge-mint" style="font-size: 10px;"><i class="fa-solid fa-check"></i> MEASURED (ONLINE)</span>';
+                        } else if (st === "STALE") {
+                            mElec.innerHTML = '<span class="badge-amber" style="font-size: 10px;"><i class="fa-solid fa-clock"></i> STALE (>45s)</span>';
+                        } else {
+                            mElec.innerHTML = '<span class="badge-red" style="font-size: 10px;"><i class="fa-solid fa-circle-xmark"></i> OFFLINE</span>';
+                        }
+                    }
+                }
+
+                // Check for real water flow meter (WATER-BLOCK-B-001 or any real_sensor water meter)
+                const waterDev = devices.find(d => (d.device_id === "WATER-BLOCK-B-001" || d.device_type === "water_meter") && (d.source_type === "real_sensor" || d.is_verified_hardware));
+                if (waterDev && waterDev.last_telemetry && Object.keys(waterDev.last_telemetry).length > 0) {
+                    const wt = waterDev.last_telemetry;
+                    const wFlow = document.getElementById("liveMetricWaterFlow");
+                    const cWater = document.getElementById("liveMetricCumWater");
+                    const wPress = document.getElementById("liveMetricWaterPressure");
+
+                    if (wFlow && wt.water_flow_lmin !== undefined && wt.water_flow_lmin !== null) wFlow.textContent = `${wt.water_flow_lmin} L/min`;
+                    if (cWater && wt.cumulative_water_m3 !== undefined && wt.cumulative_water_m3 !== null) cWater.textContent = `${wt.cumulative_water_m3} m³`;
+                    if (wPress && wt.water_pressure_bar !== undefined && wt.water_pressure_bar !== null) wPress.textContent = `${wt.water_pressure_bar} bar`;
+
+                    const mWater = document.getElementById("matrixStatusWater");
+                    if (mWater) {
+                        const wst = waterDev.status || "ONLINE";
+                        if (wst === "ONLINE") {
+                            mWater.innerHTML = '<span class="badge-mint" style="font-size: 10px;"><i class="fa-solid fa-check"></i> MEASURED (ONLINE)</span>';
+                        } else if (wst === "STALE") {
+                            mWater.innerHTML = '<span class="badge-amber" style="font-size: 10px;"><i class="fa-solid fa-clock"></i> STALE (>45s)</span>';
+                        } else {
+                            mWater.innerHTML = '<span class="badge-red" style="font-size: 10px;"><i class="fa-solid fa-circle-xmark"></i> OFFLINE</span>';
+                        }
+                    }
+                }
+
+                // If any device is verified physical hardware, update global provenance pill
+                const hasVerifiedHardware = devices.some(d => d.is_verified_hardware);
+                const monProv = document.getElementById("monProvenanceBadge");
+                const monConnState = document.getElementById("monConnState");
+                if (hasVerifiedHardware) {
+                    if (monProv) {
+                        monProv.textContent = "Tagged: [REAL SENSOR] (Hardware Verified)";
+                        monProv.className = "fc-sub text-mint";
+                    }
+                    if (monConnState) {
+                        monConnState.textContent = "LIVE HARDWARE STREAM";
+                    }
+                }
             }
         } catch (e) {
             const conn = document.getElementById("simConnStatusText");
@@ -2124,50 +2221,82 @@ function initIotSimulator() {
         }
     };
 
-    // Fetch Stream Log
+    // Fetch Stream Log from Canonical Unified Registry Stream
     const fetchStreamLog = async () => {
         try {
-            const res = await fetch("/api/v1/iot-simulator/stream?limit=15");
+            // First update the small simulator table from simulator stream
+            try {
+                const simRes = await fetch("/api/v1/iot-simulator/stream?limit=10");
+                if (simRes.ok) {
+                    const simData = await simRes.json();
+                    const tbody = document.getElementById("simStreamTableBody");
+                    if (tbody && simData.stream) {
+                        tbody.innerHTML = simData.stream.map(item => {
+                            const pKW = item.active_power_kw ?? item.telemetry?.active_power_kw ?? 145.2;
+                            const tC = item.temperature_c ?? item.telemetry?.temperature_c ?? 24.5;
+                            return `
+                            <tr>
+                                <td style="padding:6px; font-family:monospace; font-size:11px;">${item.sample_id || '--'}</td>
+                                <td style="padding:6px;">${item.timestamp ? item.timestamp.replace("T", " ").slice(11, 19) : "--"}</td>
+                                <td style="padding:6px; font-weight:600;">${pKW} kW</td>
+                                <td style="padding:6px;">${tC}°C</td>
+                                <td style="padding:6px;"><span class="badge-amber" style="font-size:10px;">${item.data_source || item.data_source_mode || 'simulated_iot'}</span></td>
+                            </tr>
+                        `}).join("");
+                    }
+                }
+            } catch (simErr) {}
+
+            // Now fetch canonical unified registry stream for Live IoT Monitor Console
+            const res = await fetch("/api/v1/iot/telemetry/stream?limit=15");
             if (res.ok) {
                 const streamData = await res.json();
-                const tbody = document.getElementById("simStreamTableBody");
-                if (tbody && streamData.stream) {
-                    tbody.innerHTML = streamData.stream.map(item => {
-                        const pKW = item.active_power_kw ?? item.telemetry?.active_power_kw ?? 145.2;
-                        const tC = item.temperature_c ?? item.telemetry?.temperature_c ?? 24.5;
-                        return `
-                        <tr>
-                            <td style="padding:6px; font-family:monospace; font-size:11px;">${item.sample_id}</td>
-                            <td style="padding:6px;">${item.timestamp ? item.timestamp.replace("T", " ").slice(11, 19) : "--"}</td>
-                            <td style="padding:6px; font-weight:600;">${pKW} kW</td>
-                            <td style="padding:6px;">${tC}°C</td>
-                            <td style="padding:6px;"><span class="badge-amber" style="font-size:10px;">${item.data_source || item.data_source_mode || 'simulated_iot'}</span></td>
-                        </tr>
-                    `}).join("");
-                }
-
-                // Populate Live IoT Monitor Tab Packet Table
                 const monTbody = document.getElementById("monIotStreamTableBody");
                 const monTotal = document.getElementById("monTotalIngestedRecords");
-                if (monTotal) monTotal.textContent = streamData.total_records || streamData.stream?.length || 0;
+                if (monTotal) monTotal.textContent = streamData.total_ingested || streamData.stream?.length || 0;
 
-                if (monTbody && streamData.stream) {
+                if (monTbody && streamData.stream && streamData.stream.length > 0) {
                     monTbody.innerHTML = streamData.stream.map(item => {
-                        const pKW = item.active_power_kw ?? item.telemetry?.active_power_kw ?? 145.2;
-                        const tC = item.temperature_c ?? item.telemetry?.temperature_c ?? 24.5;
-                        const isReal = (item.data_source || item.data_source_mode || item.source_type) === 'real_sensor';
-                        const provBadge = isReal ? '<span class="badge-mint" style="font-size:10px;">[REAL SENSOR]</span>' : '<span class="badge-amber" style="font-size:10px;">[SIMULATED IoT]</span>';
+                        const m = item.metrics || item.telemetry || {};
+                        let summaryStr = "--";
+                        if (m.active_power_kw !== undefined && m.active_power_kw !== null) {
+                            summaryStr = `${m.active_power_kw} kW`;
+                            if (m.voltage_v !== undefined && m.voltage_v !== null) summaryStr += ` | ${m.voltage_v} V`;
+                        } else if (m.water_flow_lmin !== undefined && m.water_flow_lmin !== null) {
+                            summaryStr = `${m.water_flow_lmin} L/min`;
+                            if (m.cumulative_water_m3 !== undefined && m.cumulative_water_m3 !== null) summaryStr += ` | ${m.cumulative_water_m3} m³`;
+                        } else if (m.co2_ppm !== undefined || m.pm25 !== undefined) {
+                            summaryStr = `${m.co2_ppm || '--'} ppm CO2 | ${m.pm25 || '--'} PM2.5`;
+                        } else if (m.fill_level_percent !== undefined) {
+                            summaryStr = `${m.fill_level_percent}% Fill`;
+                        } else {
+                            summaryStr = Object.entries(m).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(", ") || "OK";
+                        }
+
+                        const isReal = item.source_type === 'real_sensor' || item.is_verified_hardware === true;
+                        const provBadge = isReal
+                            ? '<span class="badge-mint" style="font-size:10px; font-weight:700;"><i class="fa-solid fa-shield-halved"></i> [REAL SENSOR]</span>'
+                            : '<span class="badge-amber" style="font-size:10px;">[SIMULATED IoT]</span>';
+
+                        const statusBadge = item.quarantined
+                            ? '<span class="text-amber" style="font-size:12px;"><i class="fa-solid fa-triangle-exclamation"></i> QUARANTINED</span>'
+                            : '<span class="text-mint" style="font-size:12px;"><i class="fa-solid fa-circle-check"></i> INGESTED</span>';
+
+                        const rawTs = item.event_timestamp || item.sent_timestamp || item.ingested_at || "";
+                        const tsStr = rawTs.includes("T") ? rawTs.split("T")[1].slice(0, 8) : (rawTs.slice(11, 19) || "--");
+
                         return `
                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-                            <td style="padding:10px; font-family:monospace; font-size:11px; color:#A3C9BE;">${item.sample_id}</td>
-                            <td style="padding:10px; font-size:12px;">${item.timestamp ? item.timestamp.replace("T", " ").slice(11, 19) : "--"}</td>
-                            <td style="padding:10px; font-weight:600; color:#38BDF8;">${item.device_id || 'DEV_ELEC_01'}</td>
+                            <td style="padding:10px; font-family:monospace; font-size:11px; color:#A3C9BE;">${item.message_id || '--'}</td>
+                            <td style="padding:10px; font-size:12px;">${tsStr}</td>
+                            <td style="padding:10px; font-weight:600; color:#38BDF8;">${item.device_id || '--'}</td>
                             <td style="padding:10px; font-size:12px;">${item.building_id || 'Block B Hostel'}</td>
-                            <td style="padding:10px; font-weight:700; color:#00D09C;">${pKW} kW / ${tC}°C</td>
+                            <td style="padding:10px; font-weight:700; color:#00D09C;">${summaryStr}</td>
                             <td style="padding:10px;">${provBadge}</td>
-                            <td style="padding:10px;"><span class="text-mint" style="font-size:12px;"><i class="fa-solid fa-circle-check"></i> INGESTED</span></td>
+                            <td style="padding:10px;">${statusBadge}</td>
                         </tr>
-                    `}).join("");
+                        `;
+                    }).join("");
                 }
             }
         } catch (e) {

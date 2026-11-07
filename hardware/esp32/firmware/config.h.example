@@ -19,6 +19,15 @@
 #define MQTT_USERNAME       ""                 // Optional: Set if broker requires auth
 #define MQTT_PASSWORD       ""                 // Optional: Set if broker requires auth
 
+// =========================================================================================
+// 1b. TRANSPORT CONFIGURATION: MQTT vs DIRECT HTTP INGESTION
+// =========================================================================================
+// Set USE_HTTP_INGESTION to 1 to transmit directly to EstateIQ FastAPI endpoint (/api/v1/iot/telemetry).
+// Set USE_HTTP_INGESTION to 0 to transmit via MQTT broker topics (estateiq/#).
+#define USE_HTTP_INGESTION  0                  // 0 = MQTT Broker (Default), 1 = Direct HTTP POST
+#define HTTP_API_ENDPOINT   "http://192.168.1.100:8000/api/v1/iot/telemetry"
+#define HTTP_REQUEST_TIMEOUT_MS 5000           // 5 seconds connection & POST timeout
+
 // Provisioned physical gateway credential (must match backend registry provisioning)
 // ⚠️ Do NOT commit actual secrets to source control. In production, load from environment.
 #define GATEWAY_API_KEY     "UNCONFIGURED_SET_IN_ENV"

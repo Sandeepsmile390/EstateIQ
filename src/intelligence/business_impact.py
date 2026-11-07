@@ -27,17 +27,26 @@ class IntelligenceBusinessImpactEngine:
         expected_kwh: float,
         duration_hours: float = 1.0
     ) -> Dict[str, Any]:
-        """Calculates monetary surge impact and Cost of Inaction."""
+        """Calculate interval impact and an explicitly extrapolated continuation scenario.
+
+        ``actual_kwh`` and ``expected_kwh`` are interval energy values. The
+        annualized figures assume the interval's excess power rate persists;
+        they are scenarios, not measured or realized savings.
+        """
+        duration_hours = float(duration_hours)
+        if not duration_hours > 0.0:
+            raise ValueError("duration_hours must be positive")
         residual_kwh = max(0.0, actual_kwh - expected_kwh)
-        
-        hourly_cost_inr = round(residual_kwh * self.tariff, 2)
+
+        excess_kw = residual_kwh / duration_hours
+        hourly_cost_inr = round(excess_kw * self.tariff, 2)
         daily_cost_inr = round(hourly_cost_inr * 24.0, 2)
         monthly_cost_inr = round(daily_cost_inr * 30.0, 2)
-        annual_cost_inr = round(monthly_cost_inr * 12.0, 2)
+        annual_cost_inr = round(daily_cost_inr * 365.0, 2)
 
         # Carbon Emissions
-        hourly_co2_kg = round(residual_kwh * self.co2_factor, 2)
-        annual_co2_tons = round((residual_kwh * 24 * 365 * self.co2_factor) / 1000.0, 2)
+        hourly_co2_kg = round(excess_kw * self.co2_factor, 2)
+        annual_co2_tons = round((excess_kw * 24 * 365 * self.co2_factor) / 1000.0, 2)
 
         # Cost of Inaction Breakdown
         weekly_cost_inr = round(daily_cost_inr * 7.0, 2)
@@ -58,5 +67,7 @@ class IntelligenceBusinessImpactEngine:
             "annual_co2_impact_tons": annual_co2_tons,
             "cost_of_inaction": cost_of_inaction,
             "tariff_applied_inr_kwh": self.tariff,
+            "interval_hours": duration_hours,
+            "scenario_assumption": "Observed interval excess rate persists for each extrapolation horizon",
             "provenance": "BUSINESS_IMPACT_ENGINE"
         }

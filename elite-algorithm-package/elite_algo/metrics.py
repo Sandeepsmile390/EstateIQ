@@ -5,9 +5,7 @@ reference baseline models, and Decision Layer evaluation criteria.
 """
 
 import numpy as np
-import pandas as pd
 from typing import Dict, Any, Tuple, Optional, List
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, confusion_matrix, precision_score, recall_score, f1_score, roc_auc_score, precision_recall_curve
 
 class ForecastingMetrics:
     """Calculates time-series forecasting regression metrics."""
@@ -17,13 +15,19 @@ class ForecastingMetrics:
         y_true = np.asarray(y_true, dtype=float)
         y_pred = np.asarray(y_pred, dtype=float)
 
-        if len(y_true) == 0 or len(y_pred) == 0:
-            return {"mae": 0.0, "rmse": 0.0, "r2": 0.0, "mape": 0.0, "max_error": 0.0}
+        if y_true.shape != y_pred.shape:
+            raise ValueError("y_true and y_pred must have the same shape")
+        finite = np.isfinite(y_true) & np.isfinite(y_pred)
+        y_true, y_pred = y_true[finite], y_pred[finite]
+        if len(y_true) == 0:
+            return {"mae": 0.0, "rmse": 0.0, "r2": 0.0, "mape": 0.0, "max_error": 0.0, "sample_count": 0}
 
-        mae = float(mean_absolute_error(y_true, y_pred))
-        mse = float(mean_squared_error(y_true, y_pred))
+        errors = y_true - y_pred
+        mae = float(np.mean(np.abs(errors)))
+        mse = float(np.mean(np.square(errors)))
         rmse = float(np.sqrt(mse))
-        r2 = float(r2_score(y_true, y_pred))
+        total = float(np.sum(np.square(y_true - np.mean(y_true))))
+        r2 = float(1.0 - np.sum(np.square(errors)) / total) if total > 0 else 0.0
 
         # Safe MAPE calculation avoiding zero division
         non_zero_mask = y_true != 0
@@ -32,14 +36,15 @@ class ForecastingMetrics:
         else:
             mape = 0.0
 
-        max_err = float(np.max(np.abs(y_true - y_pred)))
+        max_err = float(np.max(np.abs(errors)))
 
         return {
             "mae": round(mae, 4),
             "rmse": round(rmse, 4),
             "r2": round(r2, 4),
             "mape": round(mape, 2),
-            "max_error": round(max_err, 4)
+            "max_error": round(max_err, 4),
+            "sample_count": int(len(y_true))
         }
 
 class BaselineModels:
@@ -47,7 +52,7 @@ class BaselineModels:
 
     @staticmethod
     def naive_persistence(train_series: np.ndarray, test_series: np.ndarray) -> np.ndarray:
-        """Naive Persistence: Predicts y_t = y_{t-1}."""
+        """One-step rolling persistence; each test point uses the prior observed point."""
         if len(train_series) == 0 or len(test_series) == 0:
             return np.zeros_like(test_series)
         preds = np.zeros_like(test_series)
@@ -75,39 +80,63 @@ class ClassificationMetrics:
         if len(y_true) == 0:
             return {"status": "NOT EVALUATED", "reason": "Empty dataset"}
 
-        # Check if ground truth contains anomaly variability
-        unique_classes = np.unique(y_true)
-        if len(unique_classes) < 2:
-            return {
-                "status": "EVALUATED_SINGLE_CLASS",
-                "accuracy": float(np.mean(y_true == y_pred)),
-                "precision": "NOT EVALUATED (Single class in ground truth)",
-                "recall": "NOT EVALUATED (Single class in ground truth)",
-                "f1_score": "NOT EVALUATED",
-                "roc_auc": "NOT EVALUATED"
-            }
+        if y_true.shape != y_pred.shape:
+            raise ValueError("y_true and y_pred must have the same shape")
+        if y_scores is not None:
+            y_scores = np.asarray(y_scores, dtype=float)
+            if y_scores.shape != y_true.shape:
+                raise ValueError("y_scores must have the same shape as y_true")
+            finite = np.isfinite(y_scores)
+            y_true, y_pred, y_scores = y_true[finite], y_pred[finite], y_scores[finite]
 
-        cm = confusion_matrix(y_true, y_pred)
-        tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+        tp = int(np.sum((y_true == 1) & (y_pred == 1)))
+        fp = int(np.sum((y_true == 0) & (y_pred == 1)))
+        tn = int(np.sum((y_true == 0) & (y_pred == 0)))
+        fn = int(np.sum((y_true == 1) & (y_pred == 0)))
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else None
+        f1 = (2 * precision * recall / (precision + recall)
+              if recall is not None and precision + recall else 0.0)
+        roc_auc = None
+        average_precision = None
+        if y_scores is not None and np.any(y_true == 1) and np.any(y_true == 0):
+            # Mann–Whitney rank statistic (average ranks handle ties).
+            order = np.argsort(y_scores, kind="mergesort")
+            sorted_scores = y_scores[order]
+            ranks = np.empty(len(y_scores), dtype=float)
+            first = 0
+            while first < len(order):
+                last = first + 1
+                while last < len(order) and sorted_scores[last] == sorted_scores[first]:
+                    last += 1
+                ranks[order[first:last]] = (first + 1 + last) / 2.0
+                first = last
+            positives = int(np.sum(y_true == 1))
+            negatives = int(np.sum(y_true == 0))
+            roc_auc = (float(np.sum(ranks[y_true == 1])) - positives * (positives + 1) / 2) / (positives * negatives)
 
-        prec = float(precision_score(y_true, y_pred, zero_division=0))
-        rec = float(recall_score(y_true, y_pred, zero_division=0))
-        f1 = float(f1_score(y_true, y_pred, zero_division=0))
-
-        auc_score = "NOT EVALUATED"
-        if y_scores is not None and len(np.unique(y_true)) > 1:
-            try:
-                auc_score = round(float(roc_auc_score(y_true, y_scores)), 4)
-            except Exception:
-                auc_score = "NOT EVALUATED"
+            desc = np.argsort(-y_scores, kind="mergesort")
+            sorted_desc = y_scores[desc]
+            labels_desc = y_true[desc]
+            tp_curve = np.cumsum(labels_desc == 1)
+            fp_curve = np.cumsum(labels_desc == 0)
+            end_indices = np.r_[np.flatnonzero(np.diff(sorted_desc)), len(sorted_desc) - 1]
+            precisions = tp_curve[end_indices] / np.maximum(tp_curve[end_indices] + fp_curve[end_indices], 1)
+            recalls = tp_curve[end_indices] / positives
+            average_precision = float(np.sum(np.diff(np.r_[0.0, recalls]) * precisions))
 
         return {
-            "status": "EVALUATED",
+            "status": "EVALUATED" if recall is not None else "EVALUATED_SINGLE_CLASS",
             "confusion_matrix": {"tp": int(tp), "fp": int(fp), "tn": int(tn), "fn": int(fn)},
-            "precision": round(prec, 4),
-            "recall": round(rec, 4),
-            "f1_score": round(f1, 4),
-            "roc_auc": auc_score
+            "accuracy": round((tp + tn) / max(len(y_true), 1), 4),
+            "precision": round(precision, 4),
+            "recall": round(recall, 4) if recall is not None else None,
+            "f1_score": round(f1, 4) if recall is not None else None,
+            "false_positive_rate": round(fp / (fp + tn), 4) if fp + tn else None,
+            "roc_auc": round(roc_auc, 4) if roc_auc is not None else None,
+            "average_precision": round(average_precision, 4) if average_precision is not None else None,
+            "sample_count": int(len(y_true)),
+            "positive_count": int(np.sum(y_true == 1))
         }
 
 class DecisionLayerMetrics:
@@ -119,32 +148,10 @@ class DecisionLayerMetrics:
             return {"status": "NOT EVALUATED", "reason": "No decision records provided"}
 
         total_decisions = len(decision_records)
-        agreements = [r.get("model_agreement_pct", 85.0) for r in decision_records]
-        false_alert_suppressions = [r for r in decision_records if r.get("suppressed_by_safety_gate", False)]
-        priorities = [r.get("priority", "P3_ROUTINE") for r in decision_records]
-        cost_savings = [r.get("hourly_cost_inr", 0.0) for r in decision_records]
-        confidence_pcts = [r.get("confidence_percent", 90.0) for r in decision_records]
-
-        mean_agreement = float(np.mean(agreements))
-        false_alert_rate = float(len(false_alert_suppressions) / total_decisions * 100.0)
-        avg_confidence = float(np.mean(confidence_pcts))
-        total_potential_savings_inr = float(np.sum(cost_savings))
-
-        # Prioritization distribution
-        p1_count = len([p for p in priorities if "P1" in p])
-        p2_count = len([p for p in priorities if "P2" in p])
-        p3_count = len([p for p in priorities if "P3" in p or "NORMAL" in p])
-
-        return {
-            "status": "EVALUATED",
-            "total_decisions_evaluated": total_decisions,
-            "mean_model_agreement_pct": round(mean_agreement, 2),
-            "false_alert_suppression_rate_pct": round(false_alert_rate, 2),
-            "avg_confidence_level_pct": round(avg_confidence, 2),
-            "total_identified_cost_surge_inr": round(total_potential_savings_inr, 2),
-            "priority_distribution": {
-                "P1_CRITICAL": p1_count,
-                "P2_HIGH": p2_count,
-                "P3_ROUTINE": p3_count
-            }
-        }
+        required = ("ground_truth", "predicted_alert")
+        if any(any(key not in row for key in required) for row in decision_records):
+            return {"status": "NOT EVALUATED", "reason": "Independent decision labels are required; confidence or gate rates are not false-alert metrics.", "total_decisions_evaluated": total_decisions}
+        labels = np.asarray([row["ground_truth"] for row in decision_records], dtype=int)
+        preds = np.asarray([row["predicted_alert"] for row in decision_records], dtype=int)
+        return {"status": "EVALUATED", "total_decisions_evaluated": total_decisions,
+                **ClassificationMetrics.calculate_all(labels, preds)}

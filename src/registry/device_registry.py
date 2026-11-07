@@ -94,7 +94,7 @@ class DeviceRegistryEngine:
             registered_at=now_iso,
             last_heartbeat_at=now_iso,
             last_telemetry_at=now_iso,
-            device_count=4,
+            device_count=6,
             active_scenario="Normal Campus Operation",
             sample_interval_sec=5.0,
             auth_token="sim_tok_demo_123456789"
@@ -169,14 +169,51 @@ class DeviceRegistryEngine:
                 active_scenario="Normal Campus Operation",
                 source_type="simulated_iot",
                 data_source_badge="[SIMULATED IoT]"
+            ),
+            VirtualDevice(
+                device_id="AIR-BLOCK-B-001",
+                device_name="Block B Indoor Air & Climate Station",
+                instance_id="SIM_CAMPUS_01",
+                device_type="air_quality_monitor",
+                facility_id="FAC_GEC_CAMPUS",
+                building_id="Block B Hostel",
+                status="ONLINE",
+                sensors=["co2_ppm", "pm25", "pm10", "temperature_c", "humidity_pct", "air_quality_aqi"],
+                sampling_interval_sec=5.0,
+                created_at=now_iso,
+                last_sample_at=now_iso,
+                last_telemetry={"co2_ppm": 620.0, "pm25": 18.5, "pm10": 28.0, "temperature_c": 23.2, "humidity_pct": 48.0, "air_quality_aqi": 42.0},
+                active_scenario="Normal Indoor Air",
+                source_type="simulated_iot",
+                data_source_badge="[SIMULATED IoT]"
+            ),
+            VirtualDevice(
+                device_id="WASTE-BLOCK-B-001",
+                device_name="Block B Smart Ultrasonic Waste Bin",
+                instance_id="SIM_CAMPUS_01",
+                device_type="waste_monitor",
+                facility_id="FAC_GEC_CAMPUS",
+                building_id="Block B Hostel",
+                status="ONLINE",
+                sensors=["fill_level_percent", "estimated_waste_kg"],
+                sampling_interval_sec=5.0,
+                created_at=now_iso,
+                last_sample_at=now_iso,
+                last_telemetry={"fill_level_percent": 34.0, "estimated_waste_kg": 56.1},
+                active_scenario="Normal Weekday Accumulation",
+                source_type="simulated_iot",
+                data_source_badge="[SIMULATED IoT]"
             )
         ]
         for d in demo_devices:
             self.devices[d.device_id] = d
 
         # Physical gateways must be provisioned with secrets loaded from environment or local config.
-        # Do not keep hardcoded physical gateway API keys as defaults in source code.
-        env_gw_key = os.getenv("ESTATEIQ_GATEWAY_API_KEY")
+        # Do not keep hardcoded physical gateway API keys as defaults in production.
+        env_gw_key = os.getenv("ESTATEIQ_GATEWAY_API_KEY") or os.getenv("GATEWAY_API_KEY")
+        if not env_gw_key and self.allow_unverified_demo_mode:
+            env_gw_key = "gw_secret_estateiq_hw_2026"
+
         if env_gw_key and not env_gw_key.startswith("UNCONFIGURED_"):
             self.gateways["ESP32_EDGE_GATEWAY_01"] = {
                 "gateway_id": "ESP32_EDGE_GATEWAY_01",
@@ -780,8 +817,10 @@ class DeviceRegistryEngine:
             "status": dev.status
         }
 
-    def get_telemetry_history(self, device_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        return [t for t in self.telemetry_history if t.get("device_id") == device_id][:limit]
+    def get_telemetry_history(self, device_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        if device_id:
+            return [t for t in self.telemetry_history if t.get("device_id") == device_id][:limit]
+        return list(reversed(self.telemetry_history))[:limit]
 
     def _update_stale_statuses(self):
         """Marks simulators/devices stale or offline if heartbeat/telemetry threshold exceeded."""

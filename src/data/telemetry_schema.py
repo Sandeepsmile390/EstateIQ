@@ -102,14 +102,27 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
     "temperature_c": ("temperature_c", "°C"),
     "temperature": ("temperature_c", "°C"),
     "humidity_pct": ("humidity_pct", "%"),
+    "humidity_percent": ("humidity_pct", "%"),
     "humidity": ("humidity_pct", "%"),
     "occupancy_count": ("occupancy_count", "count"),
     "occupancy": ("occupancy_count", "count"),
     "air_quality_aqi": ("air_quality_aqi", "AQI"),
     "air_aqi": ("air_quality_aqi", "AQI"),
+    "aqi": ("air_quality_aqi", "AQI"),
     "co2_ppm": ("co2_ppm", "ppm"),
+    "pm25": ("pm25", "ug/m3"),
+    "pm2_5": ("pm25", "ug/m3"),
+    "pm10": ("pm10", "ug/m3"),
     "hvac_load_kw": ("hvac_load_kw", "kW"),
-    "hvac_power_kw": ("hvac_load_kw", "kW")
+    "hvac_power_kw": ("hvac_load_kw", "kW"),
+
+    # Waste Management
+    "fill_level_percent": ("fill_level_percent", "%"),
+    "fill_level_pct": ("fill_level_percent", "%"),
+    "waste_fill_pct": ("fill_level_percent", "%"),
+    "estimated_waste_kg": ("estimated_waste_kg", "kg"),
+    "waste_weight_kg": ("estimated_waste_kg", "kg"),
+    "waste_mass_kg": ("estimated_waste_kg", "kg")
 }
 
 # Plausible range limits for physical sanity checking
@@ -143,6 +156,10 @@ METRIC_RANGE_LIMITS: Dict[str, Tuple[float, float]] = {
     "occupancy_count": (0, 100000),
     "air_quality_aqi": (0.0, 1000.0),
     "co2_ppm": (200.0, 10000.0),
+    "pm25": (0.0, 1000.0),
+    "pm10": (0.0, 1500.0),
+    "fill_level_percent": (0.0, 100.0),
+    "estimated_waste_kg": (0.0, 10000.0),
     "hvac_load_kw": (0.0, 10000.0)
 }
 

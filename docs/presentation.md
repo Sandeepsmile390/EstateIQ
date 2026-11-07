@@ -247,7 +247,7 @@ EstateIQ-DIF is the core meta-reasoning engine (`src/intelligence/dif_engine.py`
 
 - **Automated Test Suite:** **76 / 76 Tests Passing (100% Pass Rate)** (`python -m unittest discover tests`)
 - **System Execution Latency:** Average decision latency **0.02 ms** on Fast Path (80% early exit efficiency).
-- **Ablation Study Empirical Validation:** Anomaly F1-Score **0.961**, False Alarm Rate **0.6%** (97.5% reduction vs static thresholds), Cost of Inaction Accuracy **97.3%** on 365-day annotated dataset ([docs/ABLATION_STUDY.md](file:///d:/Hackathon/Model/docs/ABLATION_STUDY.md)).
+- **Ablation Study Empirical Validation:** Anomaly F1-Score **0.961**, False Alarm Rate **0.6%** (97.5% reduction vs static thresholds), Cost of Inaction Accuracy **97.3%** on 365-day annotated dataset ([docs/ABLATION_STUDY.md](ABLATION_STUDY.md)).
 - **ML Baseline Precision:** $R^2 > 0.94$, $\text{RMSE} = 3.18 \text{ kWh}$ on canonical 365-day dataset.
 - **GitHub Repository:** `https://github.com/Sandeepsmile390/EstateIQ.git` (Release Candidate Main Branch).
 

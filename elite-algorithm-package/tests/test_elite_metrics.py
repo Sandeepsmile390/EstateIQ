@@ -47,15 +47,31 @@ class TestMetricsFormulas(unittest.TestCase):
         self.assertEqual(res["confusion_matrix"]["tp"], 3)
         self.assertEqual(res["confusion_matrix"]["fn"], 1)
 
+    def test_classification_auc_and_average_precision(self):
+        res = ClassificationMetrics.calculate_all(
+            np.array([0, 1, 0, 1]), np.array([0, 1, 0, 1]),
+            y_scores=np.array([0.1, 0.9, 0.2, 0.8]),
+        )
+        self.assertEqual(res["roc_auc"], 1.0)
+        self.assertEqual(res["average_precision"], 1.0)
+
     def test_decision_layer_metrics(self):
         records = [
             {"model_agreement_pct": 90.0, "suppressed_by_safety_gate": False, "priority": "P1_CRITICAL", "hourly_cost_inr": 450.0, "confidence_percent": 95.0},
             {"model_agreement_pct": 80.0, "suppressed_by_safety_gate": True, "priority": "P3_ROUTINE", "hourly_cost_inr": 0.0, "confidence_percent": 85.0}
         ]
         res = DecisionLayerMetrics.evaluate_decision_layer(records)
+        self.assertEqual(res["status"], "NOT EVALUATED")
+        self.assertIn("Independent decision labels are required", res["reason"])
+
+    def test_decision_layer_uses_independent_labels(self):
+        res = DecisionLayerMetrics.evaluate_decision_layer([
+            {"ground_truth": 1, "predicted_alert": 1},
+            {"ground_truth": 0, "predicted_alert": 1},
+            {"ground_truth": 0, "predicted_alert": 0},
+        ])
         self.assertEqual(res["status"], "EVALUATED")
-        self.assertEqual(res["mean_model_agreement_pct"], 85.0)
-        self.assertEqual(res["false_alert_suppression_rate_pct"], 50.0)
+        self.assertEqual(res["confusion_matrix"]["fp"], 1)
 
 if __name__ == "__main__":
     unittest.main()

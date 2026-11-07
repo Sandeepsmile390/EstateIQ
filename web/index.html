@@ -293,7 +293,12 @@
                     <i class="fa-solid fa-sliders"></i>
                     <span class="nav-label">What-If Simulator</span>
                 </a>
-                <a href="#iot-monitor" class="nav-item" id="navIotMonitor" data-tab-nav="iot-monitor" data-tooltip="Live IoT Telemetry & Sensor Gateway Monitor">
+                                <a href="#resource-simulator" class="nav-item" id="navResourceSimulator" data-tab-nav="resource-simulator" data-tooltip="Resource Simulator (Electricity, Water, Air, Waste)">
+                    <i class="fa-solid fa-microchip text-mint"></i>
+                    <span class="nav-label">Resource Simulator</span>
+                    <span class="badge-count bg-mint">SIM</span>
+                </a>
+<a href="#iot-monitor" class="nav-item" id="navIotMonitor" data-tab-nav="iot-monitor" data-tooltip="Live IoT Telemetry & Sensor Gateway Monitor">
                     <i class="fa-solid fa-satellite-dish text-mint"></i>
                     <span class="nav-label">Live IoT Monitor</span>
                     <span class="badge-count bg-mint">LIVE</span>
@@ -640,7 +645,12 @@
                         <span>What-If Simulator</span>
                         <div class="tab-indicator"></div>
                     </button>
-                    <button class="tab-btn" data-tab="iot-monitor" id="tabIotMonitor">
+                                    <button class="tab-btn" id="tabBtnResourceSimulator" data-tab="resource-simulator">
+                    <i class="fa-solid fa-microchip text-mint"></i>
+                    <span>Resource Simulator</span>
+                    <div class="tab-indicator"></div>
+                </button>
+<button class="tab-btn" data-tab="iot-monitor" id="tabIotMonitor">
                         <i class="fa-solid fa-satellite-dish text-mint"></i>
                         <span>Live IoT Monitor</span>
                         <div class="tab-indicator"></div>
@@ -1807,11 +1817,11 @@
                                             <i class="fa-solid fa-bolt"></i>
                                         </div>
                                         <div>
-                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Main Electrical Submeter (`DEV_ELEC_01`)</h3>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Main Electrical Submeter (`METER-BLOCK-B-001`)</h3>
                                             <p style="margin: 3px 0 0 0; font-size: 0.8rem; color: #A3C9BE;">Live active power demand, energy accumulator, line voltage & current</p>
                                         </div>
                                     </div>
-                                    <span class="pill-badge badge-teal" style="font-size: 11px; padding: 4px 10px;"><span class="pulse-dot"></span> ONLINE</span>
+                                    <span class="pill-badge badge-teal" style="font-size: 11px; padding: 4px 10px;" id="liveElecCardBadge"><span class="pulse-dot"></span> ONLINE</span>
                                 </div>
 
                                 <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
@@ -1909,11 +1919,11 @@
                                             <i class="fa-solid fa-droplet"></i>
                                         </div>
                                         <div>
-                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Water Riser Flow & Tank Level (`DEV_WATER_01`)</h3>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Water Riser Flow & Tank Level (`WATER-BLOCK-B-001`)</h3>
                                             <p style="margin: 3px 0 0 0; font-size: 0.8rem; color: #A3C9BE;">Real-time flow velocity, tank storage percentage & riser pressure</p>
                                         </div>
                                     </div>
-                                    <span class="pill-badge badge-teal" style="font-size: 11px; padding: 4px 10px;"><span class="pulse-dot"></span> STREAMING</span>
+                                    <span class="pill-badge badge-teal" style="font-size: 11px; padding: 4px 10px;" id="liveWaterCardBadge"><span class="pulse-dot"></span> STREAMING</span>
                                 </div>
 
                                 <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
@@ -2047,7 +2057,473 @@
                     </div>
                 </div>
 
-                <!-- TAB CONTENT 8: FAQ & SYSTEM KNOWLEDGE HUB -->
+                
+                <!-- TAB CONTENT: DEDICATED MULTI-UTILITY RESOURCE SIMULATOR -->
+                <div class="tab-content" id="contentResourceSimulator" role="tabpanel" aria-labelledby="tabBtnResourceSimulator">
+                    <div class="module-tab-wrapper">
+
+                        <!-- HERO & GLOBAL CONTROLS BANNER -->
+                        <div class="simulator-hero-card" style="background: linear-gradient(135deg, #0A2E26 0%, #124B3E 100%); border: 1px solid rgba(0, 208, 156, 0.35); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);">
+                            <div class="sim-hero-top" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
+                                <div class="sim-title" style="display: flex; align-items: center; gap: 16px;">
+                                    <div class="sim-icon-box" style="background: rgba(0, 208, 156, 0.18); color: #00D09C; width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 1px solid rgba(0, 208, 156, 0.35);">
+                                        <i class="fa-solid fa-microchip"></i>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                            <h2 style="margin: 0; font-size: 1.55rem; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px;">Multi-Utility Resource Simulator</h2>
+                                            <span style="background: rgba(245, 197, 119, 0.15); border: 1.5px solid #F5C577; color: #F5C577; padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.6px; display: inline-flex; align-items: center; gap: 6px;">
+                                                <i class="fa-solid fa-flask"></i> SIMULATED DATA — NOT PHYSICAL SENSOR TELEMETRY
+                                            </span>
+                                        </div>
+                                        <p style="margin: 6px 0 0 0; font-size: 0.88rem; color: #A3C9BE;">
+                                            Physics-governed live telemetry generator for <strong>Electricity</strong>, <strong>Water</strong>, <strong>Air Quality</strong>, and <strong>Waste</strong>. Generates realistic demo data without corrupting certified hardware registries.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="sim-preset-pills" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                    <span id="resSimApiBadge" style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(0, 208, 156, 0.15); border: 1px solid rgba(0, 208, 156, 0.4); border-radius: 20px; font-size: 12px; font-weight: 700; color: #00D09C;">
+                                        <span class="pulse-dot" style="width: 8px; height: 8px; background: #00D09C; border-radius: 50%;"></span>
+                                        <span id="resSimApiText">INGESTION: /api/v1/iot/telemetry (ACTIVE)</span>
+                                    </span>
+                                    <span id="resSimGlobalStateBadge" style="padding: 6px 14px; background: rgba(0, 208, 156, 0.2); border: 1px solid #00D09C; border-radius: 20px; font-size: 12px; font-weight: 800; color: #00D09C;">
+                                        4/4 UTILITIES ACTIVE
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- GLOBAL CONTROL BAR -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; background: rgba(6, 29, 23, 0.6); padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                    <button id="resSimBtnStartAll" class="btn btn-emerald btn-sm" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; padding: 8px 16px; border-radius: 8px; background: #00D09C; color: #0E3D32; border: none; cursor: pointer;" aria-label="Start all resource simulations">
+                                        <i class="fa-solid fa-play"></i> Start All
+                                    </button>
+                                    <button id="resSimBtnPauseAll" class="btn btn-outline-mint btn-sm" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; padding: 8px 16px; border-radius: 8px; background: rgba(0,208,156,0.1); color: #00D09C; border: 1px solid #00D09C; cursor: pointer;" aria-label="Pause or resume all simulations">
+                                        <i class="fa-solid fa-pause"></i> Pause All
+                                    </button>
+                                    <button id="resSimBtnStopAll" class="btn btn-outline-danger btn-sm" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; padding: 8px 16px; border-radius: 8px; background: rgba(239, 68, 68, 0.1); color: #EF4444; border: 1px solid #EF4444; cursor: pointer;" aria-label="Stop all simulations">
+                                        <i class="fa-solid fa-stop"></i> Stop All
+                                    </button>
+                                    <button id="resSimBtnResetAll" class="btn btn-outline-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; padding: 8px 16px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); color: #FFFFFF; border: 1px solid rgba(255, 255, 255, 0.2); cursor: pointer;" aria-label="Reset all simulators to default clean settings">
+                                        <i class="fa-solid fa-rotate-left"></i> Reset Defaults
+                                    </button>
+                                </div>
+
+                                <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <label for="resSimGlobalInterval" style="font-size: 0.8rem; font-weight: 700; color: #A3C9BE;">Sample Interval:</label>
+                                        <select id="resSimGlobalInterval" style="background: #0E3D32; color: #FFFFFF; border: 1px solid rgba(0,208,156,0.4); border-radius: 8px; padding: 6px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer;">
+                                            <option value="1000">1.0s (High-Speed Demo)</option>
+                                            <option value="2000">2.0s (Fast Stream)</option>
+                                            <option value="5000" selected>5.0s (Default Live)</option>
+                                            <option value="10000">10.0s (Eco Mode)</option>
+                                        </select>
+                                    </div>
+                                    <span style="font-size: 0.82rem; color: #A3C9BE; border-left: 1px solid rgba(255,255,255,0.15); padding-left: 14px;">
+                                        Last Reading: <strong id="resSimLastSampleTime" style="color: #00D09C;">--:--:--</strong>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUB-NAVIGATION FILTER TABS -->
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
+                            <button class="res-sim-subtab active" data-res-view="all" style="padding: 8px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(0,208,156,0.4); background: #00D09C; color: #0E3D32;">
+                                <i class="fa-solid fa-layer-group"></i> All 4 Utilities
+                            </button>
+                            <button class="res-sim-subtab" data-res-view="electricity" style="padding: 8px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #A3C9BE;">
+                                <i class="fa-solid fa-bolt text-mint"></i> Electricity
+                            </button>
+                            <button class="res-sim-subtab" data-res-view="water" style="padding: 8px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #A3C9BE;">
+                                <i class="fa-solid fa-droplet text-blue"></i> Water
+                            </button>
+                            <button class="res-sim-subtab" data-res-view="air" style="padding: 8px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #A3C9BE;">
+                                <i class="fa-solid fa-wind text-accent"></i> Air Quality
+                            </button>
+                            <button class="res-sim-subtab" data-res-view="waste" style="padding: 8px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #A3C9BE;">
+                                <i class="fa-solid fa-trash-can text-gold"></i> Waste
+                            </button>
+                        </div>
+
+                        <!-- RESOURCE CARDS CONTAINER (GRID) -->
+                        <div id="resSimGridContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(540px, 1fr)); gap: 24px;">
+
+                            <!-- 1. ELECTRICITY RESOURCE CARD -->
+                            <div class="resource-sim-card" id="resSimCardElectricity" style="background: #0E3D32; border: 1px solid rgba(0, 208, 156, 0.25); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(0, 208, 156, 0.15); color: #00D09C; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                                            <i class="fa-solid fa-bolt"></i>
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Electricity Telemetry</h3>
+                                            <span style="font-size: 0.76rem; color: #A3C9BE;">Device: <strong>SIM-ELEC-01</strong> | Facility: <strong>FAC_GEC_CAMPUS (Block B)</strong></span>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="badge-provenance-sim" style="background: rgba(245, 197, 119, 0.15); border: 1px solid #F5C577; color: #F5C577; padding: 3px 10px; border-radius: 14px; font-size: 0.7rem; font-weight: 700;">
+                                            [SIMULATED DATA]
+                                        </span>
+                                        <span id="resSimElecStatus" class="badge-mint" style="padding: 3px 10px; border-radius: 14px; font-size: 0.72rem; font-weight: 700;">
+                                            ACTIVE
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Electricity Controls -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: rgba(6, 29, 23, 0.4); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div>
+                                        <label for="resSimElecScenario" style="display: block; font-size: 0.78rem; font-weight: 700; color: #A3C9BE; margin-bottom: 6px;">
+                                            Scenario Preset:
+                                        </label>
+                                        <select id="resSimElecScenario" style="width: 100%; background: #0A2E26; color: #FFF; border: 1px solid rgba(0,208,156,0.3); border-radius: 6px; padding: 6px 10px; font-size: 0.8rem; font-weight: 600;">
+                                            <option value="NORMAL">Normal Operation (Typical Diurnal)</option>
+                                            <option value="PEAK_DEMAND">Peak Demand Surge (Chiller Startup, 1.85x)</option>
+                                            <option value="AFTER_HOURS_WASTE">After-Hours Waste (Unoccupied Load Floor)</option>
+                                            <option value="VOLTAGE_INSTABILITY">Voltage Instability (Sags, Swells & Harmonics)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                            <label for="resSimElecSlider" style="font-size: 0.78rem; font-weight: 700; color: #A3C9BE;">Baseline Load:</label>
+                                            <span id="resSimElecSliderVal" style="font-size: 0.8rem; font-weight: 800; color: #00D09C;">55.0 kW</span>
+                                        </div>
+                                        <input type="range" id="resSimElecSlider" min="10" max="250" step="5" value="55" style="width: 100%; accent-color: #00D09C; cursor: pointer;">
+                                    </div>
+                                </div>
+
+                                <!-- Electricity Metric Tiles Grid -->
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(0, 208, 156, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Active Power (kW)</span>
+                                        <strong id="resSimElecPower" style="font-size: 1.25rem; color: #00D09C; display: block; margin-top: 2px;">55.0 kW</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Instantaneous load</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(0, 208, 156, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Cumulative Energy</span>
+                                        <strong id="resSimElecKwh" style="font-size: 1.25rem; color: #FFFFFF; display: block; margin-top: 2px;">3420.50 kWh</strong>
+                                        <span style="font-size: 0.68rem; color: #00D09C;">Monotonic totalizer</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(0, 208, 156, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Voltage (V)</span>
+                                        <strong id="resSimElecVolt" style="font-size: 1.25rem; color: #FFFFFF; display: block; margin-top: 2px;">230.2 V</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Phase L1 to Neutral</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(0, 208, 156, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Current (A)</span>
+                                        <strong id="resSimElecCurrent" style="font-size: 1.25rem; color: #FFFFFF; display: block; margin-top: 2px;">251.5 A</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">I = 1000·P/(V·PF)</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(0, 208, 156, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Power Factor</span>
+                                        <strong id="resSimElecPf" style="font-size: 1.25rem; color: #00D09C; display: block; margin-top: 2px;">0.95</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Ratio (cos φ)</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(0, 208, 156, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Frequency (Hz)</span>
+                                        <strong id="resSimElecFreq" style="font-size: 1.25rem; color: #FFFFFF; display: block; margin-top: 2px;">50.01 Hz</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Nominal 50 Hz grid</span>
+                                    </div>
+                                </div>
+
+                                <!-- Electricity Chart -->
+                                <div style="height: 180px; position: relative; width: 100%;">
+                                    <canvas id="canvasResSimElec" aria-label="Electricity live power stream chart" role="img"></canvas>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                                    <div style="display: flex; gap: 8px;">
+                                        <button id="resSimBtnElecToggle" class="btn btn-sm btn-outline-mint" style="font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; background: rgba(0,208,156,0.1); color: #00D09C; border: 1px solid #00D09C;">
+                                            <i class="fa-solid fa-pause"></i> Pause
+                                        </button>
+                                        <button id="resSimBtnElecReset" class="btn btn-sm btn-outline-secondary" style="font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); color: #FFF; border: 1px solid rgba(255,255,255,0.2);">
+                                            <i class="fa-solid fa-rotate-left"></i> Reset Totalizer
+                                        </button>
+                                    </div>
+                                    <span style="font-size: 0.72rem; color: #6A8C84;">Plausibility Check: P = V · I · PF / 1000 Verified</span>
+                                </div>
+                            </div>
+
+                            <!-- 2. WATER RESOURCE CARD -->
+                            <div class="resource-sim-card" id="resSimCardWater" style="background: #0E3D32; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                                            <i class="fa-solid fa-droplet"></i>
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Water Telemetry</h3>
+                                            <span style="font-size: 0.76rem; color: #A3C9BE;">Device: <strong>SIM-WATER-01</strong> | Facility: <strong>FAC_GEC_CAMPUS (Block B)</strong></span>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="badge-provenance-sim" style="background: rgba(245, 197, 119, 0.15); border: 1px solid #F5C577; color: #F5C577; padding: 3px 10px; border-radius: 14px; font-size: 0.7rem; font-weight: 700;">
+                                            [SIMULATED DATA]
+                                        </span>
+                                        <span id="resSimWaterStatus" class="badge-mint" style="padding: 3px 10px; border-radius: 14px; font-size: 0.72rem; font-weight: 700;">
+                                            ACTIVE
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Water Controls -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: rgba(6, 29, 23, 0.4); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div>
+                                        <label for="resSimWaterScenario" style="display: block; font-size: 0.78rem; font-weight: 700; color: #A3C9BE; margin-bottom: 6px;">
+                                            Scenario Preset:
+                                        </label>
+                                        <select id="resSimWaterScenario" style="width: 100%; background: #0A2E26; color: #FFF; border: 1px solid rgba(56,189,248,0.3); border-radius: 6px; padding: 6px 10px; font-size: 0.8rem; font-weight: 600;">
+                                            <option value="NORMAL">Normal Operation (Intermittent Restroom/Wash)</option>
+                                            <option value="SUSTAINED_LEAK">Sustained Pipe Leak (+26 L/min Continuous)</option>
+                                            <option value="BURST_FLOW">Burst / Major Rupture (4.2x Flow, Pressure Sag)</option>
+                                            <option value="LOW_FLOW">Low / No Flow (Night Shutoff, &lt;1.5 L/min)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                            <label for="resSimWaterSlider" style="font-size: 0.78rem; font-weight: 700; color: #A3C9BE;">Baseline Flow:</label>
+                                            <span id="resSimWaterSliderVal" style="font-size: 0.8rem; font-weight: 800; color: #38BDF8;">35.0 L/min</span>
+                                        </div>
+                                        <input type="range" id="resSimWaterSlider" min="5" max="150" step="5" value="35" style="width: 100%; accent-color: #38BDF8; cursor: pointer;">
+                                    </div>
+                                </div>
+
+                                <!-- Water Metric Tiles Grid -->
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Flow Rate</span>
+                                        <strong id="resSimWaterFlow" style="font-size: 1.25rem; color: #38BDF8; display: block; margin-top: 2px;">35.0 L/min</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Volumetric rate</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Cumulative Volume</span>
+                                        <strong id="resSimWaterM3" style="font-size: 1.25rem; color: #FFFFFF; display: block; margin-top: 2px;">842.150 m³</strong>
+                                        <span style="font-size: 0.68rem; color: #38BDF8;">Monotonic totalizer (1 m³ = 1000 L)</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Water Pressure</span>
+                                        <strong id="resSimWaterPressure" style="font-size: 1.25rem; color: #F5C577; display: block; margin-top: 2px;">3.40 bar</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Mains hydrostatic pressure</span>
+                                    </div>
+                                </div>
+
+                                <!-- Water Chart -->
+                                <div style="height: 180px; position: relative; width: 100%;">
+                                    <canvas id="canvasResSimWater" aria-label="Water flow and pressure stream chart" role="img"></canvas>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                                    <div style="display: flex; gap: 8px;">
+                                        <button id="resSimBtnWaterToggle" class="btn btn-sm btn-outline-mint" style="font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; background: rgba(56,189,248,0.1); color: #38BDF8; border: 1px solid #38BDF8;">
+                                            <i class="fa-solid fa-pause"></i> Pause
+                                        </button>
+                                        <button id="resSimBtnWaterReset" class="btn btn-sm btn-outline-secondary" style="font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); color: #FFF; border: 1px solid rgba(255,255,255,0.2);">
+                                            <i class="fa-solid fa-rotate-left"></i> Reset Totalizer
+                                        </button>
+                                    </div>
+                                    <span style="font-size: 0.72rem; color: #6A8C84;">Pressure drops inversely with flow friction</span>
+                                </div>
+                            </div>
+
+                            <!-- 3. AIR QUALITY RESOURCE CARD -->
+                            <div class="resource-sim-card" id="resSimCardAir" style="background: #0E3D32; border: 1px solid rgba(167, 139, 250, 0.25); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(167, 139, 250, 0.15); color: #A78BFA; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                                            <i class="fa-solid fa-wind"></i>
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Air Quality & Indoor Climate</h3>
+                                            <span style="font-size: 0.76rem; color: #A3C9BE;">Device: <strong>SIM-AIR-01</strong> | Facility: <strong>FAC_GEC_CAMPUS (Block B)</strong></span>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="badge-provenance-sim" style="background: rgba(245, 197, 119, 0.15); border: 1px solid #F5C577; color: #F5C577; padding: 3px 10px; border-radius: 14px; font-size: 0.7rem; font-weight: 700;">
+                                            [SIMULATED DATA]
+                                        </span>
+                                        <span id="resSimAirStatus" class="badge-mint" style="padding: 3px 10px; border-radius: 14px; font-size: 0.72rem; font-weight: 700;">
+                                            ACTIVE
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Air Quality Controls -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: rgba(6, 29, 23, 0.4); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div>
+                                        <label for="resSimAirScenario" style="display: block; font-size: 0.78rem; font-weight: 700; color: #A3C9BE; margin-bottom: 6px;">
+                                            Scenario Preset:
+                                        </label>
+                                        <select id="resSimAirScenario" style="width: 100%; background: #0A2E26; color: #FFF; border: 1px solid rgba(167,139,250,0.3); border-radius: 6px; padding: 6px 10px; font-size: 0.8rem; font-weight: 600;">
+                                            <option value="NORMAL">Normal Indoor (Low CO2, AQI Good)</option>
+                                            <option value="POOR_VENTILATION">Poor Ventilation (Fresh Air Damped, High CO2)</option>
+                                            <option value="PARTICULATE_SPIKE">Particulate Spike (Outdoor Smog/Dust Intrusion)</option>
+                                            <option value="SENSOR_FAULT">Sensor Fault / Drift (Erratic Thermal Variations)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                            <label for="resSimAirSlider" style="font-size: 0.78rem; font-weight: 700; color: #A3C9BE;">Building Occupants:</label>
+                                            <span id="resSimAirSliderVal" style="font-size: 0.8rem; font-weight: 800; color: #A78BFA;">120 people</span>
+                                        </div>
+                                        <input type="range" id="resSimAirSlider" min="0" max="400" step="10" value="120" style="width: 100%; accent-color: #A78BFA; cursor: pointer;">
+                                    </div>
+                                </div>
+
+                                <!-- Air Quality Metric Tiles Grid -->
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Carbon Dioxide (CO₂)</span>
+                                        <strong id="resSimAirCo2" style="font-size: 1.25rem; color: #A78BFA; display: block; margin-top: 2px;">625 ppm</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Baseline 400 + 1.8·Occ</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Fine Dust (PM2.5)</span>
+                                        <strong id="resSimAirPm25" style="font-size: 1.25rem; color: #FFFFFF; display: block; margin-top: 2px;">16.5 µg/m³</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Respirable fraction</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Coarse Dust (PM10)</span>
+                                        <strong id="resSimAirPm10" style="font-size: 1.25rem; color: #FFFFFF; display: block; margin-top: 2px;">27.0 µg/m³</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">PM10 ~ 1.6·PM2.5</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Temperature</span>
+                                        <strong id="resSimAirTemp" style="font-size: 1.25rem; color: #FFFFFF; display: block; margin-top: 2px;">23.2 °C</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Thermal comfort</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Relative Humidity</span>
+                                        <strong id="resSimAirHum" style="font-size: 1.25rem; color: #FFFFFF; display: block; margin-top: 2px;">48.5 %</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">RH % (30-65% ideal)</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">EPA Air Quality Index</span>
+                                        <strong id="resSimAirAqi" style="font-size: 1.25rem; color: #00D09C; display: block; margin-top: 2px;">45 (Good)</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Standard EPA AQI</span>
+                                    </div>
+                                </div>
+
+                                <!-- Air Quality Chart -->
+                                <div style="height: 180px; position: relative; width: 100%;">
+                                    <canvas id="canvasResSimAir" aria-label="Air quality CO2 and PM2.5 stream chart" role="img"></canvas>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                                    <div style="display: flex; gap: 8px;">
+                                        <button id="resSimBtnAirToggle" class="btn btn-sm btn-outline-mint" style="font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; background: rgba(167,139,250,0.1); color: #A78BFA; border: 1px solid #A78BFA;">
+                                            <i class="fa-solid fa-pause"></i> Pause
+                                        </button>
+                                        <button id="resSimBtnAirReset" class="btn btn-sm btn-outline-secondary" style="font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); color: #FFF; border: 1px solid rgba(255,255,255,0.2);">
+                                            <i class="fa-solid fa-rotate-left"></i> Reset Baseline
+                                        </button>
+                                    </div>
+                                    <span style="font-size: 0.72rem; color: #6A8C84;">High occupancy directly compounds CO₂ respiration</span>
+                                </div>
+                            </div>
+
+                            <!-- 4. WASTE RESOURCE CARD -->
+                            <div class="resource-sim-card" id="resSimCardWaste" style="background: #0E3D32; border: 1px solid rgba(245, 197, 119, 0.25); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(245, 197, 119, 0.15); color: #F5C577; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </div>
+                                        <div>
+                                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #FFFFFF;">Waste & Dumpster Fill</h3>
+                                            <span style="font-size: 0.76rem; color: #A3C9BE;">Device: <strong>SIM-WASTE-01</strong> | Facility: <strong>FAC_GEC_CAMPUS (Block B)</strong></span>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="badge-provenance-sim" style="background: rgba(245, 197, 119, 0.15); border: 1px solid #F5C577; color: #F5C577; padding: 3px 10px; border-radius: 14px; font-size: 0.7rem; font-weight: 700;">
+                                            [SIMULATED DATA]
+                                        </span>
+                                        <span id="resSimWasteStatus" class="badge-mint" style="padding: 3px 10px; border-radius: 14px; font-size: 0.72rem; font-weight: 700;">
+                                            ACTIVE
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Waste Controls -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: rgba(6, 29, 23, 0.4); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div>
+                                        <label for="resSimWasteScenario" style="display: block; font-size: 0.78rem; font-weight: 700; color: #A3C9BE; margin-bottom: 6px;">
+                                            Scenario Preset:
+                                        </label>
+                                        <select id="resSimWasteScenario" style="width: 100%; background: #0A2E26; color: #FFF; border: 1px solid rgba(245,197,119,0.3); border-radius: 6px; padding: 6px 10px; font-size: 0.8rem; font-weight: 600;">
+                                            <option value="NORMAL">Normal Weekday Accumulation (Gradual Step)</option>
+                                            <option value="EVENT_RAPID">Campus Event / Rapid Fill (+14% per step)</option>
+                                            <option value="BIN_FULL">Bin Full / Overflow Risk (&gt;90% Capacity)</option>
+                                            <option value="RESET_EMPTIED">Emptied / Post-Collection Reset (Drops to 4%)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                            <label for="resSimWasteSlider" style="font-size: 0.78rem; font-weight: 700; color: #A3C9BE;">Accumulation Rate:</label>
+                                            <span id="resSimWasteSliderVal" style="font-size: 0.8rem; font-weight: 800; color: #F5C577;">2.5% / step</span>
+                                        </div>
+                                        <input type="range" id="resSimWasteSlider" min="0.5" max="15.0" step="0.5" value="2.5" style="width: 100%; accent-color: #F5C577; cursor: pointer;">
+                                    </div>
+                                </div>
+
+                                <!-- Waste Visual Fill Bar -->
+                                <div style="background: rgba(6, 29, 23, 0.6); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                        <span style="font-size: 0.75rem; color: #A3C9BE; font-weight: 700;">1100L Bin Volumetric Fill Level:</span>
+                                        <strong id="resSimWasteFill" style="font-size: 0.88rem; color: #00D09C;">38.0 %</strong>
+                                    </div>
+                                    <div style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;">
+                                        <div id="resSimWasteFillBar" style="width: 38%; height: 100%; background: #00D09C; transition: width 0.3s ease, background 0.3s ease;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Waste Metric Tiles Grid -->
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(245, 197, 119, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Estimated Mass</span>
+                                        <strong id="resSimWasteKg" style="font-size: 1.25rem; color: #F5C577; display: block; margin-top: 2px;">62.7 kg</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Based on 0.15 kg/L density</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(245, 197, 119, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Overflow Risk</span>
+                                        <strong id="resSimWasteRisk" style="font-size: 1.25rem; color: #00D09C; display: block; margin-top: 2px;">LOW</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Threshold: 75% Med, 90% High</span>
+                                    </div>
+                                    <div style="background: rgba(10, 46, 38, 0.7); border: 1px solid rgba(245, 197, 119, 0.2); border-radius: 8px; padding: 10px;">
+                                        <span style="font-size: 0.72rem; color: #A3C9BE; display: block;">Collection Status</span>
+                                        <strong id="resSimWasteStatusTxt" style="font-size: 1.05rem; color: #FFFFFF; display: block; margin-top: 2px;">Normal Operation</strong>
+                                        <span style="font-size: 0.68rem; color: #6A8C84;">Dispatch recommendation</span>
+                                    </div>
+                                </div>
+
+                                <!-- Waste Chart -->
+                                <div style="height: 180px; position: relative; width: 100%;">
+                                    <canvas id="canvasResSimWaste" aria-label="Waste fill level and mass stream chart" role="img"></canvas>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                                    <div style="display: flex; gap: 8px;">
+                                        <button id="resSimBtnWasteToggle" class="btn btn-sm btn-outline-mint" style="font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; background: rgba(245,197,119,0.1); color: #F5C577; border: 1px solid #F5C577;">
+                                            <i class="fa-solid fa-pause"></i> Pause
+                                        </button>
+                                        <button id="resSimBtnWasteReset" class="btn btn-sm btn-outline-secondary" style="font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.06); color: #FFF; border: 1px solid rgba(255,255,255,0.2);">
+                                            <i class="fa-solid fa-truck"></i> Emptied Bin Reset
+                                        </button>
+                                    </div>
+                                    <span style="font-size: 0.72rem; color: #6A8C84;">Emptied scenario immediately resets level to 4%</span>
+                                </div>
+                            </div>
+
+                        </div> <!-- /resSimGridContainer -->
+
+                    </div>
+                </div>
+
+<!-- TAB CONTENT 8: FAQ & SYSTEM KNOWLEDGE HUB -->
                 <div class="tab-content" id="contentFaq">
                     <div class="module-tab-wrapper">
                         
@@ -3251,6 +3727,7 @@
 
     <!-- Custom JavaScript -->
     <script src="js/charts.js"></script>
+    <script src="js/resource_simulator.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

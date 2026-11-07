@@ -16,6 +16,7 @@
 
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <time.h>
 #include <math.h>
@@ -31,6 +32,9 @@
   #define MQTT_CLIENT_ID      "ESP32_EDGE_GATEWAY_01"
   #define MQTT_USERNAME       ""
   #define MQTT_PASSWORD       ""
+  #define USE_HTTP_INGESTION  0
+  #define HTTP_API_ENDPOINT   "http://192.168.1.100:8000/api/v1/iot/telemetry"
+  #define HTTP_REQUEST_TIMEOUT_MS 5000
   #define GATEWAY_API_KEY     "UNCONFIGURED_SET_IN_ENV"
 
   #define FACILITY_ID         "FAC_GEC_CAMPUS"
@@ -228,7 +232,47 @@ void enqueueTelemetry(const char* topic, const char* payload) {
     }
 }
 
+// --- Direct HTTP REST Ingestion Helper ---
+bool sendHttpTelemetry(const char* payload) {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[HTTP] Wi-Fi not connected; packet queued offline.");
+        return false;
+    }
+    HTTPClient http;
+    http.begin(HTTP_API_ENDPOINT);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("User-Agent", "EstateIQ-ESP32-Gateway/2.0");
+    http.setTimeout(HTTP_REQUEST_TIMEOUT_MS);
+
+    int httpCode = http.POST((uint8_t*)payload, strlen(payload));
+    bool success = false;
+    if (httpCode >= 200 && httpCode < 300) {
+        Serial.printf("[HTTP] Telemetry POST accepted (HTTP %d)\n", httpCode);
+        success = true;
+    } else {
+        Serial.printf("[HTTP] Telemetry POST failed (HTTP %d: %s)\n", httpCode, http.errorToString(httpCode).c_str());
+    }
+    http.end();
+    return success;
+}
+
 void drainOfflineQueue() {
+#if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
+    while (queueCount > 0 && WiFi.status() == WL_CONNECTED) {
+        QueuedEnvelope &item = offlineQueue[queueTail];
+        if (item.in_use) {
+            bool ok = sendHttpTelemetry(item.payload);
+            if (ok) {
+                item.in_use = false;
+                queueTail = (queueTail + 1) % OFFLINE_QUEUE_SIZE;
+                queueCount--;
+                Serial.printf("[QUEUE] Replayed buffered HTTP packet (remaining: %d)\n", queueCount);
+            } else {
+                break; // Transport stalled, retry next cycle
+            }
+        }
+    }
+#else
     while (queueCount > 0 && mqttClient.connected()) {
         QueuedEnvelope &item = offlineQueue[queueTail];
         if (item.in_use) {
@@ -238,17 +282,24 @@ void drainOfflineQueue() {
                 item.in_use = false;
                 queueTail = (queueTail + 1) % OFFLINE_QUEUE_SIZE;
                 queueCount--;
-                Serial.printf("[QUEUE] Replayed buffered packet (remaining: %d)\n", queueCount);
+                Serial.printf("[QUEUE] Replayed buffered MQTT packet (remaining: %d)\n", queueCount);
             } else {
                 break; // Network stalled, retry next cycle
             }
         }
     }
+#endif
 }
 
 // --- Non-Blocking Network Handlers ---
 void maintainWiFi() {
     if (WiFi.status() == WL_CONNECTED) {
+        if (wifiBackoffMs > 2000) {
+            Serial.printf("[WIFI] Connected! Assigned IP: %s\n", WiFi.localIP().toString().c_str());
+#if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
+            drainOfflineQueue();
+#endif
+        }
         wifiBackoffMs = 2000; // Reset backoff on success
         return;
     }
@@ -263,6 +314,9 @@ void maintainWiFi() {
 }
 
 void maintainMQTT() {
+#if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
+    return; // MQTT disabled when using direct HTTP ingestion
+#endif
     if (WiFi.status() != WL_CONNECTED || mqttClient.connected()) {
         if (mqttClient.connected()) {
             mqttBackoffMs = 2000;
@@ -403,6 +457,14 @@ void setup() {
     Serial.println("\n========================================================");
     Serial.println("EstateIQ ESP32 Edge Sensor Gateway Firmware v2.0-RealIoT");
     Serial.println("========================================================");
+    Serial.printf("[CONFIG] Gateway ID: %s | Facility: %s | Building: %s\n", MQTT_CLIENT_ID, FACILITY_ID, BUILDING_ID);
+#if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
+    Serial.println("[TRANSPORT] Ingestion Mode: Direct HTTP REST (/api/v1/iot/telemetry)");
+    Serial.printf("[TRANSPORT] Target Endpoint: %s\n", HTTP_API_ENDPOINT);
+#else
+    Serial.println("[TRANSPORT] Ingestion Mode: MQTT Broker Ingestion");
+    Serial.printf("[TRANSPORT] Target Broker: %s:%d\n", MQTT_BROKER_HOST, MQTT_BROKER_PORT);
+#endif
 
     // RS-485 Modbus Serial Setup
     if (RS485_DE_RE_PIN >= 0) {
@@ -422,9 +484,11 @@ void setup() {
     // Configure SNTP for accurate UTC timestamps
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 
-    // Initialize Network Client
+#if !defined(USE_HTTP_INGESTION) || (USE_HTTP_INGESTION == 0)
+    // Initialize MQTT Client
     mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
     mqttClient.setBufferSize(768);
+#endif
 
     lastWaterCalcMillis = millis();
     lastSampleTime = millis();
@@ -436,8 +500,10 @@ void setup() {
 void loop() {
     // 1. Maintain background connectivity without blocking sensor operations
     maintainWiFi();
+#if !defined(USE_HTTP_INGESTION) || (USE_HTTP_INGESTION == 0)
     maintainMQTT();
     mqttClient.loop();
+#endif
 
     unsigned long now = millis();
 
@@ -535,12 +601,25 @@ void loop() {
         char bufferElec[768];
         serializeJson(docElec, bufferElec);
 
-        if (mqttClient.connected()) {
-            mqttClient.publish(MQTT_TOPIC_ELEC, bufferElec, false); // PubSubClient publishes QoS 0 only.
-            Serial.printf("[PUB-ELEC] Transmitted real meter packet seq=%lu\n", sequenceCounter);
+#if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
+        if (WiFi.status() == WL_CONNECTED) {
+            bool ok = sendHttpTelemetry(bufferElec);
+            if (!ok) {
+                enqueueTelemetry(MQTT_TOPIC_ELEC, bufferElec);
+            } else {
+                Serial.printf("[PUB-ELEC] Transmitted real meter packet seq=%lu via HTTP\n", sequenceCounter);
+            }
         } else {
             enqueueTelemetry(MQTT_TOPIC_ELEC, bufferElec);
         }
+#else
+        if (mqttClient.connected()) {
+            mqttClient.publish(MQTT_TOPIC_ELEC, bufferElec, false); // PubSubClient publishes QoS 0 only.
+            Serial.printf("[PUB-ELEC] Transmitted real meter packet seq=%lu via MQTT\n", sequenceCounter);
+        } else {
+            enqueueTelemetry(MQTT_TOPIC_ELEC, bufferElec);
+        }
+#endif
 
         // ---------------------------------------------------------------------------------
         // B. Read Water Flow & Aux Sensors
@@ -600,11 +679,24 @@ void loop() {
         char bufferWater[768];
         serializeJson(docWater, bufferWater);
 
-        if (mqttClient.connected()) {
-            mqttClient.publish(MQTT_TOPIC_WATER, bufferWater, false);
-            Serial.printf("[PUB-WATER] Transmitted real water packet seq=%lu\n", sequenceCounter);
+#if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
+        if (WiFi.status() == WL_CONNECTED) {
+            bool ok = sendHttpTelemetry(bufferWater);
+            if (!ok) {
+                enqueueTelemetry(MQTT_TOPIC_WATER, bufferWater);
+            } else {
+                Serial.printf("[PUB-WATER] Transmitted real water packet seq=%lu via HTTP\n", sequenceCounter);
+            }
         } else {
             enqueueTelemetry(MQTT_TOPIC_WATER, bufferWater);
         }
+#else
+        if (mqttClient.connected()) {
+            mqttClient.publish(MQTT_TOPIC_WATER, bufferWater, false);
+            Serial.printf("[PUB-WATER] Transmitted real water packet seq=%lu via MQTT\n", sequenceCounter);
+        } else {
+            enqueueTelemetry(MQTT_TOPIC_WATER, bufferWater);
+        }
+#endif
     }
 }

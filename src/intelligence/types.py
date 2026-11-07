@@ -38,6 +38,7 @@ class EventData:
     temperature: float
     hvac_load: float = 0.0
     extra_features: Dict[str, Any] = field(default_factory=dict)
+    interval_hours: float = 0.25
 
 @dataclass
 class QualityResult:
@@ -57,6 +58,9 @@ class ContextualResult:
     contextual_score: float
     early_exit: bool
     early_exit_reason: str = ""
+    baseline_source: str = "HEURISTIC_COLD_START"
+    baseline_observations: int = 0
+    active_rules: List[str] = field(default_factory=list)
 
 @dataclass
 class PredictionResult:
@@ -67,6 +71,11 @@ class PredictionResult:
     ensemble_prediction: float = 0.0
     model_weights: Dict[str, float] = field(default_factory=dict)
     model_metrics: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    epistemic_uncertainty: float = 0.0
+    aleatoric_uncertainty: float = 0.0
+    prediction_interval_lower: float = 0.0
+    prediction_interval_upper: float = 0.0
+    online_regret_bound: float = 0.0
 
 @dataclass
 class AnomalyResult:
@@ -74,12 +83,24 @@ class AnomalyResult:
     anomaly_level: AnomalyLevel
     evidence: List[str]
     model_agreement_pct: float
+    shannon_entropy: float = 0.0
+    normalized_entropy: float = 0.0
+    mahalanobis_distance: float = 0.0
+    consensus_sharpness: float = 1.0
+
+    @property
+    def evidence_support_pct(self) -> float:
+        """Backward-compatible alias; current DIF does not run multiple models."""
+        return self.model_agreement_pct
 
 @dataclass
 class ConfidenceResult:
     confidence_pct: float
     confidence_level: str
     gate_passed: bool
+    aleatoric_factor: float = 0.0
+    epistemic_factor: float = 0.0
+    calibrated_confidence_score: float = 0.0
 
 @dataclass
 class ImpactResult:
@@ -141,4 +162,6 @@ class DecisionResult:
     recommendations: List[RecommendationCandidate]
     shap_attribution: List[Dict[str, Any]] = field(default_factory=list)
     models_skipped: List[str] = field(default_factory=list)
+    optimization_result: Optional[Dict[str, Any]] = None
+    pareto_tradeoff: Optional[Dict[str, Any]] = None
     provenance: str = "ESTATEIQ_DIF"

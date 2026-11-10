@@ -2,6 +2,7 @@
 AI Context Builder (src/ai/context_builder.py).
 Fetches intent-specific EstateIQ telemetry, runs baseline calculations, DIF analysis,
 and assembles authoritative grounded evidence packets tailored to user query intent.
+Grounds all values in verifiable device registry state and active telemetry streams.
 """
 
 import datetime
@@ -40,36 +41,57 @@ class AIContextBuilder:
         # 2. Execute Data Requirement Planner for intent
         plan_data = self.planner.plan_and_fetch(route, user_query)
 
-        # 3. Fetch IoT Device Registry Status
+        # 3. Fetch IoT Device Registry Status dynamically (no hardcoded counts)
         try:
             from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
             sim_list = GLOBAL_DEVICE_REGISTRY.list_instances()
             dev_list = GLOBAL_DEVICE_REGISTRY.list_devices()
             simulators = [s.model_dump() if hasattr(s, 'model_dump') else s.dict() for s in sim_list]
             devices = [d.model_dump() if hasattr(d, 'model_dump') else d.dict() for d in dev_list]
-            
+
+            online_devs = [d for d in devices if d.get("status") in ["ONLINE", "STREAMING"]]
+            total_devs = len(devices)
+            online_dev_count = len(online_devs)
+
+            # Count actual registered sensors across device definitions
+            total_sensors = sum(len(d.get("metrics", [])) or 4 for d in devices) if devices else 0
+            online_sensors = sum(len(d.get("metrics", [])) or 4 for d in online_devs) if online_devs else 0
+            rel_pct = round((online_dev_count / total_devs) * 100.0, 1) if total_devs > 0 else 0.0
+
             iot_registry_summary = {
-                "total_simulators": max(1, len(simulators)),
-                "online_simulators": max(1, len([s for s in simulators if s.get("status") in ["CONNECTED", "STREAMING"]])),
-                "total_connected_iot_devices": max(4, len(devices)),
-                "online_devices": max(4, len([d for d in devices if d.get("status") in ["ONLINE", "STREAMING"]])),
-                "total_registered_sensors": 48,
-                "online_sensors": 46,
-                "sensor_reliability_pct": 95.8,
+                "total_simulators": len(simulators),
+                "online_simulators": len([s for s in simulators if s.get("status") in ["CONNECTED", "STREAMING"]]),
+                "total_connected_iot_devices": total_devs,
+                "online_devices": online_dev_count,
+                "total_registered_sensors": total_sensors,
+                "online_sensors": online_sensors,
+                "sensor_reliability_pct": rel_pct,
                 "stale_devices": len([d for d in devices if d.get("status") == "STALE"]),
-                "offline_devices": len([d for d in devices if d.get("status") == "OFFLINE"]),
+                "offline_devices": len([d for d in devices if d.get("status") in ["OFFLINE", "STANDBY"]]),
                 "simulators_list": simulators[:5],
-                "devices_summary": [{"id": d.get("device_id"), "name": d.get("device_name") or d.get("name"), "status": d.get("status"), "last_seen": d.get("last_sample_at")} for d in devices[:10]]
+                "devices_summary": [
+                    {
+                        "id": d.get("device_id"),
+                        "name": d.get("device_name") or d.get("name"),
+                        "status": d.get("status"),
+                        "last_seen": d.get("last_sample_at")
+                    }
+                    for d in devices[:10]
+                ]
             }
         except Exception:
             iot_registry_summary = {
-                "total_simulators": 1,
-                "online_simulators": 1,
-                "total_connected_iot_devices": 4,
-                "online_devices": 4,
-                "total_registered_sensors": 48,
-                "online_sensors": 46,
-                "sensor_reliability_pct": 95.8
+                "total_simulators": 0,
+                "online_simulators": 0,
+                "total_connected_iot_devices": 0,
+                "online_devices": 0,
+                "total_registered_sensors": 0,
+                "online_sensors": 0,
+                "sensor_reliability_pct": 0.0,
+                "stale_devices": 0,
+                "offline_devices": 0,
+                "simulators_list": [],
+                "devices_summary": []
             }
 
         # 4. Base Query Metadata
@@ -85,46 +107,110 @@ class AIContextBuilder:
             "iot_registry": iot_registry_summary
         }
 
-        # 4b. Ingest Live IoT Telemetry Stream
+        # 4b. Ingest Live IoT Telemetry from Physical Registry or Active Simulator
         try:
             from src.services.iot_simulator import GLOBAL_IOT_SIMULATOR
             sim_status = GLOBAL_IOT_SIMULATOR.get_status()
             sim_sensors = sim_status.get("sensors", {})
-            iot_ingestion_status = sim_status.get("latest_ingestion_status", "STREAMING")
+            iot_ingestion_status = sim_status.get("latest_ingestion_status", "IDLE")
         except Exception:
             sim_status = {}
             sim_sensors = {}
             iot_ingestion_status = "UNKNOWN"
 
+        from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+
+        def _fetch_live_metric(device_ids: List[str], metric_keys: List[str], sim_key: Optional[str] = None):
+            """Checks physical hardware telemetry first, then active simulator, else returns None."""
+            for dev_id in device_ids:
+                rec = GLOBAL_DEVICE_REGISTRY.get_latest_telemetry(dev_id)
+                if rec:
+                    m = rec.get("telemetry") or rec.get("metrics") or {}
+                    for mk in metric_keys:
+                        if mk in m and m[mk] is not None:
+                            val = m[mk]
+                            badge = rec.get("data_source_badge", "[REAL SENSOR]")
+                            is_hw = (rec.get("source_type") in ["physical_sensor", "real_sensor"] or rec.get("is_verified_hardware", False))
+                            return val, badge, is_hw
+            if sim_key and sim_key in sim_sensors and sim_sensors[sim_key] is not None:
+                return sim_sensors[sim_key], "[SIMULATED IoT]", False
+            return None, "UNAVAILABLE", False
+
+        # Gather metrics across physical hardware & simulator
+        p_val, p_badge, p_hw = _fetch_live_metric(["METER-BLOCK-B-001", "DEV_ELEC_01"], ["active_power_kw", "power_kw", "active_power"], "active_power_kw")
+        e_val, e_badge, e_hw = _fetch_live_metric(["METER-BLOCK-B-001", "DEV_ELEC_01"], ["energy_kwh", "total_energy_kwh"], "energy_kwh")
+        v_val, v_badge, v_hw = _fetch_live_metric(["METER-BLOCK-B-001", "DEV_ELEC_01"], ["voltage_v", "line_voltage_v", "voltage"], "voltage_v")
+        i_val, i_badge, i_hw = _fetch_live_metric(["METER-BLOCK-B-001", "DEV_ELEC_01"], ["current_a", "current"], "current_a")
+        pf_val, pf_badge, pf_hw = _fetch_live_metric(["METER-BLOCK-B-001", "DEV_ELEC_01"], ["power_factor", "pf"], "power_factor")
+
+        hvac_p_val, _, _ = _fetch_live_metric(["DEV_HVAC_01"], ["hvac_load_kw", "load_kw"], "hvac_load_kw")
+        hvac_stat_val, _, _ = _fetch_live_metric(["DEV_HVAC_01"], ["hvac_status", "status"], "hvac_status")
+
+        wf_val, wf_badge, wf_hw = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["flow_rate_lmin", "flow_rate", "water_flow"], "water_flow_lmin")
+        cum_w_val, _, _ = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["cumulative_volume_m3", "cumulative_m3"], "cumulative_water_m3")
+        tank_p_val, _, _ = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["tank_level_pct", "level_pct", "water_level_pct"], "tank_level_pct")
+        tank_dist_val, _, _ = _fetch_live_metric(["WATER-BLOCK-B-001"], ["tank_distance_cm", "distance_cm"], None)
+
+        waste_fill_val, waste_badge, waste_hw = _fetch_live_metric(["WASTE-BLOCK-B-001"], ["fill_level_percent", "fill_level_pct", "bin_fill_pct"], None)
+        waste_dist_val, _, _ = _fetch_live_metric(["WASTE-BLOCK-B-001"], ["bin_distance_cm", "bin_distance", "distance_cm"], None)
+
+        temp_val, env_badge, env_hw = _fetch_live_metric(["ENV-BLOCK-B-001", "DEV_ENV_01"], ["temperature_c", "room_temperature_c", "temperature"], "temperature_c")
+        hum_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001", "DEV_ENV_01"], ["humidity_pct", "humidity"], "humidity_pct")
+        occ_val, _, _ = _fetch_live_metric(["DEV_ENV_01"], ["occupancy_count", "occupancy"], "occupancy_count")
+        aqi_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001", "DEV_ENV_01"], ["indoor_aqi", "air_quality_aqi", "mq135_adc_ppm"], "air_quality_aqi")
+        raw_adc_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001"], ["air_quality_raw_adc", "mq135_adc_raw", "mq135_adc_ppm"], None)
+
         live_device_readings = {
             "DEV_ELEC_01": {
-                "device_name": "Main Electrical Submeter",
-                "active_power_kw": round(float(sim_sensors.get("active_power_kw", 145.2)), 2),
-                "energy_kwh": round(float(sim_sensors.get("energy_kwh", 36.3)), 2),
-                "line_voltage_v": round(float(sim_sensors.get("voltage_v", 415.0)), 1),
-                "current_a": round(float(sim_sensors.get("current_a", 202.0)), 1),
-                "power_factor": round(float(sim_sensors.get("power_factor", 0.94)), 2)
+                "device_name": "Main Electrical Submeter (METER-BLOCK-B-001 / DEV_ELEC_01)",
+                "active_power_kw": round(float(p_val), 2) if p_val is not None else None,
+                "energy_kwh": round(float(e_val), 2) if e_val is not None else None,
+                "line_voltage_v": round(float(v_val), 1) if v_val is not None else None,
+                "current_a": round(float(i_val), 1) if i_val is not None else None,
+                "power_factor": round(float(pf_val), 2) if pf_val is not None else None,
+                "is_available": p_val is not None,
+                "data_source_badge": p_badge
             },
             "DEV_HVAC_01": {
                 "device_name": "HVAC Chiller & Compressor Monitor",
-                "hvac_load_kw": round(float(sim_sensors.get("hvac_load_kw", 58.0)), 1),
-                "hvac_status": sim_sensors.get("hvac_status", "ON"),
-                "operating_schedule": sim_sensors.get("operating_schedule", "PEAK_DAY")
+                "hvac_load_kw": round(float(hvac_p_val), 1) if hvac_p_val is not None else None,
+                "hvac_status": hvac_stat_val if hvac_stat_val is not None else "STANDBY",
+                "operating_schedule": sim_sensors.get("operating_schedule", "PEAK_DAY"),
+                "is_available": hvac_p_val is not None
             },
             "DEV_WATER_01": {
-                "device_name": "Water Riser Flow & Tank Level",
-                "water_flow_lmin": round(float(sim_sensors.get("water_flow_lmin", 50.0)), 1),
-                "cumulative_water_m3": round(float(sim_sensors.get("cumulative_water_m3", 12.4)), 1),
-                "tank_level_pct": round(float(sim_sensors.get("tank_level_pct", 82.0)), 1)
+                "device_name": "Water Riser Flow & Tank Node (WATER-BLOCK-B-001 / DEV_WATER_01)",
+                "water_flow_lmin": round(float(wf_val), 1) if wf_val is not None else None,
+                "cumulative_water_m3": round(float(cum_w_val), 1) if cum_w_val is not None else None,
+                "tank_level_pct": round(float(tank_p_val), 1) if tank_p_val is not None else None,
+                "tank_distance_cm": round(float(tank_dist_val), 1) if tank_dist_val is not None else None,
+                "is_available": wf_val is not None or tank_p_val is not None,
+                "data_source_badge": wf_badge
             },
             "DEV_ENV_01": {
-                "device_name": "Environmental & Occupancy Node",
-                "room_temperature_c": round(float(sim_sensors.get("temperature_c", 32.0)), 1),
-                "humidity_pct": round(float(sim_sensors.get("humidity_pct", 55.0)), 1),
-                "occupancy_count": int(sim_sensors.get("occupancy_count", 140)),
-                "indoor_aqi": round(float(sim_sensors.get("air_quality_aqi", 110.5)), 1)
+                "device_name": "Environmental & Occupancy Node (ENV-BLOCK-B-001 / DEV_ENV_01)",
+                "room_temperature_c": round(float(temp_val), 1) if temp_val is not None else None,
+                "humidity_pct": round(float(hum_val), 1) if hum_val is not None else None,
+                "occupancy_count": int(occ_val) if occ_val is not None else None,
+                "indoor_aqi": round(float(aqi_val), 1) if aqi_val is not None else None,
+                "raw_gas_adc": int(raw_adc_val) if raw_adc_val is not None else None,
+                "sensor_disclaimer": "MQ-135 sensor provides indicative uncalibrated ADC/ppm estimates; not certified EPA/CPCB AQI.",
+                "is_available": temp_val is not None or aqi_val is not None,
+                "data_source_badge": env_badge
+            },
+            "WASTE-BLOCK-B-001": {
+                "device_name": "Smart Waste Bin Monitor (HC-SR04 Ultrasonic Sonar)",
+                "fill_level_pct": round(float(waste_fill_val), 1) if waste_fill_val is not None else None,
+                "bin_distance_cm": round(float(waste_dist_val), 1) if waste_dist_val is not None else None,
+                "is_available": waste_fill_val is not None,
+                "data_source_badge": waste_badge
             }
         }
+
+        # Backward compatibility alias for METER-BLOCK-B-001
+        live_device_readings["METER-BLOCK-B-001"] = live_device_readings["DEV_ELEC_01"]
+        live_device_readings["WATER-BLOCK-B-001"] = live_device_readings["DEV_WATER_01"]
+        live_device_readings["ENV-BLOCK-B-001"] = live_device_readings["DEV_ENV_01"]
 
         # Handle Greetings
         if route.intent == IntentCategory.GREETING:
@@ -188,30 +274,39 @@ class AIContextBuilder:
             }
 
         if route.intent == IntentCategory.IOT_STATUS:
+            has_live = any(
+                GLOBAL_DEVICE_REGISTRY.get_latest_telemetry(getattr(d, "device_id", None) or (d.get("device_id") if isinstance(d, dict) else None))
+                for d in dev_list
+            )
+            data_badge = "[REAL SENSOR]" if has_live else sim_status.get("data_source_badge", "[SIMULATED IoT — NOT PHYSICAL SENSOR DATA]")
+            data_mode = "physical_sensor" if has_live else sim_status.get("data_source_mode", "simulated_iot")
             return {
                 "query_meta": query_meta,
                 "intent_type": "IOT_STATUS",
                 "is_explanatory": route.is_explanatory,
                 "device_status_summary": {
-                    "total_connected_iot_devices": iot_registry_summary.get("total_connected_iot_devices", 4),
-                    "online_devices": iot_registry_summary.get("online_devices", 4),
-                    "total_simulators": iot_registry_summary.get("total_simulators", 1),
-                    "online_simulators": iot_registry_summary.get("online_simulators", 1),
-                    "total_sensors": 48,
-                    "online_sensors": 46,
-                    "sensor_reliability_pct": 95.8,
+                    "total_connected_iot_devices": iot_registry_summary.get("total_connected_iot_devices", len(devices)),
+                    "online_devices": iot_registry_summary.get("online_devices", 0),
+                    "total_simulators": iot_registry_summary.get("total_simulators", len(simulators)),
+                    "online_simulators": iot_registry_summary.get("online_simulators", 0),
+                    "total_sensors": iot_registry_summary.get("total_registered_sensors", 0),
+                    "online_sensors": iot_registry_summary.get("online_sensors", 0),
+                    "sensor_reliability_pct": iot_registry_summary.get("sensor_reliability_pct", 0.0),
                     "connected_device_nodes": [
-                        "Main Electrical Submeter (DEV_ELEC_01)",
-                        "HVAC Chiller & Compressor Monitor (DEV_HVAC_01)",
-                        "Water Riser Flow & Tank Level (DEV_WATER_01)",
-                        "Environmental & Occupancy Node (DEV_ENV_01)"
+                        f"{d.get('name') or d.get('device_name')} ({d.get('id') or d.get('device_id')})"
+                        for d in iot_registry_summary.get("devices_summary", [])
+                    ] or [
+                        "Main Electrical Submeter (METER-BLOCK-B-001)",
+                        "Water Riser Flow & Tank Node (WATER-BLOCK-B-001)",
+                        "Environmental & Air Node (ENV-BLOCK-B-001)",
+                        "Smart Waste Bin Monitor (WASTE-BLOCK-B-001)"
                     ]
                 },
                 "iot_simulator_state": {
-                    "simulation_status": sim_status.get("status", "RUNNING"),
+                    "simulation_status": sim_status.get("status", "STANDBY"),
                     "ingestion_status": iot_ingestion_status,
-                    "data_source_mode": sim_status.get("data_source_mode", "simulated_iot"),
-                    "data_source_badge": sim_status.get("data_source_badge", "SIMULATED IoT — NOT PHYSICAL SENSOR DATA")
+                    "data_source_mode": data_mode,
+                    "data_source_badge": data_badge
                 },
                 "live_device_readings": live_device_readings,
                 "telemetry_observed": {
@@ -225,13 +320,18 @@ class AIContextBuilder:
                     "DEV_WATER_01_tank_level_pct": live_device_readings["DEV_WATER_01"]["tank_level_pct"],
                     "DEV_ENV_01_room_temperature_c": live_device_readings["DEV_ENV_01"]["room_temperature_c"],
                     "DEV_ENV_01_occupancy_count": live_device_readings["DEV_ENV_01"]["occupancy_count"],
-                    "DEV_ENV_01_indoor_aqi": live_device_readings["DEV_ENV_01"]["indoor_aqi"]
+                    "DEV_ENV_01_indoor_aqi": live_device_readings["DEV_ENV_01"]["indoor_aqi"],
+                    "WASTE_01_fill_level_pct": live_device_readings["WASTE-BLOCK-B-001"]["fill_level_pct"]
                 },
                 "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
-                "confidence": {"confidence_percent": 98.0, "confidence_level": "HIGH"},
+                "confidence": {
+                    "confidence_percent": iot_registry_summary.get("sensor_reliability_pct", 90.0) if iot_registry_summary.get("online_devices", 0) > 0 else 75.0,
+                    "confidence_level": "HIGH" if iot_registry_summary.get("online_devices", 0) > 0 else "MEDIUM"
+                },
+                "sensor_disclaimer": "MQ-135 sensor readings provide uncalibrated indicative gas estimates only; not certified EPA AQI.",
                 "recommended_actions": [
                     {"title": "Open Live IoT Monitor tab for real-time streaming telemetry", "expected_cost_saving_inr": 0},
-                    {"title": "Verify gateway connection for DEV_ELEC_01 submeter", "expected_cost_saving_inr": 0}
+                    {"title": "Verify gateway connection for physical ESP32 nodes", "expected_cost_saving_inr": 0}
                 ]
             }
 
@@ -249,14 +349,17 @@ class AIContextBuilder:
         # Handle Domain-Specific Non-Energy Queries Cleanly
         if route.intent == IntentCategory.WATER:
             water_data = plan_data["water"]
+            has_live_water = bool(GLOBAL_DEVICE_REGISTRY.get_latest_telemetry("WATER-BLOCK-B-001"))
+            quality_score = 98.0 if has_live_water else 88.0
+            conf_pct = 95.0 if has_live_water else 85.0
             return {
                 "query_meta": query_meta,
                 "intent_type": "WATER_AUDIT",
                 "is_explanatory": route.is_explanatory,
                 "telemetry_observed": water_data,
-                "data_quality": {"quality_score": 98.0, "sensor_reliability": 99.0},
+                "data_quality": {"quality_score": quality_score, "sensor_reliability": iot_registry_summary.get("sensor_reliability_pct", 0.0)},
                 "business_impact": {"hourly_cost_inr": 15.0, "annual_cost_of_inaction_inr": 131400.0},
-                "confidence": {"confidence_percent": 95.0, "confidence_level": "HIGH"},
+                "confidence": {"confidence_percent": conf_pct, "confidence_level": "HIGH" if conf_pct >= 85 else "MEDIUM"},
                 "recommended_actions": [
                     {"title": "Inspect Block A Main Riser for Pipe Seepage", "expected_cost_saving_inr": 3800.0}
                 ]
@@ -264,14 +367,17 @@ class AIContextBuilder:
 
         if route.intent == IntentCategory.WASTE:
             waste_data = plan_data["waste"]
+            has_live_waste = bool(GLOBAL_DEVICE_REGISTRY.get_latest_telemetry("WASTE-BLOCK-B-001"))
+            quality_score = 98.0 if has_live_waste else 85.0
+            conf_pct = 95.0 if has_live_waste else 82.0
             return {
                 "query_meta": query_meta,
                 "intent_type": "WASTE_AUDIT",
                 "is_explanatory": route.is_explanatory,
                 "telemetry_observed": waste_data,
-                "data_quality": {"quality_score": 95.0, "sensor_reliability": 98.0},
+                "data_quality": {"quality_score": quality_score, "sensor_reliability": iot_registry_summary.get("sensor_reliability_pct", 0.0)},
                 "business_impact": {"hourly_cost_inr": 5.0, "annual_cost_of_inaction_inr": 43800.0},
-                "confidence": {"confidence_percent": 95.0, "confidence_level": "HIGH"},
+                "confidence": {"confidence_percent": conf_pct, "confidence_level": "HIGH" if conf_pct >= 85 else "MEDIUM"},
                 "recommended_actions": [
                     {"title": "Dispatch Early Pickup for Cafeteria Bin #01", "expected_cost_saving_inr": 1200.0}
                 ]
@@ -279,14 +385,18 @@ class AIContextBuilder:
 
         if route.intent == IntentCategory.AIR_QUALITY:
             air_data = plan_data["air_quality"]
+            has_live_env = bool(GLOBAL_DEVICE_REGISTRY.get_latest_telemetry("ENV-BLOCK-B-001"))
+            quality_score = 92.0 if has_live_env else 80.0
+            conf_pct = 90.0 if has_live_env else 80.0
             return {
                 "query_meta": query_meta,
                 "intent_type": "AIR_QUALITY_AUDIT",
                 "is_explanatory": route.is_explanatory,
                 "telemetry_observed": air_data,
-                "data_quality": {"quality_score": 92.0, "sensor_reliability": 95.0},
+                "data_quality": {"quality_score": quality_score, "sensor_reliability": iot_registry_summary.get("sensor_reliability_pct", 0.0)},
                 "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
-                "confidence": {"confidence_percent": 90.0, "confidence_level": "HIGH"},
+                "confidence": {"confidence_percent": conf_pct, "confidence_level": "HIGH" if conf_pct >= 85 else "MEDIUM"},
+                "sensor_disclaimer": "MQ-135 semiconductor sensor output is raw uncalibrated ADC/ppm estimate for indicative indoor air quality trends only; not certified by EPA/CPCB for compliance.",
                 "recommended_actions": [
                     {"title": "Increase AHU Fresh Air Intake Rate in Block A", "expected_cost_saving_inr": 800.0}
                 ]
@@ -299,7 +409,7 @@ class AIContextBuilder:
                 "intent_type": "EQUIPMENT_AUDIT",
                 "is_explanatory": route.is_explanatory,
                 "telemetry_observed": eq_data,
-                "data_quality": {"quality_score": 94.0, "sensor_reliability": 96.0},
+                "data_quality": {"quality_score": 94.0, "sensor_reliability": iot_registry_summary.get("sensor_reliability_pct", 0.0)},
                 "business_impact": {"hourly_cost_inr": 25.0, "annual_cost_of_inaction_inr": 219000.0},
                 "confidence": {"confidence_percent": 88.0, "confidence_level": "HIGH"},
                 "recommended_actions": [
@@ -314,7 +424,7 @@ class AIContextBuilder:
                 "intent_type": "SUSTAINABILITY_AUDIT",
                 "is_explanatory": route.is_explanatory,
                 "telemetry_observed": sust_data,
-                "data_quality": {"quality_score": 98.0, "sensor_reliability": 99.0},
+                "data_quality": {"quality_score": 98.0, "sensor_reliability": iot_registry_summary.get("sensor_reliability_pct", 0.0)},
                 "business_impact": {"hourly_cost_inr": 50.0, "annual_cost_of_inaction_inr": 438000.0},
                 "confidence": {"confidence_percent": 96.0, "confidence_level": "HIGH"},
                 "recommended_actions": [
@@ -326,9 +436,9 @@ class AIContextBuilder:
         latest_energy = self.repo.get_latest_energy(building_id=target_building)
         mult = GLOBAL_DATASET_MANAGER.active_dataset.multiplier
         actual_kwh = round(float(latest_energy.get("energy_kwh", 145.2)) * mult, 2)
-        temperature = float(latest_energy.get("temperature", 32.0))
-        occupancy = int(latest_energy.get("occupancy", 140))
-        hvac_load = float(latest_energy.get("hvac_power_kw", 58.0))
+        temperature = float(latest_energy.get("temperature", temp_val if temp_val is not None else 32.0))
+        occupancy = int(latest_energy.get("occupancy", occ_val if occ_val is not None else 140))
+        hvac_load = float(latest_energy.get("hvac_power_kw", hvac_p_val if hvac_p_val is not None else 58.0))
         timestamp = str(latest_energy.get("timestamp", now.isoformat()))
         prov_type = str(latest_energy.get("provenance", "REAL_SENSOR"))
 
@@ -367,9 +477,11 @@ class AIContextBuilder:
                 "live_voltage_v": live_device_readings["DEV_ELEC_01"]["line_voltage_v"],
                 "live_current_a": live_device_readings["DEV_ELEC_01"]["current_a"],
                 "live_water_flow_lmin": live_device_readings["DEV_WATER_01"]["water_flow_lmin"],
-                "live_aqi": live_device_readings["DEV_ENV_01"]["indoor_aqi"]
+                "live_aqi": live_device_readings["DEV_ENV_01"]["indoor_aqi"],
+                "live_waste_fill_pct": live_device_readings["WASTE-BLOCK-B-001"]["fill_level_pct"]
             },
             "live_device_readings": live_device_readings,
+            "sensor_disclaimer": "MQ-135 semiconductor sensor output is raw uncalibrated ADC/ppm estimate for indicative indoor air quality trends only; not certified by EPA/CPCB for compliance.",
             "contextual_baseline": {
                 "expected_kwh": round(decision.contextual.expected_kwh, 2),
                 "residual_kwh": round(decision.contextual.residual_kwh, 2),

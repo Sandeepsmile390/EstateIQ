@@ -23,11 +23,10 @@ EstateIQ provides a complete multi-tier facility decision platform supporting fo
 
 | Service Component | Port | Technology | Primary Function |
 |---|---|---|---|
-| **FastAPI REST Backend** | `8000` | FastAPI, Pydantic, Uvicorn | Telemetry ingestion, SSE real-time stream, AI copilot, RBAC, analytics |
-| **Streamlit Analytical Dashboard** | `8501` | Streamlit, Plotly, Folium | Campus operations cockpit, GIS map, What-If simulator, audit logs |
-| **IoT Multi-Device Simulator** | `8502` | Streamlit, Physics Engine | 12 virtual device profiles, 14 anomaly scenarios, LAN auto-pairing |
-| **Multi-Utility Resource Simulator** | `8503` | FastAPI, HTML5/Chart.js | Isolated controller for Electricity, Water, Air Quality, and Waste |
-| **Liquid Glass Web Client** | Browser | HTML5, Vanilla JS, CSS3 | Real-time monitoring UI with SSE stream and verified hardware telemetry |
+| **FastAPI REST Backend** | `8000` | FastAPI, Pydantic, Uvicorn | Telemetry ingestion, polling telemetry snapshot, AI copilot, RBAC, analytics |
+| **Streamlit Analytical Dashboard** | `8501` | Streamlit, Plotly, Folium | Campus operations cockpit, topological map, What-If simulator, audit logs |
+| **Resource Simulator Server** | `8502` | Python HTTP, Threaded Simulator | Standalone utility controller for Electricity, Water, Air, and Waste |
+| **Liquid Glass Web Client** | Browser (`:8000`) | HTML5, Vanilla JS, CSS3 | Fast-polling monitoring UI with verified hardware telemetry and Waste Bin node |
 
 ---
 
@@ -77,7 +76,7 @@ run_api.bat
 ```
 - Health Check: `curl http://127.0.0.1:8000/health` (responds with `{"status":"HEALTHY","version":"2.0.0","database":"CONNECTED"}`)
 - Interactive Swagger OpenAPI Docs: **`http://127.0.0.1:8000/docs`**
-- Real-Time SSE Telemetry Stream: **`http://127.0.0.1:8000/api/v1/iot/telemetry/stream`**
+- Polling Telemetry Snapshot: **`http://127.0.0.1:8000/api/v1/iot/telemetry/stream`** (JSON snapshot polled every 3–5 seconds by client; not SSE/WebSocket)
 
 ### Step 4: Launch Streamlit Command Center Dashboard (Port 8501)
 ```bash
@@ -90,25 +89,16 @@ run_dashboard.bat
 ```
 Open **`http://localhost:8501/`** for the Streamlit Multipage Command Center.
 
-### Step 5: (Optional) Launch IoT Multi-Device Simulator (Port 8502)
+### Step 5: (Optional) Launch Standalone Resource Simulator (Port 8502)
 ```bash
-# Terminal 3: Multi-Device Simulator
-cd iot-simulator-app
-python run.py
-# or on Windows:
-run_iot_simulator.bat
-```
-Open **`http://localhost:8502`** for the 12-device physics simulator.
-
-### Step 6: (Optional) Launch Multi-Utility Resource Simulator (Port 8503)
-```bash
-# Terminal 4: Multi-Utility Resource Simulator
+# Terminal 3: Resource Simulator
 cd resource-simulator-app
-python run.py
-# or on Windows:
-run_resource_simulator.bat
+python server.py
 ```
-Open **`http://localhost:8503`** for the dedicated Electricity, Water, Air Quality, and Waste controller.
+Open **`http://localhost:8502`** for the multi-utility Electricity, Water, Air Quality, and Waste controller (in addition to the built-in simulator on the web client at `http://localhost:8000`).
+
+### Step 6: Hardware Edge Gateway (ESP32)
+Flash `hardware/esp32/firmware/main.ino` with Arduino IDE onto an ESP32 NodeMCU. It samples PZEM-004T (Modbus), ZJ-S201 (Flow pulse), AJ-SR04M (Water tank sonar), HC-SR04 (Smart waste bin sonar), DHT11, and MQ-135, transmitting canonical JSON payloads to `POST /api/v1/iot/telemetry`. Includes a volatile 30-packet DRAM offline queue for Wi-Fi drop resilience and dynamic bench sonar routing.
 
 ### Step 7: Demo Credentials & Role Access
 | Username | Password | Role | Permitted Actions |
@@ -124,10 +114,11 @@ Open **`http://localhost:8503`** for the dedicated Electricity, Water, Air Quali
 EstateIQ integrates seamlessly with physical edge microcontrollers running verified sensor firmware:
 
 - **Edge Microcontroller**: ESP32 / ESP32-S3 DevKit (`ESP32_EDGE_GATEWAY_01`).
-- **Energy Metrology**: Eastron SDM630 Modbus RTU via Mornsun TD301D485H galvanically isolated RS-485 transceiver (2500 VDC barrier).
-- **Water Sensing**: YF-S201 turbine pulse counter with 10k/20k level divider.
-- **Transports Supported**: Direct HTTP REST POST (`/api/v1/iot/telemetry`) and authenticated MQTT.
-- **Data Provenance**: Physical readings are marked `[REAL SENSOR]` (`source_type: "hardware"`, `is_verified_hardware: true`).
+- **Energy Metrology**: PZEM-004T UART metering module. Confirm the exact board revision, isolation arrangement and wiring before mains use.
+- **Water Sensing**: ZJ-S201/YF-S201 turbine pulse input. Calibrate pulses per litre for the installed sensor and flow path.
+- **Other Sensors**: Ultrasonic tank/bin distance, DHT11 temperature/humidity and MQ-135 raw gas response. MQ-135 is not a calibrated CO₂/AQI/PM instrument.
+- **Transport**: Direct HTTP REST POST to the configured `/api/v1/iot/telemetry` endpoint; MQTT support depends on the firmware configuration.
+- **Data Provenance**: A `real_sensor` claim alone is unverified. The server marks hardware verified only when the gateway credential is provisioned and validated.
 - **Firmware Guide**: See [hardware/esp32/README.md](hardware/esp32/README.md) and [docs/HARDWARE_PROTOTYPE.md](docs/HARDWARE_PROTOTYPE.md).
 
 ---

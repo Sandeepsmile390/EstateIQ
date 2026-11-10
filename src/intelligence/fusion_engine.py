@@ -66,20 +66,28 @@ class EstateIQIntelligenceFusionEngine:
         dev_res = self.baseline_engine.evaluate_telemetry_deviation(actual_kwh, base_info)
 
         # 3. Model Consensus Engine
+        # Only provide model outputs that were actually computed for this request.
+        # The former fixed XGBoost/IsolationForest/Prophet values were not predictions.
         consensus_res = self.consensus_engine.evaluate_consensus(
-            xgboost_anomaly_prob=0.86,
-            isolation_forest_score=0.88,
-            prophet_anomaly_flag=True,
             contextual_anomaly_flag=dev_res["is_contextual_anomaly"]
         )
+
+        if "event_timestamp" in df_telemetry.columns or "timestamp" in df_telemetry.columns:
+            timestamp_col = "event_timestamp" if "event_timestamp" in df_telemetry.columns else "timestamp"
+            observed_times = pd.to_datetime(df_telemetry[timestamp_col], errors="coerce", utc=True).dropna()
+            historical_days = max(0, int((observed_times.max() - observed_times.min()).total_seconds() // 86400)) if not observed_times.empty else 0
+        else:
+            historical_days = 0
+        feature_completeness = float(df_telemetry.notna().mean().mean() * 100.0) if not df_telemetry.empty else 0.0
 
         # 4. Confidence Engine
         conf_res = self.confidence_engine.calculate_decision_confidence(
             model_consensus_score=consensus_res["model_consensus_score"],
             data_quality_score=dq_score,
             sensor_reliability_score=dq_res["sensor_reliability_score"],
-            historical_days_available=365,
-            prediction_error_pct=5.2
+            historical_days_available=historical_days,
+            prediction_error_pct=None,
+            feature_completeness_pct=feature_completeness
         )
 
         # 5. Multi-Dimension Scoring Engine
@@ -89,7 +97,7 @@ class EstateIQIntelligenceFusionEngine:
             expected_kwh=expected_kwh,
             data_quality_score=dq_score,
             confidence_pct=conf_res["overall_confidence_pct"],
-            model_consensus_score=consensus_res["model_consensus_score"]
+            model_consensus_score=consensus_res["model_consensus_score"] or 0.0
         )
 
         # 6. Business Impact & Cost of Inaction Engine
@@ -115,18 +123,14 @@ class EstateIQIntelligenceFusionEngine:
         )
 
         # Grounded SHAP Attribution Evidence (derived from actual models)
-        shap_evidence = [
-            {"feature": "HVAC Load", "shap_value": 42.0, "impact_percent": "+42%"},
-            {"feature": "Occupancy Rate", "shap_value": 18.0, "impact_percent": "+18%"},
-            {"feature": "Ambient Temp", "shap_value": 11.0, "impact_percent": "+11%"},
-            {"feature": "Historical Schedule", "shap_value": 7.0, "impact_percent": "+7%"}
-        ]
+        # SHAP values must come from a fitted model explanation, never fixed demo numbers.
+        shap_evidence = []
 
         # Why / Why Not Explanation Logic
         why_explanation = (
             f"Actual electricity consumption in {building_id} ({actual_kwh} kWh) exceeded contextual baseline ({expected_kwh} kWh) by +{dev_res['percentage_deviation_pct']}%. "
-            f"Isolation Forest score (0.88) and Model Consensus ({consensus_res['anomaly_votes_count']}/{consensus_res['models_evaluated_count']} models) confirm abnormal surge behavior. "
-            f"Primary SHAP drivers: HVAC Load (+42%) and Occupancy Rate (+18%)."
+            f"Contextual baseline evidence reports {'anomalous' if dev_res['is_contextual_anomaly'] else 'within range'} behavior. "
+            f"Independent model consensus is {consensus_res['consensus_status'].lower()}; SHAP attribution is unavailable unless a fitted explainer ran for this request."
         )
 
         return {
@@ -144,6 +148,7 @@ class EstateIQIntelligenceFusionEngine:
             "opportunities": opportunities,
             "safety_gate": safety_res,
             "shap_attribution": shap_evidence,
+            "shap_attribution_status": "UNAVAILABLE_NO_MODEL_EXPLANATION",
             "why_explanation": why_explanation,
             "provenance": "ESTATEIQ_INTELLIGENCE_FUSION_ENGINE"
         }

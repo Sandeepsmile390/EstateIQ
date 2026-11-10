@@ -133,11 +133,14 @@ class DataRepository:
                 metrics = r.get("metrics", {})
                 if "active_power_kw" in metrics or "energy_kwh" in metrics:
                     val = round(float(metrics.get("energy_kwh") or metrics.get("active_power_kw") or 145.2), 2)
+                    is_hw = bool(r.get("source_type") == "physical_sensor" or r.get("is_verified_hardware"))
+                    badge = "[REAL SENSOR]" if is_hw else r.get("data_source_badge", "[LIVE IoT SIMULATOR]")
                     return {
                         "energy_kwh": val,
                         "unit": "kWh",
                         "provenance": ProvenanceType.OBSERVED,
-                        "provenance_badge": "[LIVE IoT SIMULATOR]"
+                        "provenance_badge": badge,
+                        "is_verified_hardware": is_hw
                     }
 
         df = self.get_energy_data(limit=50, building_id=building_id)
@@ -176,11 +179,14 @@ class DataRepository:
                 metrics = r.get("metrics", {})
                 if "flow_rate_lmin" in metrics or "water_flow" in metrics:
                     val = round(float(metrics.get("flow_rate_lmin") or metrics.get("water_flow") or 50.0), 1)
+                    is_hw = bool(r.get("source_type") == "physical_sensor" or r.get("is_verified_hardware"))
+                    badge = "[REAL SENSOR]" if is_hw else r.get("data_source_badge", "[LIVE IoT SIMULATOR]")
                     return {
                         "flow_rate_lmin": val,
                         "status": "ANOMALY_SURGE" if val > 120 else "NORMAL",
                         "provenance": ProvenanceType.OBSERVED,
-                        "provenance_badge": "[LIVE IoT SIMULATOR]"
+                        "provenance_badge": badge,
+                        "is_verified_hardware": is_hw
                     }
 
         df = self.get_water_data(limit=50)
@@ -206,6 +212,30 @@ class DataRepository:
         return df
 
     def get_latest_waste(self) -> Dict[str, Any]:
+        from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+        live_records = GLOBAL_DEVICE_REGISTRY.telemetry_history
+        if live_records:
+            for r in live_records:
+                if not r.get("is_valid_sample", True) or r.get("quarantined") or r.get("is_late_sample"):
+                    continue
+                metrics = r.get("metrics", {})
+                if "fill_level_percent" in metrics or "bin_distance_cm" in metrics or r.get("device_id") == "WASTE-BLOCK-B-001":
+                    fill_val = round(float(metrics.get("fill_level_percent") or metrics.get("fill_level_pct") or 0.0), 1)
+                    dist_val = round(float(metrics.get("bin_distance_cm") or 0.0), 1)
+                    badge = r.get("data_source_badge", "[REAL SENSOR]")
+                    is_hw = r.get("is_verified_hardware", True)
+                    return {
+                        "fill_level_pct": fill_val,
+                        "bin_distance_cm": dist_val,
+                        "bins_monitored": 32,
+                        "bins_requiring_collection": 1 if fill_val >= 80.0 else 0,
+                        "status": "OVERFLOW_RISK" if fill_val >= 80.0 else "NORMAL",
+                        "device_id": r.get("device_id", "WASTE-BLOCK-B-001"),
+                        "provenance": ProvenanceType.OBSERVED if is_hw else ProvenanceType.SYNTHETIC,
+                        "provenance_badge": badge,
+                        "is_verified_hardware": is_hw
+                    }
+
         df = self.get_waste_data(limit=50)
         if not df.empty and "fill_level" in df.columns:
             val = round(float(df["fill_level"].mean()), 1)
@@ -213,6 +243,7 @@ class DataRepository:
             val = 78.5
         return {
             "fill_level_pct": val,
+            "bin_distance_cm": 18.5,
             "bins_monitored": 32,
             "bins_requiring_collection": 3,
             "provenance": ProvenanceType.SYNTHETIC,

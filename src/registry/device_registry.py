@@ -63,6 +63,12 @@ class VirtualDevice(BaseModel):
     last_counter_water_m3: Optional[float] = None
     counter_reset_detected: bool = False
     data_quality_warnings: List[str] = Field(default_factory=list)
+    reporting_state: str = "NORMAL_15M"
+    reporting_interval_sec: int = 900
+    next_report_expected_at: Optional[str] = None
+    last_anomaly_detected_at: Optional[str] = None
+    active_anomaly: Optional[Dict[str, Any]] = None
+    recovery_confirmation_count: int = 0
 
 
 class DeviceRegistryEngine:
@@ -74,6 +80,7 @@ class DeviceRegistryEngine:
         self.gateways: Dict[str, Dict[str, Any]] = {}
         self.pairing_codes: Dict[str, Dict[str, Any]] = {}
         self.telemetry_history: List[Dict[str, Any]] = []
+        self.device_telemetry_buffers: Dict[str, List[Dict[str, Any]]] = {}
         self.max_telemetry_history: int = 2000
         self.seen_message_ids: Dict[str, float] = {}
         self.max_seen_messages: int = 5000
@@ -104,105 +111,75 @@ class DeviceRegistryEngine:
         demo_devices = [
             VirtualDevice(
                 device_id="METER-BLOCK-B-001",
-                device_name="Block B Main Power Meter",
-                instance_id="SIM_CAMPUS_01",
+                device_name="Block B Main Power Meter (PZEM-004T / Eastron Modbus)",
+                instance_id="ESP32_EDGE_GATEWAY_01",
                 device_type="electricity_meter",
                 facility_id="FAC_GEC_CAMPUS",
                 building_id="Block B Hostel",
-                status="ONLINE",
+                status="STANDBY",
                 sensors=["active_power_kw", "cumulative_energy_kwh", "voltage_v", "current_a", "power_factor", "frequency_hz"],
                 sampling_interval_sec=5.0,
                 created_at=now_iso,
-                last_sample_at=now_iso,
-                last_telemetry={"active_power_kw": 58.4, "cumulative_energy_kwh": 145.2, "energy_kwh": 145.2, "voltage_v": 230.5, "current_a": 253.2, "power_factor": 0.95, "frequency_hz": 50.0},
-                active_scenario="Normal Campus Operation",
-                source_type="simulated_iot",
-                data_source_badge="[SIMULATED IoT]"
+                last_sample_at=None,
+                last_telemetry={},
+                active_scenario="Live Hardware Acquisition",
+                source_type="real_sensor",
+                data_source_badge="[UNVERIFIED SENSOR - DEMO MODE]",
+                is_verified_hardware=False
             ),
             VirtualDevice(
-                device_id="HVAC-BLOCK-B-001",
-                device_name="Block B Chiller & AHU Unit",
-                instance_id="SIM_CAMPUS_01",
-                device_type="hvac_monitor",
-                facility_id="FAC_GEC_CAMPUS",
-                building_id="Block B Hostel",
-                status="ONLINE",
-                sensors=["hvac_load_kw", "chiller_temp_c", "fan_speed_rpm", "vibration_mm_s"],
-                sampling_interval_sec=5.0,
-                created_at=now_iso,
-                last_sample_at=now_iso,
-                last_telemetry={"hvac_load_kw": 42.0, "chiller_temp_c": 7.2, "fan_speed_rpm": 1450, "vibration_mm_s": 1.2},
-                active_scenario="High HVAC Consumption",
-                source_type="simulated_iot",
-                data_source_badge="[SIMULATED IoT]"
-            ),
-            VirtualDevice(
-                device_id="WATER-BLOCK-A-001",
-                device_name="Block A Hydro Flow Meter",
-                instance_id="SIM_CAMPUS_01",
+                device_id="WATER-BLOCK-B-001",
+                device_name="Block B Water & Tank Node (AJ-SR04M/HC-SR04 + ZJ-S201 Flow)",
+                instance_id="ESP32_EDGE_GATEWAY_01",
                 device_type="water_meter",
                 facility_id="FAC_GEC_CAMPUS",
-                building_id="Block A Academic",
-                status="ONLINE",
-                sensors=["water_flow_lmin", "cumulative_water_m3", "water_pressure_bar", "tank_level_pct"],
+                building_id="Block B Hostel",
+                status="STANDBY",
+                sensors=["tank_distance_cm", "tank_level_pct", "water_flow_lmin", "cumulative_water_m3", "water_cumulative_liters"],
                 sampling_interval_sec=5.0,
                 created_at=now_iso,
-                last_sample_at=now_iso,
-                last_telemetry={"water_flow_lmin": 48.2, "cumulative_water_m3": 1240.5, "water_pressure_bar": 3.4, "tank_level_pct": 78.0},
-                active_scenario="Normal Campus Operation",
-                source_type="simulated_iot",
-                data_source_badge="[SIMULATED IoT]"
+                last_sample_at=None,
+                last_telemetry={},
+                active_scenario="Live Hardware Acquisition",
+                source_type="real_sensor",
+                data_source_badge="[UNVERIFIED SENSOR - DEMO MODE]",
+                is_verified_hardware=False
             ),
             VirtualDevice(
-                device_id="DG-CAMPUS-001",
-                device_name="Main Diesel Generator (500 kVA)",
-                instance_id="SIM_CAMPUS_01",
-                device_type="dg_monitor",
-                facility_id="FAC_GEC_CAMPUS",
-                building_id="Main Campus Substation",
-                status="ONLINE",
-                sensors=["fuel_level_pct", "engine_rpm", "oil_pressure_psi", "run_hours"],
-                sampling_interval_sec=10.0,
-                created_at=now_iso,
-                last_sample_at=now_iso,
-                last_telemetry={"fuel_level_pct": 82.5, "engine_rpm": 1500, "oil_pressure_psi": 55.0, "run_hours": 342.0},
-                active_scenario="Normal Campus Operation",
-                source_type="simulated_iot",
-                data_source_badge="[SIMULATED IoT]"
-            ),
-            VirtualDevice(
-                device_id="AIR-BLOCK-B-001",
-                device_name="Block B Indoor Air & Climate Station",
-                instance_id="SIM_CAMPUS_01",
+                device_id="ENV-BLOCK-B-001",
+                device_name="Block B Environmental & Air Node (MQ-135 + DHT11)",
+                instance_id="ESP32_EDGE_GATEWAY_01",
                 device_type="air_quality_monitor",
                 facility_id="FAC_GEC_CAMPUS",
                 building_id="Block B Hostel",
-                status="ONLINE",
-                sensors=["co2_ppm", "pm25", "pm10", "temperature_c", "humidity_pct", "air_quality_aqi"],
+                status="STANDBY",
+                sensors=["mq135_raw_adc", "mq135_voltage_v", "mq135_co2_estimate_ppm", "mq135_warmup_status", "temperature_c", "humidity_pct", "heat_index_c"],
                 sampling_interval_sec=5.0,
                 created_at=now_iso,
-                last_sample_at=now_iso,
-                last_telemetry={"co2_ppm": 620.0, "pm25": 18.5, "pm10": 28.0, "temperature_c": 23.2, "humidity_pct": 48.0, "air_quality_aqi": 42.0},
-                active_scenario="Normal Indoor Air",
-                source_type="simulated_iot",
-                data_source_badge="[SIMULATED IoT]"
+                last_sample_at=None,
+                last_telemetry={},
+                active_scenario="Live Hardware Acquisition",
+                source_type="real_sensor",
+                data_source_badge="[UNVERIFIED SENSOR - DEMO MODE]",
+                is_verified_hardware=False
             ),
             VirtualDevice(
                 device_id="WASTE-BLOCK-B-001",
-                device_name="Block B Smart Ultrasonic Waste Bin",
-                instance_id="SIM_CAMPUS_01",
-                device_type="waste_monitor",
+                device_name="Block B Smart Waste Bin (HC-SR04 Ultrasonic Sonar)",
+                instance_id="ESP32_EDGE_GATEWAY_01",
+                device_type="waste_bin",
                 facility_id="FAC_GEC_CAMPUS",
                 building_id="Block B Hostel",
-                status="ONLINE",
-                sensors=["fill_level_percent", "estimated_waste_kg"],
+                status="STANDBY",
+                sensors=["bin_distance_cm", "fill_level_percent", "fill_level_pct"],
                 sampling_interval_sec=5.0,
                 created_at=now_iso,
-                last_sample_at=now_iso,
-                last_telemetry={"fill_level_percent": 34.0, "estimated_waste_kg": 56.1},
-                active_scenario="Normal Weekday Accumulation",
-                source_type="simulated_iot",
-                data_source_badge="[SIMULATED IoT]"
+                last_sample_at=None,
+                last_telemetry={},
+                active_scenario="Live Hardware Acquisition",
+                source_type="real_sensor",
+                data_source_badge="[UNVERIFIED SENSOR - DEMO MODE]",
+                is_verified_hardware=False
             )
         ]
         for d in demo_devices:
@@ -211,18 +188,92 @@ class DeviceRegistryEngine:
         # Physical gateways must be provisioned with secrets loaded from environment or local config.
         # Do not keep hardcoded physical gateway API keys as defaults in production.
         env_gw_key = os.getenv("ESTATEIQ_GATEWAY_API_KEY") or os.getenv("GATEWAY_API_KEY")
-        if not env_gw_key and self.allow_unverified_demo_mode:
-            env_gw_key = "gw_secret_estateiq_hw_2026"
-
         if env_gw_key and not env_gw_key.startswith("UNCONFIGURED_"):
             self.gateways["ESP32_EDGE_GATEWAY_01"] = {
                 "gateway_id": "ESP32_EDGE_GATEWAY_01",
-                "gateway_name": "ESP32 Bench Edge Node (Modbus/Pulse)",
+                "gateway_name": "ESP32 Bench Edge Node (Modbus/Pulse/MQ135)",
                 "api_key": env_gw_key,
                 "is_verified_hardware": True,
                 "revoked": False,
                 "registered_at": now_iso
             }
+            # Pre-register verified physical hardware devices
+            if "ENV-BLOCK-B-001" not in self.devices:
+                self.devices["ENV-BLOCK-B-001"] = VirtualDevice(
+                    device_id="ENV-BLOCK-B-001",
+                    device_name="Block B Environmental & Air Sensor (MQ-135)",
+                    instance_id="ESP32_EDGE_GATEWAY_01",
+                    device_type="air_quality_monitor",
+                    facility_id="FAC_GEC_CAMPUS",
+                    building_id="Block B Hostel",
+                    status="CONNECTING",
+                    sensors=["mq135_raw_adc", "mq135_voltage_v", "mq135_co2_estimate_ppm", "mq135_warmup_status"],
+                    sampling_interval_sec=15.0,
+                    created_at=now_iso,
+                    last_sample_at=None,
+                    last_telemetry={},
+                    active_scenario="Live Hardware Acquisition",
+                    source_type="real_sensor",
+                    data_source_badge="[UNVERIFIED SENSOR - DEMO MODE]",
+                    is_verified_hardware=False
+                )
+            if "WASTE-BLOCK-B-001" not in self.devices:
+                self.devices["WASTE-BLOCK-B-001"] = VirtualDevice(
+                    device_id="WASTE-BLOCK-B-001",
+                    device_name="Block B Smart Waste Bin (HC-SR04 Ultrasonic Sonar)",
+                    instance_id="ESP32_EDGE_GATEWAY_01",
+                    device_type="waste_bin",
+                    facility_id="FAC_GEC_CAMPUS",
+                    building_id="Block B Hostel",
+                    status="CONNECTING",
+                    sensors=["bin_distance_cm", "fill_level_percent", "fill_level_pct"],
+                    sampling_interval_sec=15.0,
+                    created_at=now_iso,
+                    last_sample_at=None,
+                    last_telemetry={},
+                    active_scenario="Live Hardware Acquisition",
+                    source_type="real_sensor",
+                    data_source_badge="[UNVERIFIED SENSOR - DEMO MODE]",
+                    is_verified_hardware=False
+                )
+            if "WATER-BLOCK-B-001" not in self.devices:
+                self.devices["WATER-BLOCK-B-001"] = VirtualDevice(
+                    device_id="WATER-BLOCK-B-001",
+                    device_name="Block B Water & Tank Node (AJ-SR04M Ultrasonic / Flow)",
+                    instance_id="ESP32_EDGE_GATEWAY_01",
+                    device_type="water_meter",
+                    facility_id="FAC_GEC_CAMPUS",
+                    building_id="Block B Hostel",
+                    status="CONNECTING",
+                    sensors=["tank_distance_cm", "tank_level_pct", "water_flow_lmin", "cumulative_water_m3"],
+                    sampling_interval_sec=15.0,
+                    created_at=now_iso,
+                    last_sample_at=None,
+                    last_telemetry={},
+                    active_scenario="Live Hardware Acquisition",
+                    source_type="real_sensor",
+                    data_source_badge="[UNVERIFIED SENSOR - DEMO MODE]",
+                    is_verified_hardware=False
+                )
+            if "METER-BLOCK-B-001" not in self.devices:
+                self.devices["METER-BLOCK-B-001"] = VirtualDevice(
+                    device_id="METER-BLOCK-B-001",
+                    device_name="Block B Main Power Meter (Modbus RTU / CT)",
+                    instance_id="ESP32_EDGE_GATEWAY_01",
+                    device_type="electricity_meter",
+                    facility_id="FAC_GEC_CAMPUS",
+                    building_id="Block B Hostel",
+                    status="CONNECTING",
+                    sensors=["active_power_kw", "cumulative_energy_kwh", "voltage_v", "current_a", "power_factor"],
+                    sampling_interval_sec=15.0,
+                    created_at=now_iso,
+                    last_sample_at=None,
+                    last_telemetry={},
+                    active_scenario="Live Hardware Acquisition",
+                    source_type="real_sensor",
+                    data_source_badge="[UNVERIFIED SENSOR - DEMO MODE]",
+                    is_verified_hardware=False
+                )
 
     def generate_pairing_code(self, ttl_minutes: int = 15) -> Dict[str, Any]:
         """Generates a single-use pairing code for connecting new standalone simulator laptops or gateways."""
@@ -413,20 +464,40 @@ class DeviceRegistryEngine:
         try:
             envelope, metrics_map, warnings = normalize_telemetry_payload(payload, default_source=default_source)
         except Exception as e:
-            return {"success": False, "accepted": False, "error": f"SCHEMA_VALIDATION_ERROR: {str(e)}"}
+            claimed_source = str(payload.get("source_type", "")).strip().lower()
+            claimed_hardware = claimed_source in {"real_sensor", "hardware", "physical"}
+            return {
+                "success": False,
+                "accepted": False,
+                "error": f"SCHEMA_VALIDATION_ERROR: {str(e)}",
+                "source_type": "real_sensor" if claimed_hardware else claimed_source or "unknown",
+                "is_verified_hardware": False,
+                "data_source_badge": "[UNVERIFIED SENSOR - DEMO MODE]" if claimed_hardware else "[UNACCEPTED TELEMETRY]",
+                "warnings": ["Payload rejected before provenance verification; no telemetry was stored."]
+            }
 
         now_iso = datetime.datetime.now().isoformat()
 
         # 2. Idempotency Check (Duplicate message_id)
         if envelope.message_id in self.seen_message_ids:
+            cached_dev = self.devices.get(envelope.device_id)
             return {
                 "success": True,
                 "accepted": True,
                 "duplicate": True,
                 "message_id": envelope.message_id,
                 "device_id": envelope.device_id,
+                "source_type": envelope.source_type.value,
+                "data_source_badge": cached_dev.data_source_badge if cached_dev else "[SIMULATED IoT]",
+                "is_verified_hardware": cached_dev.is_verified_hardware if cached_dev else False,
+                "reporting_state": cached_dev.reporting_state if cached_dev else "NORMAL_15M",
+                "reporting_interval_sec": cached_dev.reporting_interval_sec if cached_dev else 900,
+                "next_report_expected_at": cached_dev.next_report_expected_at if cached_dev else None,
+                "is_anomaly": (cached_dev.active_anomaly is not None) if cached_dev else False,
+                "active_anomaly": cached_dev.active_anomaly if cached_dev else None,
                 "status": "DUPLICATE_IGNORED",
-                "message": "Duplicate message_id previously ingested. No-op acknowledgment."
+                "ingested_metrics_count": 0,
+                "warnings": ["Duplicate message_id previously ingested. No-op acknowledgment."]
             }
 
         # Track message_id in bounded cache
@@ -446,9 +517,9 @@ class DeviceRegistryEngine:
         sim = self.simulators.get(sim_id) if sim_id else self.simulators.get(inst_id)
 
         if (gw and gw.get("revoked")):
-            return {"success": False, "accepted": False, "error": "REVOKED_GATEWAY_CREDENTIAL", "status": "REJECTED"}
+            return {"success": False, "accepted": False, "error": "REVOKED_GATEWAY_CREDENTIAL", "status": "REJECTED", "source_type": envelope.source_type.value, "is_verified_hardware": False, "data_source_badge": "[UNVERIFIED SENSOR - REJECTED]"}
         if (sim and sim.revoked):
-            return {"success": False, "accepted": False, "error": "REVOKED_SIMULATOR_CREDENTIAL", "status": "REJECTED"}
+            return {"success": False, "accepted": False, "error": "REVOKED_SIMULATOR_CREDENTIAL", "status": "REJECTED", "source_type": envelope.source_type.value, "is_verified_hardware": False, "data_source_badge": "[UNVERIFIED SENSOR - REJECTED]"}
 
         if not sim and not gw:
             # Auto-register simulator instance for demo tracking
@@ -481,29 +552,52 @@ class DeviceRegistryEngine:
                         is_verified = False
                         warnings.append("Missing gateway credential for real_sensor claim; accepted in unverified demo mode.")
                     else:
-                        return {"success": False, "accepted": False, "error": "MISSING_GATEWAY_CREDENTIAL", "status": "REJECTED"}
+                        return {"success": False, "accepted": False, "error": "MISSING_GATEWAY_CREDENTIAL", "status": "REJECTED", "source_type": envelope.source_type.value, "is_verified_hardware": False, "data_source_badge": "[UNVERIFIED SENSOR - REJECTED]"}
                 elif provided_token != gw.get("api_key"):
-                    return {"success": False, "accepted": False, "error": "INVALID_GATEWAY_CREDENTIAL", "status": "REJECTED"}
+                    return {"success": False, "accepted": False, "error": "INVALID_GATEWAY_CREDENTIAL", "status": "REJECTED", "source_type": envelope.source_type.value, "is_verified_hardware": False, "data_source_badge": "[UNVERIFIED SENSOR - REJECTED]"}
                 else:
                     is_verified = gw.get("is_verified_hardware", True)
             else:
-                # No registered physical gateway matched
-                if provided_token:
-                    # Token provided but no gateway registered under gw_id (or unknown token)
-                    return {"success": False, "accepted": False, "error": "INVALID_GATEWAY_CREDENTIAL", "status": "REJECTED"}
+                # No pre-registered physical gateway matched; check for valid hardware API key or master secret
+                # Only server-provisioned credentials may verify physical hardware.
+                # Never accept public/example credentials as production identities.
+                valid_hw_keys = set()
+                env_k = os.getenv("ESTATEIQ_GATEWAY_API_KEY") or os.getenv("GATEWAY_API_KEY")
+                if env_k and not env_k.startswith("UNCONFIGURED_"):
+                    valid_hw_keys.add(env_k)
+
+                if provided_token and provided_token in valid_hw_keys:
+                    # Auto-provision new verified physical hardware gateway dynamically
+                    effective_gw_id = gw_id or f"GW_{envelope.device_id}"
+                    gw = {
+                        "gateway_id": effective_gw_id,
+                        "gateway_name": f"Physical Gateway ({effective_gw_id})",
+                        "api_key": provided_token,
+                        "is_verified_hardware": True,
+                        "revoked": False,
+                        "registered_at": now_iso
+                    }
+                    self.gateways[effective_gw_id] = gw
+                    is_verified = True
+                elif self.allow_unverified_demo_mode:
+                    # Demo mode may accept hardware claims for development, but a token
+                    # that is not provisioned by the server must never verify provenance.
+                    is_verified = False
+                    warnings.append("Gateway is not provisioned; accepted as unverified demo hardware.")
+                elif provided_token:
+                    return {"success": False, "accepted": False, "error": "INVALID_GATEWAY_CREDENTIAL", "status": "REJECTED", "source_type": envelope.source_type.value, "is_verified_hardware": False, "data_source_badge": "[UNVERIFIED SENSOR - REJECTED]"}
                 else:
-                    # Missing credentials and no registered gateway
                     if self.allow_unverified_demo_mode:
                         is_verified = False
                         warnings.append("Unauthenticated real_sensor claim without registered gateway; accepted in unverified demo mode.")
                     else:
-                        return {"success": False, "accepted": False, "error": "MISSING_GATEWAY_CREDENTIAL", "status": "REJECTED"}
+                        return {"success": False, "accepted": False, "error": "MISSING_GATEWAY_CREDENTIAL", "status": "REJECTED", "source_type": envelope.source_type.value, "is_verified_hardware": False, "data_source_badge": "[UNVERIFIED SENSOR - REJECTED]"}
         else:
             # Simulated, Synthetic, or Derived telemetry
             is_verified = False
             if sim:
                 if provided_token and provided_token != sim.auth_token:
-                    return {"success": False, "accepted": False, "error": "INVALID_SIMULATOR_CREDENTIAL", "status": "REJECTED"}
+                    return {"success": False, "accepted": False, "error": "INVALID_SIMULATOR_CREDENTIAL", "status": "REJECTED", "source_type": envelope.source_type.value, "is_verified_hardware": False, "data_source_badge": "[UNVERIFIED SENSOR - REJECTED]"}
                 sim.last_telemetry_at = now_iso
                 sim.last_heartbeat_at = now_iso
                 sim.status = "CONNECTED"
@@ -561,6 +655,10 @@ class DeviceRegistryEngine:
                 dev_type = "electricity_meter"
             elif "water_flow_lmin" in metrics_map or "cumulative_water_m3" in metrics_map:
                 dev_type = "water_meter"
+            elif "fill_level_percent" in metrics_map or "bin_distance_cm" in metrics_map or envelope.device_id.startswith("WASTE-"):
+                dev_type = "waste_bin"
+            elif "mq135_raw_adc" in metrics_map or "temperature_c" in metrics_map or envelope.device_id.startswith("ENV-"):
+                dev_type = "air_quality_monitor"
 
             dev = VirtualDevice(
                 device_id=envelope.device_id,
@@ -650,6 +748,11 @@ class DeviceRegistryEngine:
                 "source_type": envelope.source_type.value,
                 "data_source_badge": badge,
                 "is_verified_hardware": is_verified,
+                "reporting_state": dev.reporting_state,
+                "reporting_interval_sec": dev.reporting_interval_sec,
+                "next_report_expected_at": dev.next_report_expected_at,
+                "is_anomaly": dev.active_anomaly is not None,
+                "active_anomaly": dev.active_anomaly,
                 "status": "ACCEPTED_LATE_SAMPLE_AUDIT_ONLY",
                 "ingested_metrics_count": len(metrics_map),
                 "warnings": warnings
@@ -718,6 +821,66 @@ class DeviceRegistryEngine:
         dev.last_telemetry.update(metrics_map)
         dev.data_quality_warnings = warnings
 
+        # 7B. Adaptive Telemetry Reporting & Contextual Anomaly Evaluation
+        from src.services.anomaly_engine import GLOBAL_ADAPTIVE_ANOMALY_ENGINE
+
+        primary_metrics = ["active_power_kw", "water_flow_lmin", "voltage_v", "tank_distance_cm", "mq135_raw_adc", "temperature_c"]
+        eval_result = None
+        for pm in primary_metrics:
+            if pm in metrics_map:
+                edge_anom = envelope.anomaly_details if (envelope.is_anomaly and envelope.anomaly_metric == pm) else None
+                if not edge_anom and envelope.is_anomaly:
+                    edge_anom = {
+                        "is_active": True,
+                        "metric": envelope.anomaly_metric or pm,
+                        "observed_value": envelope.anomaly_observed_value or float(metrics_map[pm]),
+                        "threshold": envelope.anomaly_threshold,
+                        "reason": envelope.anomaly_reason
+                    }
+                eval_result = GLOBAL_ADAPTIVE_ANOMALY_ENGINE.evaluate_reading(
+                    device_id=envelope.device_id,
+                    metric=pm,
+                    value=float(metrics_map[pm]),
+                    facility_id=envelope.facility_id,
+                    building_id=envelope.building_id,
+                    timestamp_iso=envelope.event_timestamp,
+                    is_verified_hardware=is_verified,
+                    is_late_sample=is_late_sample,
+                    is_quarantined=False,
+                    is_counter_reset=dev.counter_reset_detected,
+                    edge_reported_anomaly=edge_anom
+                )
+                if eval_result.is_anomaly:
+                    break
+
+        if eval_result:
+            dev.reporting_state = eval_result.reporting_state.value
+            dev.reporting_interval_sec = eval_result.reporting_interval_sec
+            dev.next_report_expected_at = eval_result.next_report_expected_at
+            if eval_result.is_anomaly:
+                dev.active_anomaly = {
+                    "id": eval_result.anomaly_id,
+                    "metric": eval_result.metric,
+                    "observed_value": eval_result.observed_value,
+                    "baseline_value": eval_result.expected_baseline,
+                    "severity": eval_result.severity.value,
+                    "confidence": eval_result.confidence,
+                    "reason": eval_result.explanation,
+                    "recommended_action": eval_result.recommended_action,
+                    "detected_at": eval_result.timestamp,
+                    "origin": eval_result.origin
+                }
+            elif dev.reporting_state == "NORMAL_15M":
+                dev.active_anomaly = None
+        else:
+            dev.reporting_state = envelope.reporting_state or "NORMAL_15M"
+            dev.reporting_interval_sec = envelope.reporting_interval_sec or 900
+            try:
+                curr_dt = datetime.datetime.fromisoformat(envelope.event_timestamp.replace("Z", "+00:00"))
+                dev.next_report_expected_at = (curr_dt + datetime.timedelta(seconds=dev.reporting_interval_sec)).isoformat().replace("+00:00", "Z")
+            except Exception:
+                dev.next_report_expected_at = None
+
         # 8. Record to persistent In-Memory ring history
         record = {
             "message_id": envelope.message_id,
@@ -737,11 +900,22 @@ class DeviceRegistryEngine:
             "is_valid_sample": True,
             "is_late_sample": False,
             "quarantined": False,
-            "quality_warnings": warnings
+            "quality_warnings": warnings,
+            "reporting_state": dev.reporting_state,
+            "reporting_interval_sec": dev.reporting_interval_sec,
+            "next_report_expected_at": dev.next_report_expected_at,
+            "is_anomaly": dev.active_anomaly is not None,
+            "anomaly_details": dev.active_anomaly
         }
         self.telemetry_history.insert(0, record)
         if len(self.telemetry_history) > self.max_telemetry_history:
             self.telemetry_history.pop()
+
+        # Update device-specific ring buffer for real-time charting
+        buf = self.device_telemetry_buffers.setdefault(envelope.device_id, [])
+        buf.insert(0, record)
+        if len(buf) > 60:
+            buf.pop()
 
         return {
             "success": True,
@@ -751,6 +925,11 @@ class DeviceRegistryEngine:
             "source_type": envelope.source_type.value,
             "data_source_badge": badge,
             "is_verified_hardware": is_verified,
+            "reporting_state": dev.reporting_state,
+            "reporting_interval_sec": dev.reporting_interval_sec,
+            "next_report_expected_at": dev.next_report_expected_at,
+            "is_anomaly": dev.active_anomaly is not None,
+            "active_anomaly": dev.active_anomaly,
             "status": "ACCEPTED",
             "ingested_metrics_count": len(metrics_map),
             "warnings": warnings
@@ -820,7 +999,18 @@ class DeviceRegistryEngine:
     def get_telemetry_history(self, device_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
         if device_id:
             return [t for t in self.telemetry_history if t.get("device_id") == device_id][:limit]
-        return list(reversed(self.telemetry_history))[:limit]
+        return self.telemetry_history[:limit]
+
+    def purge_simulated_telemetry(self):
+        """Purges simulated telemetry packets so only verified real hardware telemetry remains."""
+        self.telemetry_history = [
+            t for t in self.telemetry_history
+            if t.get("is_verified_hardware") or t.get("source_type") == "real_sensor"
+        ]
+        # Mark simulator devices as OFFLINE / STOPPED
+        for dev in self.devices.values():
+            if not dev.is_verified_hardware and dev.source_type != "real_sensor":
+                dev.status = "OFFLINE"
 
     def _update_stale_statuses(self):
         """Marks simulators/devices stale or offline if heartbeat/telemetry threshold exceeded."""
@@ -853,6 +1043,51 @@ class DeviceRegistryEngine:
                     dev.status = "STALE"
             except Exception:
                 pass
+
+    def get_device_freshness_status(self, device_id: str) -> Dict[str, Any]:
+        """Calculates dynamic freshness and provenance for an IoT device."""
+        dev = self.devices.get(device_id)
+        if not dev:
+            return {"device_id": device_id, "status": "UNKNOWN", "freshness": "NOT_REGISTERED", "age_sec": None, "is_verified_hardware": False}
+        if not dev.last_sample_at:
+            return {"device_id": device_id, "status": "CONNECTING", "freshness": "NO_TELEMETRY_YET", "age_sec": None, "is_verified_hardware": dev.is_verified_hardware, "data_source_badge": dev.data_source_badge}
+        try:
+            sample_epoch = datetime.datetime.fromisoformat(dev.last_sample_at.replace("Z", "+00:00")).timestamp()
+            age_sec = max(0.0, time.time() - sample_epoch)
+        except Exception:
+            age_sec = 0.0
+
+        if dev.status == "ERROR":
+            freshness = "ERROR"
+        elif age_sec <= 45.0:
+            freshness = "ONLINE"
+        elif age_sec <= 300.0:
+            freshness = "STALE"
+        else:
+            freshness = "OFFLINE"
+
+        dev.status = freshness
+        return {
+            "device_id": device_id,
+            "device_name": dev.device_name,
+            "status": freshness,
+            "freshness": freshness,
+            "age_sec": round(age_sec, 1),
+            "last_sample_at": dev.last_sample_at,
+            "facility_id": dev.facility_id,
+            "building_id": dev.building_id,
+            "source_type": dev.source_type,
+            "data_source_badge": dev.data_source_badge,
+            "is_verified_hardware": dev.is_verified_hardware,
+            "last_telemetry": dev.last_telemetry,
+            "counter_reset_detected": dev.counter_reset_detected,
+            "warnings": dev.data_quality_warnings
+        }
+
+    def get_device_recent_samples(self, device_id: str, limit: int = 30) -> List[Dict[str, Any]]:
+        """Returns chronological list of recent telemetry packets for a device."""
+        buf = self.device_telemetry_buffers.get(device_id, [])
+        return list(reversed(buf[:limit]))
 
     def revoke_simulator(self, instance_id: str) -> bool:
         """Revokes a simulator instance credentials."""

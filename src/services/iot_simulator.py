@@ -56,7 +56,7 @@ class IoTSimulatorEngine:
         return cls._instance
 
     def _init_engine(self):
-        self.status = "PAUSED"  # RUNNING, PAUSED, STOPPED
+        self.status = "STOPPED"  # RUNNING, PAUSED, STOPPED
         self.speed = 1          # 1x, 2x, 5x, 10x
         self.facility_id = "FAC_GEC_CAMPUS"
         self.building_id = "Block B Hostel"
@@ -65,7 +65,7 @@ class IoTSimulatorEngine:
         self.samples_generated = 0
         self.active_sensors_count = 12
         self.backend_connected = True
-        self.latest_ingestion_status = "READY"
+        self.latest_ingestion_status = "STOPPED"
         self.data_source_mode = "simulated_iot"
         self.data_source_badge = "SIMULATED IoT — NOT PHYSICAL SENSOR DATA"
         
@@ -295,6 +295,31 @@ class IoTSimulatorEngine:
         self.history_buffer.append(record)
         if len(self.history_buffer) > self._max_buffer:
             self.history_buffer.pop(0)
+
+        # Ingest to central canonical device registry so simulator devices stream live
+        try:
+            from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+            now_iso = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            GLOBAL_DEVICE_REGISTRY.ingest_telemetry({
+                "schema_version": "1.0",
+                "message_id": f"SIM_HVAC_{self.samples_generated:06d}",
+                "simulator_id": "SIM_DEFAULT_01",
+                "device_id": "DEV_HVAC_01",
+                "facility_id": self.facility_id,
+                "building_id": self.building_id,
+                "source_type": "simulated_iot",
+                "event_timestamp": now_iso,
+                "sent_timestamp": now_iso,
+                "sequence_number": self.samples_generated,
+                "metrics": [
+                    {"metric": "hvac_load_kw", "value": float(self.sensors.hvac_load_kw), "unit": "kW", "quality": "good"},
+                    {"metric": "temperature_c", "value": float(jitter_temp), "unit": "°C", "quality": "good"},
+                    {"metric": "chiller_temp_c", "value": 7.4, "unit": "°C", "quality": "good"},
+                    {"metric": "fan_speed_rpm", "value": 1420.0, "unit": "RPM", "quality": "good"}
+                ]
+            })
+        except Exception:
+            pass
 
     def _start_thread_if_needed(self):
         if self._thread is None or not self._thread.is_alive():

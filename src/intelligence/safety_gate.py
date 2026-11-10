@@ -4,7 +4,7 @@ Enforces 5-level safety verification checks before approving physical facility i
 Data Quality Check -> Confidence Check -> Model Consensus Check -> Impact Check -> Safety Gate -> Human Approval Required.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class AISafetyGate:
     """Evaluates safety checks and enforces human-in-the-loop approval."""
@@ -13,7 +13,7 @@ class AISafetyGate:
         self,
         data_quality_score: float = 94.0,
         confidence_pct: float = 87.0,
-        model_consensus_score: float = 0.85,
+        model_consensus_score: Optional[float] = None,
         priority_score: float = 0.82,
         action_type: str = "HVAC_THERMOSTAT_SCHEDULE_ADJUSTMENT"
     ) -> Dict[str, Any]:
@@ -22,7 +22,7 @@ class AISafetyGate:
         checks = {
             "data_quality_pass": data_quality_score >= 70.0,
             "confidence_threshold_pass": confidence_pct >= 60.0,
-            "model_consensus_pass": model_consensus_score >= 0.60,
+            "model_consensus_pass": model_consensus_score is not None and model_consensus_score >= 0.60,
             "safety_envelope_pass": True # Hard safety limits respected
         }
 
@@ -36,7 +36,7 @@ class AISafetyGate:
         explanation = (
             "Safety checks passed. Authorized human approval required before execution."
             if all_passed else
-            "Safety gate rejected recommendation due to low confidence or poor data quality."
+            "Safety gate rejected recommendation due to low confidence, poor data quality, or missing independent model evidence."
         )
 
         return {

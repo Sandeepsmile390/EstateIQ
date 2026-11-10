@@ -15,7 +15,7 @@ let currentUserSession = {
     role_key: "admin",
     role_label: "Facility Lead & Admin",
     avatar_bg: "#124B3E",
-    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "iot-simulator", "iot-monitor", "faq", "decision-intelligence", "esg", "billing", "work-orders", "ai-assistant"],
+    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "resource-simulator", "iot-simulator", "iot-monitor", "faq", "decision-intelligence", "esg", "billing", "work-orders", "ai-assistant"],
     can_execute_rules: true,
     can_upgrade_subscription: true
 };
@@ -274,9 +274,38 @@ function initTabs() {
     const sidebarNavs = document.querySelectorAll(".nav-item[data-tab-nav]");
     const headerPlanPill = document.getElementById("headerPlanPill");
 
+    const TAB_ALIASES = {
+        "copilot": "ai-assistant",
+        "copilotai": "ai-assistant",
+        "ai-copilot": "ai-assistant",
+        "ai": "ai-assistant",
+        "assistant": "ai-assistant",
+        "subscription": "billing",
+        "subscriptions": "billing",
+        "plans": "billing",
+        "pricing": "billing",
+        "subscription-plans": "billing",
+        "workorder": "work-orders",
+        "workorders": "work-orders",
+        "iot": "iot-monitor",
+        "live-iot": "iot-monitor",
+        "live-iot-monitor": "iot-monitor",
+        "iotmonitor": "iot-monitor",
+        "resource-sim": "resource-simulator",
+        "resources": "resource-simulator",
+        "resourcesimulatorsim": "resource-simulator",
+        "resourcesimulator": "resource-simulator",
+        "esg-carbon": "esg",
+        "carbon": "esg",
+        "faqs": "faq",
+        "decision-intelligence": "overview",
+        "models": "overview"
+    };
+
     const switchTab = (tabId) => {
-        let activeTab = tabId;
-        if (!activeTab || activeTab === "decision-intelligence" || activeTab === "models") activeTab = "overview";
+        let rawTab = (tabId || "").toString().toLowerCase().trim().replace(/^#/, "");
+        let activeTab = TAB_ALIASES[rawTab] || rawTab;
+        if (!activeTab) activeTab = "overview";
 
         // Unrestricted tab opening policy: all tabs open directly for any active user session
         if (currentUserSession && currentUserSession.permissions && !currentUserSession.permissions.includes(activeTab)) {
@@ -303,7 +332,15 @@ function initTabs() {
         }
 
         const capName = capitalizeFirst(activeTab);
-        const targetContent = document.getElementById(`content${capName}`) || document.getElementById("contentOverview");
+        let targetContent = document.getElementById(`content${capName}`);
+        if (!targetContent) {
+            targetContent = document.getElementById(activeTab) || 
+                            document.getElementById(`content-${activeTab}`) ||
+                            document.querySelector(`.tab-content[data-tab="${activeTab}"]`);
+        }
+        if (!targetContent) {
+            targetContent = document.getElementById("contentOverview");
+        }
         if (targetContent) {
             targetContent.classList.add("active");
         }
@@ -320,6 +357,14 @@ function initTabs() {
         if (activeTab === "iot-monitor" || activeTab === "iot-simulator" || activeTab === "simulator") {
             window.fetchIotStatus?.();
             window.fetchIotStreamLog?.();
+        } else if (activeTab === "resource-simulator") {
+            window.EstateIQResourceSimulator?.syncInputsWithState?.();
+            window.EstateIQResourceSimulator?.updateMetricsDOM?.();
+            window.EstateIQResourceSimulator?.initCharts?.();
+        } else if (activeTab === "work-orders") {
+            loadBackendWorkOrders?.();
+        } else if (activeTab === "billing") {
+            loadBackendSubscriptionDetails?.();
         }
 
         setTimeout(() => {
@@ -376,13 +421,51 @@ function showRestrictedAccessModal(tabId) {
 
 function capitalizeFirst(str) {
     if (!str) return "";
-    if (str === "faq" || str === "decision-intelligence" || str === "models") return "Faq";
-    if (str === "ai-assistant") return "AiAssistant";
-    if (str === "work-orders") return "WorkOrders";
-    if (str === "iot-simulator") return "IotSimulator";
-    if (str === "iot-monitor") return "IotMonitor";
-    if (str === "resource-simulator") return "ResourceSimulator";
-    return str.charAt(0).toUpperCase() + str.slice(1);
+    let clean = String(str).toLowerCase().trim().replace(/^#/, "");
+    const aliasMap = {
+        "copilot": "ai-assistant",
+        "copilotai": "ai-assistant",
+        "ai-copilot": "ai-assistant",
+        "ai": "ai-assistant",
+        "assistant": "ai-assistant",
+        "subscription": "billing",
+        "subscriptions": "billing",
+        "plans": "billing",
+        "pricing": "billing",
+        "subscription-plans": "billing",
+        "workorder": "work-orders",
+        "workorders": "work-orders",
+        "iot": "iot-monitor",
+        "live-iot": "iot-monitor",
+        "live-iot-monitor": "iot-monitor",
+        "iotmonitor": "iot-monitor",
+        "resource-sim": "resource-simulator",
+        "resources": "resource-simulator",
+        "resourcesimulatorsim": "resource-simulator",
+        "resourcesimulator": "resource-simulator",
+        "esg-carbon": "esg",
+        "carbon": "esg",
+        "faqs": "faq",
+        "decision-intelligence": "overview",
+        "models": "overview"
+    };
+    if (aliasMap[clean]) clean = aliasMap[clean];
+    if (clean === "faq") return "Faq";
+    if (clean === "ai-assistant") return "AiAssistant";
+    if (clean === "work-orders") return "WorkOrders";
+    if (clean === "iot-simulator") return "IotSimulator";
+    if (clean === "iot-monitor") return "IotMonitor";
+    if (clean === "resource-simulator") return "ResourceSimulator";
+    if (clean === "billing") return "Billing";
+    if (clean === "esg") return "Esg";
+    if (clean === "suggestions") return "Suggestions";
+    if (clean === "energy") return "Energy";
+    if (clean === "water") return "Water";
+    if (clean === "waste") return "Waste";
+    if (clean === "mobility") return "Mobility";
+    if (clean === "simulator") return "Simulator";
+    if (clean === "overview") return "Overview";
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
 /* --------------------------------------------------------------------------
@@ -1969,6 +2052,68 @@ function initIotSimulator() {
         }
     });
 
+    // Render registered devices on an explicitly schematic site map. Positions are
+    // deterministic visual placements by building ID; they are not GPS coordinates.
+    const renderLiveDeviceMap = (devices) => {
+        const markerLayer = document.getElementById("liveDeviceMapMarkers");
+        const deviceList = document.getElementById("deviceMapDeviceList");
+        const emptyNotice = document.getElementById("deviceMapEmpty");
+        if (!markerLayer || !deviceList) return;
+        markerLayer.replaceChildren();
+        deviceList.replaceChildren();
+        const safeDevices = Array.isArray(devices) ? devices : [];
+        if (!safeDevices.length) {
+            if (emptyNotice) emptyNotice.hidden = false;
+            const empty = document.createElement("div");
+            empty.className = "map-list-empty";
+            empty.textContent = "No registered devices. Start a simulator or connect a provisioned ESP32.";
+            deviceList.appendChild(empty);
+            return;
+        }
+        if (emptyNotice) emptyNotice.hidden = true;
+
+        const svgNS = "http://www.w3.org/2000/svg";
+        const hashText = (value) => Array.from(String(value || "Unknown building")).reduce((h, ch) => ((h * 31) + ch.charCodeAt(0)) >>> 0, 7);
+        safeDevices.forEach((device, index) => {
+            const statusRaw = String(device.status || "CONNECTING").toUpperCase();
+            const statusClass = statusRaw === "ONLINE" || statusRaw === "STREAMING" ? "online" : statusRaw === "STALE" ? "stale" : "offline";
+            const building = device.building_id || "Building not set";
+            const seed = hashText(building);
+            const x = 55 + (seed % 390);
+            const y = 175 + ((Math.floor(seed / 13) + index * 17) % 260);
+            const marker = document.createElementNS(svgNS, "g");
+            marker.setAttribute("class", `device-map-marker ${statusClass}`);
+            marker.setAttribute("transform", `translate(${x} ${y})`);
+            const title = document.createElementNS(svgNS, "title");
+            title.textContent = `${device.device_name || device.device_id} · ${building} · ${statusRaw} · ${device.data_source_badge || "provenance unavailable"}`;
+            marker.appendChild(title);
+            const circle = document.createElementNS(svgNS, "circle");
+            circle.setAttribute("r", "9");
+            marker.appendChild(circle);
+            const label = document.createElementNS(svgNS, "text");
+            label.setAttribute("x", "13");
+            label.setAttribute("y", "4");
+            label.textContent = String(device.device_id || "device").slice(0, 22);
+            marker.appendChild(label);
+            markerLayer.appendChild(marker);
+
+            const item = document.createElement("div");
+            item.className = "device-map-device";
+            const identity = document.createElement("span");
+            const name = document.createElement("strong");
+            name.textContent = device.device_name || device.device_id || "Unnamed device";
+            const details = document.createElement("small");
+            const provenance = device.data_source_badge || (device.source_type === "real_sensor" ? "Unverified hardware" : "[SIMULATED IoT]");
+            details.textContent = `${building} · ${provenance}`;
+            identity.append(name, details);
+            const status = document.createElement("span");
+            status.className = `map-status ${statusClass}`;
+            status.textContent = statusRaw;
+            item.append(identity, status);
+            deviceList.appendChild(item);
+        });
+    };
+
     // Poll status from backend and real hardware device registry
     const fetchStatus = async () => {
         try {
@@ -1986,16 +2131,37 @@ function initIotSimulator() {
                 const devData = await devRes.json();
                 const devices = devData.devices || [];
                 const stats = devData.stats || {};
+                renderLiveDeviceMap(devices);
 
-                // Update KPI Header with real device statistics
+                // Update KPI Header with real device statistics (counting only genuinely active devices)
                 const monDevicesActive = document.getElementById("monDevicesActiveCount");
-                if (monDevicesActive && stats.online_devices !== undefined) {
-                    const realCount = stats.verified_hardware_devices || 0;
-                    monDevicesActive.textContent = `${stats.online_devices} Devices`;
+                if (monDevicesActive) {
+                    // Count only devices that have REAL active data
+                    window.cachedDevicesList = devices;
+                    const activeDevs = devices.filter(d => {
+                        const t = d.last_telemetry || {};
+                        if (d.device_id === 'ENV-BLOCK-B-001') {
+                            const adc = Number(t.mq135_raw_adc ?? t.raw_adc ?? 0);
+                            const v = Number(t.mq135_voltage_v ?? t.sensor_voltage_v ?? 0);
+                            return (adc >= 80 && v >= 0.08) || t.temperature_c !== undefined;
+                        }
+                        if (d.device_id === 'METER-BLOCK-B-001') {
+                            return Number(t.active_power_kw ?? 0) > 0 || Number(t.voltage_v ?? 0) > 0;
+                        }
+                        if (d.device_id === 'WATER-BLOCK-B-001') {
+                            return Number(t.tank_distance_cm ?? 0) > 0 || Number(t.water_flow_lmin ?? 0) > 0 || t.tank_status === 'ECHO_TIMEOUT';
+                        }
+                        if (d.device_id === 'WASTE-BLOCK-B-001') {
+                            return Number(t.bin_distance_cm ?? 0) > 0 || Number(t.fill_level_percent ?? t.fill_level_pct ?? 0) > 0 || d.status === 'ONLINE';
+                        }
+                        return d.status === 'ONLINE' || d.status === 'STREAMING';
+                    });
+                    const activeCount = activeDevs.length;
+                    monDevicesActive.textContent = `${activeCount} Device${activeCount === 1 ? '' : 's'}`;
                     const subText = monDevicesActive.nextElementSibling;
                     if (subText) {
-                        subText.textContent = realCount > 0 ? `${realCount} Verified Hardware Online` : "100% Sensors Online";
-                        subText.className = realCount > 0 ? "fc-sub text-mint" : "fc-sub text-muted";
+                        subText.textContent = activeCount ? `${activeCount} Active Hardware Online` : "Waiting for fresh device telemetry";
+                        subText.className = activeCount ? "fc-sub text-mint" : "fc-sub text-amber";
                     }
                 }
 
@@ -2034,17 +2200,33 @@ function initIotSimulator() {
                     }
                 }
 
-                // Check for real water flow meter (WATER-BLOCK-B-001 or any real_sensor water meter)
-                const waterDev = devices.find(d => (d.device_id === "WATER-BLOCK-B-001" || d.device_type === "water_meter") && (d.source_type === "real_sensor" || d.is_verified_hardware));
+                // Check for real water flow & tank meter (WATER-BLOCK-B-001 or any real_sensor water meter)
+                const waterDev = devices.find(d => (d.device_id === "WATER-BLOCK-B-001" || d.device_type === "water_meter") && (d.source_type === "real_sensor" || d.is_verified_hardware || (d.last_telemetry && Object.keys(d.last_telemetry).length > 0)));
                 if (waterDev && waterDev.last_telemetry && Object.keys(waterDev.last_telemetry).length > 0) {
                     const wt = waterDev.last_telemetry;
                     const wFlow = document.getElementById("liveMetricWaterFlow");
                     const cWater = document.getElementById("liveMetricCumWater");
                     const wPress = document.getElementById("liveMetricWaterPressure");
+                    const elT = document.getElementById("liveMetricTankLevel");
+                    const elD = document.getElementById("liveMetricTankDistance");
+                    const bar = document.getElementById("liveTankBar");
+                    const barLabel = document.getElementById("liveTankBarLabel");
 
                     if (wFlow && wt.water_flow_lmin !== undefined && wt.water_flow_lmin !== null) wFlow.textContent = `${wt.water_flow_lmin} L/min`;
                     if (cWater && wt.cumulative_water_m3 !== undefined && wt.cumulative_water_m3 !== null) cWater.textContent = `${wt.cumulative_water_m3} m³`;
                     if (wPress && wt.water_pressure_bar !== undefined && wt.water_pressure_bar !== null) wPress.textContent = `${wt.water_pressure_bar} bar`;
+
+                    if (elT && wt.tank_level_pct !== undefined && Number(wt.tank_level_pct) > 0) {
+                        elT.textContent = `${Number(wt.tank_level_pct).toFixed(1)} %`;
+                    }
+                    if (elD && wt.tank_distance_cm !== undefined && Number(wt.tank_distance_cm) > 0) {
+                        elD.textContent = `${Number(wt.tank_distance_cm).toFixed(1)} cm`;
+                    }
+                    if (bar && wt.tank_level_pct !== undefined) {
+                        const pct = Math.min(100, Math.max(0, Number(wt.tank_level_pct)));
+                        bar.style.width = `${pct}%`;
+                        if (barLabel) barLabel.textContent = `${pct.toFixed(1)}% Fill`;
+                    }
 
                     const mWater = document.getElementById("matrixStatusWater");
                     if (mWater) {
@@ -2057,6 +2239,53 @@ function initIotSimulator() {
                             mWater.innerHTML = '<span class="badge-red" style="font-size: 10px;"><i class="fa-solid fa-circle-xmark"></i> OFFLINE</span>';
                         }
                     }
+                }
+
+                // Check for real waste bin sensor (WASTE-BLOCK-B-001 or any real_sensor waste bin)
+                const wasteDevLive = devices.find(d => (d.device_id === "WASTE-BLOCK-B-001" || d.device_type === "waste_bin") && (d.source_type === "real_sensor" || d.is_verified_hardware || (d.last_telemetry && Object.keys(d.last_telemetry).length > 0)));
+                if (wasteDevLive && wasteDevLive.last_telemetry && Object.keys(wasteDevLive.last_telemetry).length > 0) {
+                    const wt = wasteDevLive.last_telemetry;
+                    const elFill = document.getElementById("liveMetricBinFill");
+                    const elDist = document.getElementById("liveMetricBinDistance");
+                    const elRisk = document.getElementById("liveMetricBinRisk");
+                    const bar = document.getElementById("liveBinBar");
+                    const barLabel = document.getElementById("liveBinBarLabel");
+                    const badge = document.getElementById("liveWasteCardBadge");
+
+                    const fillPct = Number(wt.fill_level_percent ?? wt.fill_level_pct ?? 0);
+                    const distCm = Number(wt.bin_distance_cm ?? 0);
+
+                    if (elFill && (wt.fill_level_percent !== undefined || wt.fill_level_pct !== undefined)) {
+                        elFill.textContent = `${fillPct.toFixed(1)} %`;
+                    }
+                    if (elDist && wt.bin_distance_cm !== undefined && distCm > 0) {
+                        elDist.textContent = `${distCm.toFixed(1)} cm`;
+                    }
+                    if (elRisk && (wt.fill_level_percent !== undefined || wt.fill_level_pct !== undefined)) {
+                        if (fillPct >= 80.0) {
+                            elRisk.textContent = 'OVERFLOW RISK';
+                            elRisk.style.color = '#EF4444';
+                        } else {
+                            elRisk.textContent = 'NORMAL';
+                            elRisk.style.color = '#00D09C';
+                        }
+                    }
+                    if (bar && (wt.fill_level_percent !== undefined || wt.fill_level_pct !== undefined)) {
+                        bar.style.width = `${Math.min(Math.max(fillPct, 0), 100)}%`;
+                        if (barLabel) barLabel.textContent = `${fillPct.toFixed(1)}% Fill (${distCm.toFixed(1)} cm clearance)`;
+                    }
+
+                    // Update Waste Tab inputs
+                    const wasteFillInput = document.getElementById('wasteFill');
+                    if (wasteFillInput && document.activeElement !== wasteFillInput && (wt.fill_level_percent !== undefined || wt.fill_level_pct !== undefined)) {
+                        wasteFillInput.value = fillPct.toFixed(1);
+                    }
+                    const liveFillText = document.getElementById('wasteLiveFillText');
+                    if (liveFillText && (wt.fill_level_percent !== undefined || wt.fill_level_pct !== undefined)) liveFillText.textContent = `${fillPct.toFixed(1)}%`;
+                    const liveDistText = document.getElementById('wasteLiveDistText');
+                    if (liveDistText && wt.bin_distance_cm !== undefined) liveDistText.textContent = `${distCm.toFixed(1)} cm`;
+                    const liveHwBadge = document.getElementById('wasteLiveHardwareBadge');
+                    if (liveHwBadge) liveHwBadge.style.display = 'inline-flex';
                 }
 
                 // If any device is verified physical hardware, update global provenance pill
@@ -2152,23 +2381,7 @@ function initIotSimulator() {
                 return `${val} ${unit}`.trim();
             };
 
-            // Populate Live IoT Monitor Tab Cards
-            const pKW = document.getElementById("liveMetricPowerKW");
-            const eKWH = document.getElementById("liveMetricEnergyKWH");
-            const vV = document.getElementById("liveMetricVoltageV");
-            const iPF = document.getElementById("liveMetricCurrentPF");
-
-            if (pKW) pKW.textContent = formatMetric(s.active_power_kw, "kW");
-            if (eKWH) eKWH.textContent = formatMetric(s.energy_kwh, "kWh");
-            if (vV) vV.textContent = formatMetric(s.voltage_v, "V");
-            if (iPF) {
-                if (s.current_a !== null && s.current_a !== undefined) {
-                    iPF.textContent = `${s.current_a} A (PF: ${s.power_factor ?? '--'})`;
-                } else {
-                    iPF.textContent = "-- A (PF: --)";
-                }
-            }
-
+            // Populate Live IoT Monitor Tab Cards (Only if no live physical hardware stream is active)
             const hKW = document.getElementById("liveMetricHvacKW");
             const cTemp = document.getElementById("liveMetricChillerTemp");
             const fSpeed = document.getElementById("liveMetricFanSpeed");
@@ -2179,15 +2392,33 @@ function initIotSimulator() {
             if (fSpeed) fSpeed.textContent = formatMetric(s.fan_speed_rpm, "RPM");
             if (hStat) hStat.textContent = s.hvac_status || "NORMAL";
 
-            const wFlow = document.getElementById("liveMetricWaterFlow");
-            const tLvl = document.getElementById("liveMetricTankLevel");
-            const wPress = document.getElementById("liveMetricWaterPressure");
-            const cWater = document.getElementById("liveMetricCumWater");
+            if (!window.hasLiveHardwareTelemetry) {
+                const pKW = document.getElementById("liveMetricPowerKW");
+                const eKWH = document.getElementById("liveMetricEnergyKWH");
+                const vV = document.getElementById("liveMetricVoltageV");
+                const iPF = document.getElementById("liveMetricCurrentPF");
 
-            if (wFlow) wFlow.textContent = formatMetric(s.water_flow_lmin, "L/min");
-            if (tLvl) tLvl.textContent = (s.tank_level_pct !== null && s.tank_level_pct !== undefined) ? `${s.tank_level_pct} %` : "-- % (Uncalibrated)";
-            if (wPress) wPress.textContent = (s.water_pressure_bar !== null && s.water_pressure_bar !== undefined) ? `${s.water_pressure_bar} bar` : "-- bar (Disabled)";
-            if (cWater) cWater.textContent = formatMetric(s.cumulative_water_m3, "m³");
+                if (pKW) pKW.textContent = formatMetric(s.active_power_kw, "kW");
+                if (eKWH) eKWH.textContent = formatMetric(s.energy_kwh, "kWh");
+                if (vV) vV.textContent = formatMetric(s.voltage_v, "V");
+                if (iPF) {
+                    if (s.current_a !== null && s.current_a !== undefined) {
+                        iPF.textContent = `${s.current_a} A (PF: ${s.power_factor ?? '--'})`;
+                    } else {
+                        iPF.textContent = "-- A (PF: --)";
+                    }
+                }
+
+                const wFlow = document.getElementById("liveMetricWaterFlow");
+                const tLvl = document.getElementById("liveMetricTankLevel");
+                const wPress = document.getElementById("liveMetricWaterPressure");
+                const cWater = document.getElementById("liveMetricCumWater");
+
+                if (wFlow) wFlow.textContent = formatMetric(s.water_flow_lmin, "L/min");
+                if (tLvl) tLvl.textContent = (s.tank_level_pct !== null && s.tank_level_pct !== undefined) ? `${s.tank_level_pct} %` : "-- % (Uncalibrated)";
+                if (wPress) wPress.textContent = (s.water_pressure_bar !== null && s.water_pressure_bar !== undefined) ? `${s.water_pressure_bar} bar` : "-- bar (Disabled)";
+                if (cWater) cWater.textContent = formatMetric(s.cumulative_water_m3, "m³");
+            }
 
             const rTemp = document.getElementById("liveMetricRoomTemp");
             const oCount = document.getElementById("liveMetricOccupancyCount");
@@ -2222,6 +2453,1104 @@ function initIotSimulator() {
     };
 
     // Fetch Stream Log from Canonical Unified Registry Stream
+    
+    // =========================================================================
+    // LIVE HARDWARE & IOT SPARKLINE CHARTS
+    // =========================================================================
+    let livePowerChart = null;
+    let liveWaterChart = null;
+    let liveMq135Chart = null;
+    let liveWasteChart = null;
+
+    const initLiveSparklines = () => {
+        if (typeof Chart === 'undefined') return;
+
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { enabled: true } },
+            scales: {
+                x: { display: false },
+                y: { display: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#A3C9BE', font: { size: 9 } } }
+            },
+            elements: { point: { radius: 2, hoverRadius: 4 }, line: { tension: 0.3, borderWidth: 2 } }
+        };
+
+        const ctxPower = document.getElementById('liveChartPower');
+        if (ctxPower && !livePowerChart) {
+            livePowerChart = new Chart(ctxPower.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: Array(10).fill(''),
+                    datasets: [{
+                        label: 'Active Power (kW)',
+                        data: [42.1, 45.0, 48.2, 46.5, 49.0, 52.3, 50.1, 47.8, 49.5, 51.2],
+                        borderColor: '#00D09C',
+                        backgroundColor: 'rgba(0, 208, 156, 0.15)',
+                        fill: true
+                    }]
+                },
+                options: commonOptions
+            });
+        }
+
+        const ctxWater = document.getElementById('liveChartWater');
+        if (ctxWater && !liveWaterChart) {
+            liveWaterChart = new Chart(ctxWater.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: Array(10).fill(''),
+                    datasets: [{
+                        label: 'Flow Rate (L/min)',
+                        data: [12.0, 13.5, 14.2, 13.8, 14.5, 15.1, 14.0, 13.6, 14.8, 14.2],
+                        borderColor: '#60A5FA',
+                        backgroundColor: 'rgba(96, 165, 250, 0.15)',
+                        fill: true
+                    }]
+                },
+                options: commonOptions
+            });
+        }
+
+        const ctxMq = document.getElementById('liveChartMq135');
+        if (ctxMq && !liveMq135Chart) {
+            liveMq135Chart = new Chart(ctxMq.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: Array(10).fill(''),
+                    datasets: [{
+                        label: 'Raw ADC Signal (count)',
+                        data: [1150, 1180, 1220, 1205, 1248, 1260, 1240, 1255, 1270, 1248],
+                        borderColor: '#F59E0B',
+                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                        fill: true
+                    }]
+                },
+                options: commonOptions
+            });
+        }
+
+        const ctxWaste = document.getElementById('liveChartWaste');
+        if (ctxWaste && !liveWasteChart) {
+            liveWasteChart = new Chart(ctxWaste.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: Array(10).fill(''),
+                    datasets: [{
+                        label: 'Bin Fill Level (%)',
+                        data: [45.0, 48.0, 52.0, 55.0, 58.5, 62.0, 65.0, 68.0, 71.5, 74.0],
+                        borderColor: '#F59E0B',
+                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                        fill: true
+                    }]
+                },
+                options: commonOptions
+            });
+        }
+    };
+
+    const pushSparklinePoint = (chart, val, label = '') => {
+        if (!chart || val === null || val === undefined || isNaN(val)) return;
+        const data = chart.data.datasets[0].data;
+        const labels = chart.data.labels;
+        data.push(Number(val));
+        labels.push(label);
+        if (data.length > 20) {
+            data.shift();
+            labels.shift();
+        }
+        chart.update('none');
+    };
+
+    const updateLiveTelemetryFromStream = (streamItems) => {
+        if (!streamItems || streamItems.length === 0) return;
+        initLiveSparklines();
+
+        let hasHw = false;
+        let waterUpdated = false;
+        let elecUpdated = false;
+        let airUpdated = false;
+        let hvacUpdated = false;
+        let dhtUpdated = false;
+        let wasteUpdated = false;
+
+        // Loop through items (streamItems is newest first)
+        for (const item of streamItems) {
+            const m = item.metrics || item.telemetry || {};
+            const isVerifiedHw = item.is_verified_hardware === true || item.source_type === 'real_sensor';
+            if (isVerifiedHw) hasHw = true;
+            const timeStr = (item.event_timestamp || item.sent_timestamp || item.ingested_at || '').slice(11, 19);
+
+            // Update smart waste bin card with NEWEST waste packet
+            if (!wasteUpdated && (m.fill_level_percent !== undefined || m.fill_level_pct !== undefined || m.bin_distance_cm !== undefined || item.device_id === 'WASTE-BLOCK-B-001')) {
+                wasteUpdated = true;
+                const elFill = document.getElementById('liveMetricBinFill');
+                const elDist = document.getElementById('liveMetricBinDistance');
+                const elRisk = document.getElementById('liveMetricBinRisk');
+                const bar = document.getElementById('liveBinBar');
+                const barLabel = document.getElementById('liveBinBarLabel');
+                const badge = document.getElementById('liveWasteCardBadge');
+
+                const fillPct = Number(m.fill_level_percent ?? m.fill_level_pct ?? 0);
+                const distCm = Number(m.bin_distance_cm ?? 0);
+
+                if (elFill) elFill.textContent = `${fillPct.toFixed(1)} %`;
+                if (elDist) elDist.textContent = `${distCm.toFixed(1)} cm`;
+                if (elRisk) {
+                    if (fillPct >= 80.0) {
+                        elRisk.textContent = 'OVERFLOW RISK';
+                        elRisk.style.color = '#EF4444';
+                    } else {
+                        elRisk.textContent = 'NORMAL';
+                        elRisk.style.color = '#00D09C';
+                    }
+                }
+
+                if (bar) bar.style.width = `${Math.min(Math.max(fillPct, 0), 100)}%`;
+                if (barLabel) barLabel.textContent = `${fillPct.toFixed(1)}% Fill (${distCm.toFixed(1)} cm clearance)`;
+
+                if (badge) {
+                    badge.innerHTML = isVerifiedHw 
+                        ? '<span class="pulse-dot"></span> ONLINE [REAL SENSOR] - VERIFIED HARDWARE' 
+                        : '<span class="pulse-dot"></span> STREAMING [SIMULATOR]';
+                    badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-teal';
+                }
+
+                // Update Waste Tab (#contentWaste) live values
+                const wasteFillInput = document.getElementById('wasteFill');
+                if (wasteFillInput && document.activeElement !== wasteFillInput) {
+                    wasteFillInput.value = fillPct.toFixed(1);
+                }
+                const liveFillText = document.getElementById('wasteLiveFillText');
+                if (liveFillText) liveFillText.textContent = `${fillPct.toFixed(1)}%`;
+                const liveDistText = document.getElementById('wasteLiveDistText');
+                if (liveDistText) liveDistText.textContent = `${distCm.toFixed(1)} cm`;
+                const liveHwBadge = document.getElementById('wasteLiveHardwareBadge');
+                if (liveHwBadge) liveHwBadge.style.display = isVerifiedHw ? 'inline-flex' : 'none';
+
+                const alertBadge = document.getElementById('wasteLiveAlertBadge');
+                if (alertBadge) {
+                    if (fillPct >= 80.0) {
+                        alertBadge.textContent = 'PRIORITY 1 CRITICAL OVERFLOW';
+                        alertBadge.className = 'badge-red';
+                    } else if (fillPct >= 65.0) {
+                        alertBadge.textContent = 'PRIORITY 2 OVERFLOW RISK';
+                        alertBadge.className = 'badge-amber';
+                    } else {
+                        alertBadge.textContent = 'STATUS: NORMAL CAPACITY';
+                        alertBadge.className = 'badge-teal';
+                    }
+                }
+
+                pushSparklinePoint(liveWasteChart, fillPct, timeStr);
+            }
+
+            // Update water card with NEWEST water packet
+            if (!waterUpdated && (m.water_flow_lmin !== undefined || m.tank_level_pct !== undefined || m.tank_distance_cm !== undefined || m.tank_status !== undefined)) {
+                waterUpdated = true;
+                const elF = document.getElementById('liveMetricWaterFlow');
+                const elC = document.getElementById('liveMetricCumWater');
+                const elP = document.getElementById('liveMetricWaterPressure');
+                const elT = document.getElementById('liveMetricTankLevel');
+                const elD = document.getElementById('liveMetricTankDistance');
+                const bar = document.getElementById('liveTankBar');
+                const barLabel = document.getElementById('liveTankBarLabel');
+                const badge = document.getElementById('liveWaterCardBadge');
+
+                if (elF) elF.textContent = m.water_flow_lmin !== undefined ? `${Number(m.water_flow_lmin).toFixed(1)} L/min` : '-- L/min';
+                if (elC && m.cumulative_water_m3 !== undefined) elC.textContent = `${Number(m.cumulative_water_m3).toFixed(3)} m³`;
+                if (elP) elP.textContent = m.water_pressure_bar !== undefined ? `${Number(m.water_pressure_bar).toFixed(2)} bar` : '-- bar (Disabled)';
+                
+                if (elT) {
+                    if (m.tank_level_pct !== undefined && Number(m.tank_level_pct) > 0) {
+                        elT.textContent = `${Number(m.tank_level_pct).toFixed(1)} %`;
+                    } else if (m.tank_status === 'ECHO_TIMEOUT') {
+                        elT.textContent = '-- %';
+                    }
+                }
+                if (elD) {
+                    if (m.tank_distance_cm !== undefined && Number(m.tank_distance_cm) > 0) {
+                        elD.textContent = `${Number(m.tank_distance_cm).toFixed(1)} cm`;
+                    } else if (m.tank_status === 'ECHO_TIMEOUT') {
+                        elD.textContent = 'Awaiting Echo (20-450cm)';
+                    }
+                }
+                if (bar && m.tank_level_pct !== undefined) {
+                    const pct = Math.min(100, Math.max(0, Number(m.tank_level_pct)));
+                    bar.style.width = `${pct}%`;
+                    if (barLabel) barLabel.textContent = `${pct.toFixed(1)}% Fill`;
+                }
+
+                if (badge) {
+                    badge.innerHTML = isVerifiedHw 
+                        ? '<span class="pulse-dot"></span> ONLINE [REAL SENSOR] - VERIFIED HARDWARE' 
+                        : '<span class="pulse-dot"></span> STREAMING [SIMULATOR]';
+                    badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-teal';
+                }
+                pushSparklinePoint(liveWaterChart, m.tank_level_pct ?? m.water_flow_lmin, timeStr);
+            }
+
+            // Update electricity card with NEWEST electricity packet
+            if (!elecUpdated && (m.active_power_kw !== undefined || m.voltage_v !== undefined || m.meter_status !== undefined)) {
+                elecUpdated = true;
+                const elP = document.getElementById('liveMetricPowerKW');
+                const elE = document.getElementById('liveMetricEnergyKWH');
+                const elV = document.getElementById('liveMetricVoltageV');
+                const elPF = document.getElementById('liveMetricCurrentPF');
+                const elSub = document.getElementById('liveMetricPowerSub');
+                const badge = document.getElementById('liveElecCardBadge');
+
+                const hasRealPower = (m.active_power_kw !== undefined && m.active_power_kw > 0);
+                if (hasRealPower) {
+                    if (elP) elP.textContent = `${Number(m.active_power_kw).toFixed(1)} kW`;
+                    if (elSub) elSub.textContent = 'Peak Demand Load';
+                    if (badge) {
+                        badge.innerHTML = isVerifiedHw 
+                            ? '<span class="pulse-dot"></span> ONLINE [REAL SENSOR] - VERIFIED HARDWARE' 
+                            : '<span class="pulse-dot"></span> ONLINE [SIMULATOR]';
+                        badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-teal';
+                    }
+                    pushSparklinePoint(livePowerChart, m.active_power_kw, timeStr);
+                } else {
+                    if (elP) elP.textContent = '-- kW';
+                    if (elSub) elSub.textContent = 'Awaiting RS-485 Meter Hardware';
+                    if (badge) {
+                        badge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY (Awaiting Meter Hardware)';
+                        badge.style.background = 'rgba(255,255,255,0.08)';
+                        badge.style.color = '#CBD5E1';
+                        badge.style.border = '1px solid rgba(255,255,255,0.2)';
+                    }
+                }
+                if (elE && (m.cumulative_energy_kwh !== undefined || m.energy_kwh !== undefined)) {
+                    elE.textContent = `${Number(m.cumulative_energy_kwh ?? m.energy_kwh).toFixed(1)} kWh`;
+                }
+                if (elV && m.voltage_v !== undefined) elV.textContent = `${Number(m.voltage_v).toFixed(1)} V`;
+                if (elPF && m.current_a !== undefined) elPF.textContent = `${Number(m.current_a).toFixed(1)} A (PF: ${m.power_factor ?? '0.95'})`;
+            }
+
+            // Update HVAC chiller card with NEWEST HVAC packet
+            if (!hvacUpdated && (m.hvac_load_kw !== undefined || item.device_id === 'DEV_HVAC_01')) {
+                hvacUpdated = true;
+                const elKw = document.getElementById('liveMetricHvacKW');
+                const elTemp = document.getElementById('liveMetricChillerTemp');
+                const elRpm = document.getElementById('liveMetricFanSpeed');
+                const elStat = document.getElementById('liveMetricHvacStatus');
+                const badge = document.getElementById('liveHvacCardBadge');
+
+                if (elKw && m.hvac_load_kw !== undefined) elKw.textContent = `${Number(m.hvac_load_kw).toFixed(1)} kW`;
+                if (elTemp && (m.chiller_temp_c !== undefined || m.temperature_c !== undefined)) elTemp.textContent = `${Number(m.chiller_temp_c ?? m.temperature_c).toFixed(1)} °C`;
+                if (elRpm && m.fan_speed_rpm !== undefined) elRpm.textContent = `${Number(m.fan_speed_rpm).toFixed(0)} RPM`;
+                if (elStat) {
+                    elStat.textContent = 'RUNNING';
+                    elStat.style.color = '#00D09C';
+                }
+                if (badge) {
+                    badge.innerHTML = '<span class="pulse-dot"></span> LIVE [SIMULATOR]';
+                    badge.style.background = 'rgba(56, 189, 248, 0.2)';
+                    badge.style.color = '#38BDF8';
+                    badge.style.border = '1px solid #38BDF8';
+                }
+            }
+
+            // Update MQ-135 air quality card with NEWEST air packet
+            if (!airUpdated && (m.mq135_raw_adc !== undefined || m.raw_adc !== undefined || m.mq135_voltage_v !== undefined)) {
+                airUpdated = true;
+                const elAdc = document.getElementById('liveMetricMq135Adc');
+                const elVolt = document.getElementById('liveMetricMq135Voltage');
+                const elCo2 = document.getElementById('liveMetricMq135Co2');
+                const elStat = document.getElementById('liveMetricMq135Status');
+                const badge = document.getElementById('liveAirCardBadge');
+
+                const rawVal = m.mq135_raw_adc ?? m.raw_adc;
+                const voltVal = m.mq135_voltage_v ?? m.sensor_voltage_v;
+                const co2Val = m.mq135_co2_estimate_ppm ?? m.co2_estimate_ppm;
+                const isActuallyConnected = (rawVal !== undefined && Number(rawVal) >= 80 && Number(voltVal) >= 0.08);
+
+                if (isActuallyConnected) {
+                    if (elAdc) elAdc.textContent = `${Math.round(rawVal)} count`;
+                    if (elVolt) elVolt.textContent = `${Number(voltVal).toFixed(2)} V`;
+                    if (elCo2 && co2Val !== undefined) elCo2.textContent = `${Math.round(co2Val)} ppm (estimate)`;
+                    if (elStat) {
+                        const isWarm = m.mq135_warmup_status === 0 || m.mq135_warmup_status === 0.0;
+                        elStat.textContent = isWarm ? 'WARMING UP (180s)' : 'STABILIZED (Indicative)';
+                        elStat.style.color = isWarm ? '#F59E0B' : '#00D09C';
+                    }
+                    if (badge) {
+                        badge.innerHTML = isVerifiedHw 
+                            ? '<span class="pulse-dot"></span> SENSORS ON [REAL SENSOR] - VERIFIED HARDWARE' 
+                            : '<span class="pulse-dot"></span> SENSORS ON [SIMULATOR]';
+                        badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-amber';
+                    }
+                    pushSparklinePoint(liveMq135Chart, rawVal ?? voltVal, timeStr);
+                } else {
+                    if (elAdc) elAdc.textContent = '-- count';
+                    if (elVolt) elVolt.textContent = '-- V';
+                    if (elCo2) elCo2.textContent = '-- ppm';
+                    if (elStat) {
+                        elStat.textContent = 'DISCONNECTED';
+                        elStat.style.color = '#94A3B8';
+                    }
+                    if (badge) {
+                        badge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY (Sensor Disconnected)';
+                        badge.style.background = 'rgba(255,255,255,0.08)';
+                        badge.style.color = '#CBD5E1';
+                        badge.style.border = '1px solid rgba(255,255,255,0.2)';
+                    }
+                }
+            }
+
+            // Update DHT11 climate card with NEWEST environmental packet
+            if (!dhtUpdated && (m.temperature_c !== undefined || m.humidity_pct !== undefined)) {
+                dhtUpdated = true;
+                const elTemp = document.getElementById('liveMetricDhtTemp');
+                const elHum = document.getElementById('liveMetricDhtHumidity');
+                const elHi = document.getElementById('liveMetricDhtHeatIndex');
+                const elStat = document.getElementById('liveMetricDhtStatus');
+                const badge = document.getElementById('liveDhtCardBadge');
+
+                const temp = Number(m.temperature_c ?? 0).toFixed(1);
+                const hum = Number(m.humidity_pct ?? 0).toFixed(0);
+                const hi = m.heat_index_c !== undefined ? Number(m.heat_index_c).toFixed(1) : temp;
+
+                if (elTemp) elTemp.textContent = `${temp} °C`;
+                if (elHum) elHum.textContent = `${hum} % RH`;
+                if (elHi) elHi.textContent = `${hi} °C`;
+                if (elStat) {
+                    if (Number(hi) >= 38.0) {
+                        elStat.textContent = 'HEAT STRESS HAZARD';
+                        elStat.style.color = '#EF4444';
+                    } else if (Number(hum) >= 75) {
+                        elStat.textContent = 'HIGH MOLD RISK';
+                        elStat.style.color = '#F59E0B';
+                    } else {
+                        elStat.textContent = 'COMFORT OPTIMAL';
+                        elStat.style.color = '#00D09C';
+                    }
+                }
+                if (badge) {
+                    badge.innerHTML = isVerifiedHw 
+                        ? '<span class="pulse-dot"></span> ONLINE [REAL SENSOR] - DHT11' 
+                        : '<span class="pulse-dot"></span> ONLINE [SIMULATOR]';
+                    badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-teal';
+                }
+            }
+        }
+
+        if (!dhtUpdated) {
+            const elTemp = document.getElementById('liveMetricDhtTemp');
+            const elHum = document.getElementById('liveMetricDhtHumidity');
+            const elHi = document.getElementById('liveMetricDhtHeatIndex');
+            const elStat = document.getElementById('liveMetricDhtStatus');
+            const badge = document.getElementById('liveDhtCardBadge');
+            if (elTemp) elTemp.textContent = '-- °C';
+            if (elHum) elHum.textContent = '-- % RH';
+            if (elHi) elHi.textContent = '-- °C';
+            if (elStat) {
+                elStat.textContent = 'STANDBY';
+                elStat.style.color = '#94A3B8';
+            }
+            if (badge) {
+                badge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY (Awaiting 1-Wire Frame)';
+                badge.style.background = 'rgba(255,255,255,0.08)';
+                badge.style.color = '#CBD5E1';
+                badge.style.border = '1px solid rgba(255,255,255,0.2)';
+            }
+        }
+
+        // Card 6 OLED Edge Terminal & Bus status
+        const elOledStat = document.getElementById('liveMetricOledStatus');
+        const elModbusStat = document.getElementById('liveMetricModbusStatus');
+        const elFlowStat = document.getElementById('liveMetricFlowStatus');
+        const oledBadge = document.getElementById('liveOledCardBadge');
+        if (hasHw) {
+            if (elOledStat) elOledStat.textContent = 'SSD1306 ACTIVE';
+            if (elModbusStat) elModbusStat.textContent = '9600 BAUD (PZEM-004T)';
+            if (elFlowStat) elFlowStat.textContent = 'GPIO4 ARMED (ZJ-S201)';
+            if (oledBadge) {
+                oledBadge.innerHTML = '<span class="pulse-dot"></span> DISPLAY ACTIVE';
+                oledBadge.className = 'pill-badge badge-mint';
+            }
+        } else {
+            if (elOledStat) elOledStat.textContent = 'STANDBY (Awaiting ESP32)';
+            if (elModbusStat) elModbusStat.textContent = 'STANDBY (GPIO16/17)';
+            if (elFlowStat) elFlowStat.textContent = 'STANDBY (GPIO4)';
+            if (oledBadge) {
+                oledBadge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY';
+                oledBadge.className = 'pill-badge badge-teal';
+            }
+        }
+
+        if (!hvacUpdated) {
+            const elKw = document.getElementById('liveMetricHvacKW');
+            const elTemp = document.getElementById('liveMetricChillerTemp');
+            const elRpm = document.getElementById('liveMetricFanSpeed');
+            const elStat = document.getElementById('liveMetricHvacStatus');
+            const badge = document.getElementById('liveHvacCardBadge');
+            if (elKw) elKw.textContent = '-- kW';
+            if (elTemp) elTemp.textContent = '-- °C';
+            if (elRpm) elRpm.textContent = '-- RPM';
+            if (elStat) {
+                elStat.textContent = 'STANDBY';
+                elStat.style.color = '#94A3B8';
+            }
+            if (badge) {
+                badge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY (Simulator Inactive)';
+                badge.style.background = 'rgba(255,255,255,0.08)';
+                badge.style.color = '#CBD5E1';
+                badge.style.border = '1px solid rgba(255,255,255,0.2)';
+            }
+        }
+
+        if (hasHw) {
+            window.hasLiveHardwareTelemetry = true;
+            const provBadge = document.getElementById('monProvenanceBadge');
+            if (provBadge) provBadge.innerHTML = '<i class="fa-solid fa-shield-halved"></i> Tagged: [REAL SENSOR] (ESP32 Gateway)';
+            const simIpLabel = document.getElementById('monSimIpLabel');
+            if (simIpLabel) simIpLabel.textContent = 'IP: 172.16.222.83 (ESP32 Hardware)';
+            const simInst = document.getElementById('monSimInstancesCount');
+            if (simInst) simInst.textContent = '1 Physical Gateway';
+            const connState = document.getElementById('monConnState');
+            if (connState) connState.textContent = 'HARDWARE STREAMING';
+        }
+
+        // Update Matrix Header Badges
+        const mBadge = document.getElementById('matrixMeterBadge');
+        if (mBadge) {
+            const hasLiveElec = streamItems.some(s => s.device_id === 'METER-BLOCK-B-001' && (s.metrics?.active_power_kw > 0 || s.telemetry?.active_power_kw > 0));
+            mBadge.innerHTML = hasLiveElec 
+                ? '<i class="fa-solid fa-bolt"></i> Meter: Modbus RTU (LIVE)'
+                : '<i class="fa-solid fa-bolt"></i> Meter: Modbus RTU (Standby)';
+            mBadge.style.color = hasLiveElec ? '#00F0B5' : '#CBD5E1';
+            mBadge.style.border = hasLiveElec ? '1px solid #00F0B5' : '1px solid rgba(255,255,255,0.25)';
+        }
+        const wBadge = document.getElementById('matrixWaterBadge');
+        if (wBadge) {
+            const hasDist = streamItems.some(s => s.device_id === 'WATER-BLOCK-B-001' && (s.metrics?.tank_distance_cm > 0 || s.telemetry?.tank_distance_cm > 0));
+            const isTimeout = streamItems.some(s => s.device_id === 'WATER-BLOCK-B-001' && (s.metrics?.tank_status === 'ECHO_TIMEOUT' || s.telemetry?.tank_status === 'ECHO_TIMEOUT'));
+            if (hasDist) {
+                wBadge.innerHTML = '<i class="fa-solid fa-water"></i> Water: AJ-SR04M Sonar (LIVE)';
+                wBadge.style.background = 'rgba(0, 240, 181, 0.18)';
+                wBadge.style.color = '#00F0B5';
+                wBadge.style.border = '1px solid #00F0B5';
+            } else if (isTimeout) {
+                wBadge.innerHTML = '<i class="fa-solid fa-water"></i> Water: AJ-SR04M (Awaiting Echo)';
+                wBadge.style.background = 'rgba(245, 158, 11, 0.18)';
+                wBadge.style.color = '#F59E0B';
+                wBadge.style.border = '1px solid #F59E0B';
+            } else {
+                wBadge.innerHTML = '<i class="fa-solid fa-water"></i> Water: AJ-SR04M (Standby)';
+                wBadge.style.background = 'rgba(255, 255, 255, 0.08)';
+                wBadge.style.color = '#CBD5E1';
+                wBadge.style.border = '1px solid rgba(255, 255, 255, 0.25)';
+            }
+        }
+        const aBadge = document.getElementById('matrixAuxBadge');
+        if (aBadge) {
+            const hasRealAir = streamItems.some(s => s.device_id === 'ENV-BLOCK-B-001' && ((s.metrics?.mq135_raw_adc >= 80) || (s.telemetry?.mq135_raw_adc >= 80)));
+            if (hasRealAir) {
+                aBadge.innerHTML = '<i class="fa-solid fa-wind"></i> Air: MQ-135 Gas Sensor (LIVE)';
+                aBadge.style.background = 'rgba(245, 158, 11, 0.18)';
+                aBadge.style.color = '#F59E0B';
+                aBadge.style.border = '1px solid #F59E0B';
+            } else {
+                aBadge.innerHTML = '<i class="fa-solid fa-wind"></i> Air: MQ-135 (Standby)';
+                aBadge.style.background = 'rgba(255, 255, 255, 0.08)';
+                aBadge.style.color = '#CBD5E1';
+                aBadge.style.border = '1px solid rgba(255, 255, 255, 0.25)';
+            }
+        }
+    };
+
+    // =========================================================================
+    // DYNAMIC SENSOR METROLOGY MATRIX (ZERO DEMO DATA — LIVE SENSORS ONLY)
+    // =========================================================================
+    const renderSensorMatrixTable = (devices, stream) => {
+        const tbody = document.getElementById('sensorMatrixTableBody');
+        if (!tbody) return;
+
+        devices = devices || window.cachedDevicesList || [];
+        stream = stream || window.cachedStreamList || [];
+
+        let rowsHtml = '';
+
+        // 1. PZEM-004T AC Electricity Meter (Physical Hardware)
+        const elecStream = stream.find(s => s.device_id === 'METER-BLOCK-B-001');
+        const elecDev = devices.find(d => d.device_id === 'METER-BLOCK-B-001');
+        const elecM = elecStream ? (elecStream.metrics || elecStream.telemetry || {}) : (elecDev ? (elecDev.last_telemetry || {}) : {});
+        const hasLiveElec = (elecM.active_power_kw !== undefined && Number(elecM.active_power_kw) > 0) || (elecM.voltage_v !== undefined && Number(elecM.voltage_v) > 0);
+
+        if (hasLiveElec) {
+            const p = elecM.active_power_kw !== undefined ? `${Number(elecM.active_power_kw).toFixed(2)} kW` : '-- kW';
+            const v = elecM.voltage_v !== undefined ? `${Number(elecM.voltage_v).toFixed(1)} V` : '-- V';
+            const i = elecM.current_a !== undefined ? `${Number(elecM.current_a).toFixed(2)} A` : '-- A';
+            const pf = elecM.power_factor !== undefined ? `PF: ${Number(elecM.power_factor).toFixed(2)}` : '';
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
+                    <td class="subsystem-col"><i class="fa-solid fa-bolt text-mint"></i> Electricity Meter</td>
+                    <td style="color:#FFFFFF; font-weight:800; font-size:13px;">Peacefair PZEM-004T 10A</td>
+                    <td class="interface-col">UART2 (RX:GPIO16, TX:GPIO17)</td>
+                    <td class="range-col">80 - 260 V / 0 - 10 A (2.3 kW)</td>
+                    <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [PZEM-004T]</span></td>
+                    <td class="cal-col">Active Power: <strong style="color:#00F0B5; font-size:13px;">${p}</strong> | Voltage: <strong style="color:#38BDF8;">${v}</strong> | Current: <strong style="color:#FDE047;">${i}</strong> ${pf}</td>
+                </tr>
+            `;
+        } else {
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
+                    <td class="subsystem-col"><i class="fa-solid fa-bolt" style="color:#94A3B8;"></i> Electricity Meter</td>
+                    <td style="color:#CBD5E1; font-weight:700;">Peacefair PZEM-004T 10A</td>
+                    <td class="interface-col">UART2 (RX:GPIO16, TX:GPIO17)</td>
+                    <td class="range-col">80 - 260 V / 0 - 10 A</td>
+                    <td><span style="background:rgba(255,255,255,0.08); color:#CBD5E1; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-size:11px;"><i class="fa-solid fa-pause"></i> STANDBY (Awaiting AC Load)</span></td>
+                    <td class="cal-col" style="color:#94A3B8;">UART2 initialized on GPIO16/17 &bull; Connect AC line and load to meter CT coil</td>
+                </tr>
+            `;
+        }
+
+        // 2. Ultrasonic Water Level & Distance (JSN-SR04T / AJ-SR04M / HC-SR04)
+        const waterStream = stream.find(s => s.device_id === 'WATER-BLOCK-B-001');
+        const waterDev = devices.find(d => d.device_id === 'WATER-BLOCK-B-001');
+        const waterM = waterStream ? (waterStream.metrics || waterStream.telemetry || {}) : (waterDev ? (waterDev.last_telemetry || {}) : {});
+        const hasLiveDistance = (waterM.tank_distance_cm !== undefined && Number(waterM.tank_distance_cm) > 0);
+        const isSonarTimeout = (waterM.tank_status === 'ECHO_TIMEOUT' || (waterM.tank_distance_cm !== undefined && Number(waterM.tank_distance_cm) <= 0));
+
+        if (hasLiveDistance) {
+            const dist = `${Number(waterM.tank_distance_cm).toFixed(1)} cm`;
+            const lvl = waterM.tank_level_pct !== undefined ? `${Number(waterM.tank_level_pct).toFixed(1)}%` : '--%';
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
+                    <td class="subsystem-col"><i class="fa-solid fa-water text-blue"></i> Water Tank Level</td>
+                    <td style="color:#FFFFFF; font-weight:800; font-size:13px;">Ultrasonic AJ-SR04M Sonar</td>
+                    <td class="interface-col">Trig:GPIO5 / Echo:GPIO18</td>
+                    <td class="range-col">20 - 450 cm (0 - 100% Fill)</td>
+                    <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [REAL HARDWARE]</span></td>
+                    <td class="cal-col">Current Distance: <strong style="color:#00F0B5; font-size:14px;">${dist}</strong> | Fill Level: <strong style="color:#38BDF8; font-size:14px;">${lvl}</strong> (Geometric echo flight time)</td>
+                </tr>
+            `;
+        } else if (isSonarTimeout) {
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
+                    <td class="subsystem-col"><i class="fa-solid fa-water text-blue"></i> Water Tank Level</td>
+                    <td style="color:#FFFFFF; font-weight:800; font-size:13px;">Ultrasonic AJ-SR04M Sonar</td>
+                    <td class="interface-col">Trig:GPIO5 / Echo:GPIO18</td>
+                    <td class="range-col">20 - 450 cm (0 - 100% Fill)</td>
+                    <td><span style="background:rgba(245,158,11,0.18); color:#F59E0B; border:1px solid #F59E0B; font-weight:800; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot" style="background:#F59E0B;"></span> ONLINE (Awaiting Echo / Out of Range) [REAL HARDWARE]</span></td>
+                    <td class="cal-col" style="color:#FDE047;">Pinging on GPIO5/18 &bull; Place flat reflective surface <strong style="color:#00F0B5;">20&ndash;450 cm</strong> in front of probe (Blind zone: &lt;20cm)</td>
+                </tr>
+            `;
+        } else {
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
+                    <td class="subsystem-col"><i class="fa-solid fa-water" style="color:#94A3B8;"></i> Water Tank Level</td>
+                    <td style="color:#CBD5E1; font-weight:700;">Ultrasonic AJ-SR04M Sonar</td>
+                    <td class="interface-col">Trig:GPIO5 / Echo:GPIO18</td>
+                    <td class="range-col">20 - 450 cm (0 - 100% Fill)</td>
+                    <td><span style="background:rgba(255,255,255,0.08); color:#CBD5E1; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-size:11px;"><i class="fa-solid fa-pause"></i> STANDBY (Awaiting Sonar Hardware)</span></td>
+                    <td class="cal-col" style="color:#94A3B8;">Connect AJ-SR04M Trig to GPIO5 and Echo to GPIO18 via 1k/2.2k divider</td>
+                </tr>
+            `;
+        }
+
+
+        // 2B. HC-SR04 Ultrasonic Smart Waste Bin (Physical Hardware)
+        const wasteStream = stream.find(s => s.device_id === 'WASTE-BLOCK-B-001');
+        const wasteDev = devices.find(d => d.device_id === 'WASTE-BLOCK-B-001');
+        const wasteM = wasteStream ? (wasteStream.metrics || wasteStream.telemetry || {}) : (wasteDev ? (wasteDev.last_telemetry || {}) : {});
+        const hasLiveWaste = (wasteM.bin_distance_cm !== undefined && Number(wasteM.bin_distance_cm) > 0) ||
+                             (wasteM.fill_level_percent !== undefined && Number(wasteM.fill_level_percent) > 0);
+
+        if (hasLiveWaste) {
+            const wDist = Number(wasteM.bin_distance_cm || 0).toFixed(1);
+            const wFill = Number(wasteM.fill_level_percent ?? wasteM.fill_level_pct ?? 0).toFixed(1);
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
+                    <td class="subsystem-col"><i class="fa-solid fa-trash-can text-amber"></i> Waste Management</td>
+                    <td style="color:#FFFFFF; font-weight:800; font-size:13px;">HC-SR04 Ultrasonic Sonar</td>
+                    <td class="interface-col">Trig:GPIO14 / Echo:GPIO27 (or GPIO5/18)</td>
+                    <td class="range-col">4 - 400 cm (0 - 100% Bin Fill)</td>
+                    <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [REAL HARDWARE]</span></td>
+                    <td class="cal-col">Current Distance: <strong style="color:#00F0B5; font-size:14px;">${wDist} cm</strong> | Fill Level: <strong style="color:#F59E0B; font-size:14px;">${wFill}%</strong> (Sonar echo flight time)</td>
+                </tr>
+            `;
+        } else {
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
+                    <td class="subsystem-col"><i class="fa-solid fa-trash-can" style="color:#94A3B8;"></i> Waste Management</td>
+                    <td style="color:#CBD5E1; font-weight:700;">HC-SR04 Ultrasonic Sonar</td>
+                    <td class="interface-col">Trig:GPIO14 / Echo:GPIO27 (or GPIO5/18)</td>
+                    <td class="range-col">4 - 400 cm (0 - 100% Bin Fill)</td>
+                    <td><span style="background:rgba(255,255,255,0.08); color:#CBD5E1; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-size:11px;"><i class="fa-solid fa-pause"></i> STANDBY (Awaiting Sonar Hardware)</span></td>
+                    <td class="cal-col" style="color:#94A3B8;">Connect HC-SR04 Trig to GPIO14 and Echo to GPIO27 (or GPIO5/18) via 1k/2.2k divider</td>
+                </tr>
+            `;
+        }
+
+        // 3. Water Flow Sensor (ZJ-S201 Hall Turbine Pulse Meter)
+        const hasFlow = (waterM.water_flow_lmin !== undefined && Number(waterM.water_flow_lmin) > 0.0);
+        const flowVal = waterM.water_flow_lmin !== undefined ? `${Number(waterM.water_flow_lmin).toFixed(1)} L/min` : '0.0 L/min';
+        const cumM3 = waterM.cumulative_water_m3 !== undefined ? `${Number(waterM.cumulative_water_m3).toFixed(3)} m³` : '0.000 m³';
+
+        if (hasFlow) {
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
+                    <td class="subsystem-col"><i class="fa-solid fa-droplet text-blue"></i> Water Flow Sensor</td>
+                    <td style="color:#FFFFFF; font-weight:800; font-size:13px;">ZJ-S201 Hall Turbine</td>
+                    <td class="interface-col">Interrupt Pulse (GPIO4)</td>
+                    <td class="range-col">1.0 - 30.0 L/min (~450 pulses/L)</td>
+                    <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [REAL HARDWARE]</span></td>
+                    <td class="cal-col">Current Flow: <strong style="color:#60A5FA; font-size:13px;">${flowVal}</strong> | Cumulative Volume: <strong style="color:#34D399;">${cumM3}</strong></td>
+                </tr>
+            `;
+        } else {
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
+                    <td class="subsystem-col"><i class="fa-solid fa-droplet" style="color:#94A3B8;"></i> Water Flow Sensor</td>
+                    <td style="color:#CBD5E1; font-weight:700;">ZJ-S201 Hall Turbine</td>
+                    <td class="interface-col">Interrupt Pulse (GPIO4)</td>
+                    <td class="range-col">1.0 - 30.0 L/min</td>
+                    <td><span style="background:rgba(255,255,255,0.08); color:#CBD5E1; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-size:11px;"><i class="fa-solid fa-pause"></i> STANDBY (Sensor Disconnected / Zero Flow)</span></td>
+                    <td class="cal-col" style="color:#94A3B8;">Hardware pulse counter armed on GPIO4 &bull; Awaiting water flow rotation</td>
+                </tr>
+            `;
+        }
+
+        // 4. MQ-135 Gas / Air Quality Sensor (Physical Hardware)
+        const airStream = stream.find(s => s.device_id === 'ENV-BLOCK-B-001');
+        const airDev = devices.find(d => d.device_id === 'ENV-BLOCK-B-001');
+        const airM = airStream ? (airStream.metrics || airStream.telemetry || {}) : (airDev ? (airDev.last_telemetry || {}) : {});
+        const rawAdc = Math.round(airM.mq135_raw_adc ?? airM.raw_adc ?? 0);
+        const volt = Number(airM.mq135_voltage_v ?? airM.sensor_voltage_v ?? 0);
+        const isAirActuallyConnected = (rawAdc >= 80 && volt >= 0.08);
+
+        if (isAirActuallyConnected) {
+            const isWarm = airM.mq135_warmup_status === 0 || airM.mq135_warmup_status === 0.0;
+            const warmupText = isWarm ? '<span style="color:#F59E0B; font-weight:700;">Warming Up (180s Baseline)</span>' : '<span style="color:#00F0B5; font-weight:700;">Stabilized</span>';
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
+                    <td class="subsystem-col"><i class="fa-solid fa-wind text-amber"></i> Air Quality / Gas</td>
+                    <td style="color:#FFFFFF; font-weight:800; font-size:13px;">MQ-135 Gas Sensor</td>
+                    <td class="interface-col">GPIO34 (ADC1 with Divider)</td>
+                    <td class="range-col">0 - 4095 ADC (0.0 - 5.0 V)</td>
+                    <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [REAL HARDWARE]</span></td>
+                    <td class="cal-col">Current ADC: <strong style="color:#F59E0B; font-size:13px;">${rawAdc} count</strong> (${volt.toFixed(2)}V) | ${warmupText} (Indicative sensor estimate)</td>
+                </tr>
+            `;
+        } else {
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
+                    <td class="subsystem-col"><i class="fa-solid fa-wind" style="color:#94A3B8;"></i> Air Quality / Gas</td>
+                    <td style="color:#CBD5E1; font-weight:700;">MQ-135 Gas Sensor</td>
+                    <td class="interface-col">GPIO34 (ADC1 with Divider)</td>
+                    <td class="range-col">0 - 4095 ADC (0.0 - 5.0 V)</td>
+                    <td><span style="background:rgba(255,255,255,0.08); color:#CBD5E1; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-size:11px;"><i class="fa-solid fa-pause"></i> STANDBY (Sensor Disconnected)</span></td>
+                    <td class="cal-col" style="color:#94A3B8;">GPIO34 reads 0 count (0.00V) &bull; Sensor not connected to analog port</td>
+                </tr>
+            `;
+        }
+
+        // 5. DHT11 Digital Temperature & Humidity Sensor
+        const isDhtActive = (airM.temperature_c !== undefined || airM.humidity_pct !== undefined);
+        if (isDhtActive) {
+            const t = Number(airM.temperature_c).toFixed(1);
+            const h = Number(airM.humidity_pct).toFixed(0);
+            const hi = airM.heat_index_c !== undefined ? Number(airM.heat_index_c).toFixed(1) : t;
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
+                    <td class="subsystem-col"><i class="fa-solid fa-temperature-half text-teal"></i> Climate & Environment</td>
+                    <td style="color:#FFFFFF; font-weight:800; font-size:13px;">DHT11 Digital Sensor Module</td>
+                    <td class="interface-col">1-Wire Digital (GPIO23)</td>
+                    <td class="range-col">0 - 50 °C / 20 - 90 % RH</td>
+                    <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [DHT11]</span></td>
+                    <td class="cal-col">Temperature: <strong style="color:#2DD4BF; font-size:13px;">${t} °C</strong> | Humidity: <strong style="color:#38BDF8;">${h}% RH</strong> | Heat Index: <strong style="color:#F59E0B;">${hi} °C</strong></td>
+                </tr>
+            `;
+        } else {
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
+                    <td class="subsystem-col"><i class="fa-solid fa-temperature-half" style="color:#94A3B8;"></i> Climate & Environment</td>
+                    <td style="color:#CBD5E1; font-weight:700;">DHT11 Digital Sensor Module</td>
+                    <td class="interface-col">1-Wire Digital (GPIO23)</td>
+                    <td class="range-col">0 - 50 °C / 20 - 90 % RH</td>
+                    <td><span style="background:rgba(255,255,255,0.08); color:#CBD5E1; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-size:11px;"><i class="fa-solid fa-pause"></i> STANDBY (Sensor Disconnected)</span></td>
+                    <td class="cal-col" style="color:#94A3B8;">1-Wire interface listening on GPIO23 &bull; Awaiting DHT11 data frame</td>
+                </tr>
+            `;
+        }
+
+        // 6. 0.96 Inch I2C OLED Display
+        rowsHtml += `
+            <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
+                <td class="subsystem-col"><i class="fa-solid fa-desktop text-mint"></i> Edge Display & Terminal</td>
+                <td style="color:#FFFFFF; font-weight:800; font-size:13px;">0.96" SSD1306 Blue OLED</td>
+                <td class="interface-col">I2C (SDA:GPIO21, SCL:GPIO22)</td>
+                <td class="range-col">128 x 64 Dot Matrix</td>
+                <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> ACTIVE [LOCAL DISPLAY]</span></td>
+                <td class="cal-col" style="color:#A7F3D0;">Real-time on-device telemetry dashboard active &bull; Cyclical 7-line local stream</td>
+            </tr>
+        `;
+
+        // 7. Dynamic Additional Physically Connected Hardware
+        devices.forEach(d => {
+            const isBase = (d.device_id === 'WATER-BLOCK-B-001' || d.device_id === 'ENV-BLOCK-B-001' || d.device_id === 'METER-BLOCK-B-001');
+            const isHw = (d.is_verified_hardware === true || d.source_type === 'real_sensor');
+            if (!isBase && isHw && (d.status === 'ONLINE' || d.status === 'STREAMING')) {
+                const m = d.last_telemetry || {};
+                const metricSummary = Object.entries(m).slice(0, 3).map(([k, v]) => `${k.replace(/_/g, ' ')}: <strong style="color:#00F0B5;">${v}</strong>`).join(' | ') || 'Transmitting telemetry packets';
+                rowsHtml += `
+                    <tr style="border-bottom: 1px solid rgba(0,240,181,0.2); background: #061813;">
+                        <td class="subsystem-col"><i class="fa-solid fa-microchip text-mint"></i> ${d.device_name || d.device_id}</td>
+                        <td style="color:#FFFFFF; font-weight:800; font-size:13px;">${d.device_type || 'Edge Sensor Node'}</td>
+                        <td class="interface-col">${d.instance_id || 'Wi-Fi / REST / MQTT'}</td>
+                        <td class="range-col">Dynamic Auto-Calibrated</td>
+                        <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [REAL HARDWARE]</span></td>
+                        <td class="cal-col">${metricSummary}</td>
+                    </tr>
+                `;
+            }
+        });
+
+        // 8. Active Simulator Nodes (Only when actively streaming)
+        const simHvacStream = stream.find(s => s.device_id === 'DEV_HVAC_01' || s.source_type === 'simulated_iot');
+        if (simHvacStream) {
+            const m = simHvacStream.metrics || simHvacStream.telemetry || {};
+            const kw = m.hvac_load_kw !== undefined ? `${Number(m.hvac_load_kw).toFixed(1)} kW` : '-- kW';
+            const temp = m.temperature_c !== undefined ? `${Number(m.temperature_c).toFixed(1)} °C` : '-- °C';
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid rgba(56,189,248,0.25); background: #051F27;">
+                    <td class="subsystem-col"><i class="fa-solid fa-snowflake" style="color:#38BDF8;"></i> HVAC Chiller</td>
+                    <td style="color:#FFFFFF; font-weight:800; font-size:13px;">Centrifugal Chiller & AHU</td>
+                    <td class="interface-col" style="color:#38BDF8;">Simulator Virtual Node (Port 8503)</td>
+                    <td class="range-col">10 - 200 kW (0 - 50 °C)</td>
+                    <td><span style="background:rgba(56,189,248,0.2); color:#38BDF8; border:1px solid #38BDF8; font-weight:800; padding:3px 8px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-microchip"></i> LIVE [SIMULATED IoT]</span></td>
+                    <td class="cal-col">Live Simulation: Compressor Load: <strong style="color:#38BDF8;">${kw}</strong> | Temp: <strong style="color:#2DD4BF;">${temp}</strong></td>
+                </tr>
+            `;
+        }
+
+        tbody.innerHTML = rowsHtml;
+    };
+
+
+window.currentFleetFilter = 'all';
+    window.currentStreamFilter = 'all';
+    window.cachedDevicesList = [];
+    window.cachedStreamList = [];
+
+    const initFleetFilterButtons = () => {
+        const btnAll = document.getElementById('filterFleetAll');
+        const btnHw = document.getElementById('filterFleetHw');
+        const btnSim = document.getElementById('filterFleetSim');
+
+        const updateBtnStyles = () => {
+            if (btnAll) {
+                btnAll.style.background = window.currentFleetFilter === 'all' ? '#00F0B5' : 'rgba(0, 240, 181, 0.15)';
+                btnAll.style.color = window.currentFleetFilter === 'all' ? '#04120F' : '#00F0B5';
+            }
+            if (btnHw) {
+                btnHw.style.background = window.currentFleetFilter === 'hardware' ? '#00F0B5' : 'rgba(0, 240, 181, 0.15)';
+                btnHw.style.color = window.currentFleetFilter === 'hardware' ? '#04120F' : '#00F0B5';
+            }
+            if (btnSim) {
+                btnSim.style.background = window.currentFleetFilter === 'simulator' ? '#38BDF8' : 'rgba(56, 189, 248, 0.15)';
+                btnSim.style.color = window.currentFleetFilter === 'simulator' ? '#04120F' : '#38BDF8';
+            }
+        };
+
+        if (btnAll) btnAll.onclick = () => { window.currentFleetFilter = 'all'; updateBtnStyles(); renderDynamicFleet(); };
+        if (btnHw) btnHw.onclick = () => { window.currentFleetFilter = 'hardware'; updateBtnStyles(); renderDynamicFleet(); };
+        if (btnSim) btnSim.onclick = () => { window.currentFleetFilter = 'simulator'; updateBtnStyles(); renderDynamicFleet(); };
+
+        const sAll = document.getElementById('streamFilterAll');
+        const sHw = document.getElementById('streamFilterHw');
+        const sSim = document.getElementById('streamFilterSim');
+
+        const updateStreamBtnStyles = () => {
+            if (sAll) {
+                sAll.style.background = window.currentStreamFilter === 'all' ? '#00F0B5' : 'transparent';
+                sAll.style.color = window.currentStreamFilter === 'all' ? '#04120F' : '#00F0B5';
+            }
+            if (sHw) {
+                sHw.style.background = window.currentStreamFilter === 'hardware' ? '#00F0B5' : 'transparent';
+                sHw.style.color = window.currentStreamFilter === 'hardware' ? '#04120F' : '#00F0B5';
+            }
+            if (sSim) {
+                sSim.style.background = window.currentStreamFilter === 'simulator' ? '#38BDF8' : 'transparent';
+                sSim.style.color = window.currentStreamFilter === 'simulator' ? '#04120F' : '#38BDF8';
+            }
+        };
+
+        if (sAll) sAll.onclick = () => { window.currentStreamFilter = 'all'; updateStreamBtnStyles(); renderStreamTable(); };
+        if (sHw) sHw.onclick = () => { window.currentStreamFilter = 'hardware'; updateStreamBtnStyles(); renderStreamTable(); };
+        if (sSim) sSim.onclick = () => { window.currentStreamFilter = 'simulator'; updateStreamBtnStyles(); renderStreamTable(); };
+    };
+
+    const renderDynamicFleet = async () => {
+        const container = document.getElementById('dynamicFleetContainer');
+        if (!container) return;
+
+        try {
+            const res = await fetch('/api/v1/iot/devices');
+            if (!res.ok) return;
+            const data = await res.json();
+            const devices = data.devices || [];
+            window.cachedDevicesList = devices;
+            renderSensorMatrixTable(devices, window.cachedStreamList);
+
+            let hwCount = 0;
+            let simCount = 0;
+            devices.forEach(d => {
+                if (d.is_verified_hardware || d.source_type === 'real_sensor') hwCount++;
+                else simCount++;
+            });
+
+            const countAllEl = document.getElementById('countFleetAll');
+            const countHwEl = document.getElementById('countFleetHw');
+            const countSimEl = document.getElementById('countFleetSim');
+            if (countAllEl) countAllEl.textContent = devices.length;
+            if (countHwEl) countHwEl.textContent = hwCount;
+            if (countSimEl) countSimEl.textContent = simCount;
+
+            const filtered = devices.filter(d => {
+                const isHw = d.is_verified_hardware || d.source_type === 'real_sensor';
+                if (window.currentFleetFilter === 'hardware') return isHw;
+                if (window.currentFleetFilter === 'simulator') return !isHw;
+                return true;
+            });
+
+            // Sort: ONLINE first, then STALE, then OFFLINE
+            filtered.sort((a, b) => {
+                const order = { 'ONLINE': 1, 'STREAMING': 2, 'STALE': 3, 'OFFLINE': 4 };
+                return (order[a.status] || 5) - (order[b.status] || 5);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1 / -1; padding: 30px; text-align: center; color: #CBD5E1; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.15);">
+                        <i class="fa-solid fa-satellite-dish" style="font-size: 28px; margin-bottom: 8px; color: #00F0B5;"></i>
+                        <p style="margin: 0; font-size: 14px; font-weight: 600;">No devices match the "${window.currentFleetFilter}" filter.</p>
+                        <span style="font-size: 12px; color: #94A3B8;">Power on your ESP32 or trigger the simulator to see devices stream live.</span>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(d => {
+                const isHw = d.is_verified_hardware || d.source_type === 'real_sensor';
+                const statusColor = d.status === 'ONLINE' ? '#00F0B5' : (d.status === 'STREAMING' ? '#38BDF8' : (d.status === 'STALE' ? '#F59E0B' : '#EF4444'));
+                const statusBg = d.status === 'ONLINE' ? 'rgba(0, 240, 181, 0.15)' : (d.status === 'STREAMING' ? 'rgba(56, 189, 248, 0.15)' : (d.status === 'STALE' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)'));
+                
+                const provBadge = isHw
+                    ? `<span style="background: rgba(0, 240, 181, 0.18); color: #00F0B5; border: 1px solid rgba(0, 240, 181, 0.5); padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-shield-halved"></i> [REAL SENSOR]</span>`
+                    : `<span style="background: rgba(56, 189, 248, 0.18); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.5); padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-microchip"></i> [SIMULATED IoT]</span>`;
+
+                let iconClass = 'fa-microchip';
+                let iconColor = '#00F0B5';
+                if (d.device_type === 'electricity_meter') { iconClass = 'fa-bolt'; iconColor = '#00F0B5'; }
+                else if (d.device_type === 'water_meter') { iconClass = 'fa-droplet'; iconColor = '#38BDF8'; }
+                else if (d.device_type === 'hvac_monitor') { iconClass = 'fa-snowflake'; iconColor = '#2DD4BF'; }
+                else if (d.device_type === 'air_quality_monitor' || d.device_type === 'air_quality_sensor') { iconClass = 'fa-wind'; iconColor = '#F59E0B'; }
+                else if (d.device_type === 'dg_monitor') { iconClass = 'fa-gas-pump'; iconColor = '#FBBF24'; }
+
+                const m = d.last_telemetry || {};
+                let metricChips = [];
+
+                if (m.tank_level_pct !== undefined) {
+                    metricChips.push(`
+                        <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #BAE6FD; font-weight: 700; text-transform: uppercase;">Tank Water Level</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #38BDF8;">${Number(m.tank_level_pct).toFixed(1)} %</div>
+                            <div style="height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden; margin-top: 4px;">
+                                <div style="height: 100%; width: ${Math.min(100, Math.max(0, m.tank_level_pct))}%; background: linear-gradient(90deg, #00F0B5, #38BDF8);"></div>
+                            </div>
+                        </div>
+                    `);
+                }
+                if (m.tank_distance_cm !== undefined) {
+                    metricChips.push(`
+                        <div style="background: rgba(0, 240, 181, 0.15); border: 1px solid rgba(0, 240, 181, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #A7F3D0; font-weight: 700; text-transform: uppercase;">Ultrasonic Clearance</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #00F0B5;">${Number(m.tank_distance_cm).toFixed(1)} cm</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">AJ-SR04M Sonar</div>
+                        </div>
+                    `);
+                }
+                if (m.active_power_kw !== undefined) {
+                    metricChips.push(`
+                        <div style="background: rgba(0, 240, 181, 0.15); border: 1px solid rgba(0, 240, 181, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #A7F3D0; font-weight: 700; text-transform: uppercase;">Active Power</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #00F0B5;">${Number(m.active_power_kw).toFixed(1)} kW</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">Demand Load</div>
+                        </div>
+                    `);
+                }
+                if (m.water_flow_lmin !== undefined) {
+                    metricChips.push(`
+                        <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #BAE6FD; font-weight: 700; text-transform: uppercase;">Water Flow</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #38BDF8;">${Number(m.water_flow_lmin).toFixed(1)} L/min</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">Velocity</div>
+                        </div>
+                    `);
+                }
+                if (m.mq135_raw_adc !== undefined || m.raw_adc !== undefined) {
+                    const adcVal = m.mq135_raw_adc ?? m.raw_adc;
+                    metricChips.push(`
+                        <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #FEF3C7; font-weight: 700; text-transform: uppercase;">MQ-135 Gas ADC</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #F59E0B;">${Math.round(adcVal)} count</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">12-bit ADC1</div>
+                        </div>
+                    `);
+                }
+                if (m.hvac_load_kw !== undefined) {
+                    metricChips.push(`
+                        <div style="background: rgba(45, 212, 191, 0.15); border: 1px solid rgba(45, 212, 191, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #CCFBF1; font-weight: 700; text-transform: uppercase;">HVAC Chiller Load</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #2DD4BF;">${Number(m.hvac_load_kw).toFixed(1)} kW</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">Compressor</div>
+                        </div>
+                    `);
+                }
+
+                if (metricChips.length === 0) {
+                    const fallbackKeys = Object.keys(m).slice(0, 2);
+                    fallbackKeys.forEach(k => {
+                        metricChips.push(`
+                            <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 8px 12px;">
+                                <div style="font-size: 10px; color: #CBD5E1; font-weight: 700; text-transform: uppercase;">${k.replace('_', ' ')}</div>
+                                <div style="font-size: 1.25rem; font-weight: 800; color: #FFFFFF;">${m[k]}</div>
+                            </div>
+                        `);
+                    });
+                }
+
+                if (metricChips.length === 0) {
+                    metricChips.push(`
+                        <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 12px; color: #94A3B8; font-size: 12px; text-align: center;">
+                            Awaiting Telemetry Packet...
+                        </div>
+                    `);
+                }
+
+                const lastSeenText = d.last_sample_at ? d.last_sample_at.replace('T', ' ').slice(11, 19) : 'None';
+
+                return `
+                    <div style="background: linear-gradient(145deg, rgba(14, 46, 38, 0.8) 0%, rgba(6, 24, 20, 0.95) 100%); border: 1.5px solid ${isHw ? 'rgba(0, 240, 181, 0.4)' : 'rgba(56, 189, 248, 0.35)'}; border-radius: 14px; padding: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(0,0,0,0.3); border: 1px solid ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 18px; color: ${iconColor};">
+                                        <i class="fa-solid ${iconClass}"></i>
+                                    </div>
+                                    <div>
+                                        <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: #FFFFFF; letter-spacing: -0.2px;">${d.device_id}</h4>
+                                        <span style="font-size: 11px; color: #CBD5E1;">${d.building_id || 'Block B Hostel'}</span>
+                                    </div>
+                                </div>
+                                <span style="background: ${statusBg}; color: ${statusColor}; border: 1px solid ${statusColor}; border-radius: 12px; padding: 3px 8px; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
+                                    ${d.status === 'ONLINE' ? '<span class="pulse-dot"></span>' : ''} ${d.status}
+                                </span>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                ${provBadge}
+                                <span style="font-size: 10px; color: #94A3B8;">Last seen: <strong style="color: #E2E8F0;">${lastSeenText}</strong></span>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(${Math.min(2, metricChips.length)}, 1fr); gap: 10px; margin-top: 10px;">
+                                ${metricChips.join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (e) {
+            console.error('Dynamic fleet render error:', e);
+        }
+    };
+
+    const renderStreamTable = () => {
+        const monTbody = document.getElementById("monIotStreamTableBody");
+        if (!monTbody || !window.cachedStreamList || window.cachedStreamList.length === 0) return;
+
+        const filtered = window.cachedStreamList.filter(item => {
+            const isReal = item.source_type === 'real_sensor' || item.is_verified_hardware === true;
+            if (window.currentStreamFilter === 'hardware') return isReal;
+            if (window.currentStreamFilter === 'simulator') return !isReal;
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            monTbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="padding: 20px; text-align: center; color: #CBD5E1;">
+                        No telemetry packets matching "${window.currentStreamFilter}".
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        monTbody.innerHTML = filtered.map(item => {
+            const m = item.metrics || item.telemetry || {};
+            let summaryStr = "--";
+            if (m.tank_distance_cm !== undefined || m.tank_level_pct !== undefined) {
+                summaryStr = `Level: <strong>${m.tank_level_pct ?? '--'}%</strong> | Dist: <strong>${m.tank_distance_cm ?? '--'} cm</strong>`;
+            } else if (m.active_power_kw !== undefined && m.active_power_kw !== null) {
+                summaryStr = `Power: <strong>${m.active_power_kw} kW</strong>` + (m.voltage_v !== undefined ? ` | ${m.voltage_v} V` : '');
+            } else if (m.water_flow_lmin !== undefined && m.water_flow_lmin !== null) {
+                summaryStr = `Flow: <strong>${m.water_flow_lmin} L/min</strong>` + (m.cumulative_water_m3 !== undefined ? ` | ${m.cumulative_water_m3} m³` : '');
+            } else if (m.mq135_raw_adc !== undefined || m.raw_adc !== undefined) {
+                summaryStr = `ADC: <strong>${m.mq135_raw_adc ?? m.raw_adc}</strong> | ${m.mq135_voltage_v ?? 0}V (${m.mq135_co2_estimate_ppm ?? 400} ppm est)`;
+            } else if (m.hvac_load_kw !== undefined) {
+                summaryStr = `HVAC: <strong>${m.hvac_load_kw} kW</strong> | Temp: ${m.temperature_c ?? '--'}°C`;
+            } else if (m.meter_status !== undefined) {
+                summaryStr = `Modbus: Standby`;
+            } else {
+                summaryStr = Object.entries(m).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(", ") || "OK";
+            }
+
+            const isReal = item.source_type === 'real_sensor' || item.is_verified_hardware === true;
+            const provBadge = isReal
+                ? '<span class="badge-mint" style="font-size:10px; font-weight:800; padding: 3px 8px;"><i class="fa-solid fa-shield-halved"></i> [REAL SENSOR]</span>'
+                : '<span class="badge-amber" style="font-size:10px; font-weight:800; padding: 3px 8px;"><i class="fa-solid fa-microchip"></i> [SIMULATED IoT]</span>';
+
+            const statusBadge = item.quarantined
+                ? '<span style="color:#EF4444; font-size:12px; font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> QUARANTINED</span>'
+                : '<span style="color:#00F0B5; font-size:12px; font-weight:700;"><i class="fa-solid fa-circle-check"></i> INGESTED</span>';
+
+            const rawTs = item.event_timestamp || item.sent_timestamp || item.ingested_at || "";
+            const tsStr = rawTs.includes("T") ? rawTs.split("T")[1].slice(0, 8) : (rawTs.slice(11, 19) || "--");
+
+            let cadenceTag = "";
+            if (item.reporting_state === "ANOMALY_5M") {
+                cadenceTag = `<span style="font-size:10px; color:#EF4444; font-weight:800; background:rgba(239,68,68,0.15); border:1px solid #EF4444; border-radius:6px; padding:1px 5px; margin-left:4px;">5m ANOM</span>`;
+            } else if (item.reporting_state === "RECOVERY_5M") {
+                cadenceTag = `<span style="font-size:10px; color:#F59E0B; font-weight:800; background:rgba(245,158,11,0.15); border:1px solid #F59E0B; border-radius:6px; padding:1px 5px; margin-left:4px;">5m RECOV</span>`;
+            } else if (item.reporting_state === "NORMAL_15M") {
+                cadenceTag = `<span style="font-size:10px; color:#00F0B5; font-weight:600; background:rgba(0,240,181,0.1); border:1px solid rgba(0,240,181,0.3); border-radius:6px; padding:1px 5px; margin-left:4px;">15m NORM</span>`;
+            }
+
+            let anomalyBadge = "";
+            if (item.is_anomaly) {
+                const originLabel = item.anomaly_origin === "EDGE_DETECTED" ? "[EDGE DETECTED]" : "[BACKEND DETECTED]";
+                anomalyBadge = `<div style="margin-top:3px;"><span style="color:#EF4444; font-size:10px; font-weight:800; background:rgba(239,68,68,0.18); border:1px solid #EF4444; border-radius:8px; padding:2px 6px; display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ${originLabel} ${item.anomaly_reason || item.anomaly_details || 'Anomaly'}</span></div>`;
+            }
+
+            return `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); background: ${isReal ? 'rgba(0, 240, 181, 0.04)' : 'transparent'};">
+                <td style="padding:11px 10px; font-family:monospace; font-size:11px; color:#A7F3D0;">${item.message_id || '--'}</td>
+                <td style="padding:11px 10px; font-size:12px; color:#E2E8F0;">${tsStr}</td>
+                <td style="padding:11px 10px; font-weight:700; color:#38BDF8;">${item.device_id || '--'}</td>
+                <td style="padding:11px 10px; font-size:12px; color:#CBD5E1;">${item.building_id || 'Block B Hostel'}</td>
+                <td style="padding:11px 10px; font-size:12px; color:#FFFFFF;">${summaryStr} ${cadenceTag}${anomalyBadge}</td>
+                <td style="padding:11px 10px;">${provBadge}</td>
+                <td style="padding:11px 10px;">${statusBadge}</td>
+            </tr>
+            `;
+        }).join("");
+    };
+
     const fetchStreamLog = async () => {
         try {
             // First update the small simulator table from simulator stream
@@ -2248,55 +3577,18 @@ function initIotSimulator() {
             } catch (simErr) {}
 
             // Now fetch canonical unified registry stream for Live IoT Monitor Console
-            const res = await fetch("/api/v1/iot/telemetry/stream?limit=15");
+            const res = await fetch("/api/v1/iot/telemetry/stream?limit=30");
             if (res.ok) {
                 const streamData = await res.json();
-                const monTbody = document.getElementById("monIotStreamTableBody");
                 const monTotal = document.getElementById("monTotalIngestedRecords");
                 if (monTotal) monTotal.textContent = streamData.total_ingested || streamData.stream?.length || 0;
 
-                if (monTbody && streamData.stream && streamData.stream.length > 0) {
-                    monTbody.innerHTML = streamData.stream.map(item => {
-                        const m = item.metrics || item.telemetry || {};
-                        let summaryStr = "--";
-                        if (m.active_power_kw !== undefined && m.active_power_kw !== null) {
-                            summaryStr = `${m.active_power_kw} kW`;
-                            if (m.voltage_v !== undefined && m.voltage_v !== null) summaryStr += ` | ${m.voltage_v} V`;
-                        } else if (m.water_flow_lmin !== undefined && m.water_flow_lmin !== null) {
-                            summaryStr = `${m.water_flow_lmin} L/min`;
-                            if (m.cumulative_water_m3 !== undefined && m.cumulative_water_m3 !== null) summaryStr += ` | ${m.cumulative_water_m3} m³`;
-                        } else if (m.co2_ppm !== undefined || m.pm25 !== undefined) {
-                            summaryStr = `${m.co2_ppm || '--'} ppm CO2 | ${m.pm25 || '--'} PM2.5`;
-                        } else if (m.fill_level_percent !== undefined) {
-                            summaryStr = `${m.fill_level_percent}% Fill`;
-                        } else {
-                            summaryStr = Object.entries(m).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(", ") || "OK";
-                        }
-
-                        const isReal = item.source_type === 'real_sensor' || item.is_verified_hardware === true;
-                        const provBadge = isReal
-                            ? '<span class="badge-mint" style="font-size:10px; font-weight:700;"><i class="fa-solid fa-shield-halved"></i> [REAL SENSOR]</span>'
-                            : '<span class="badge-amber" style="font-size:10px;">[SIMULATED IoT]</span>';
-
-                        const statusBadge = item.quarantined
-                            ? '<span class="text-amber" style="font-size:12px;"><i class="fa-solid fa-triangle-exclamation"></i> QUARANTINED</span>'
-                            : '<span class="text-mint" style="font-size:12px;"><i class="fa-solid fa-circle-check"></i> INGESTED</span>';
-
-                        const rawTs = item.event_timestamp || item.sent_timestamp || item.ingested_at || "";
-                        const tsStr = rawTs.includes("T") ? rawTs.split("T")[1].slice(0, 8) : (rawTs.slice(11, 19) || "--");
-
-                        return `
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-                            <td style="padding:10px; font-family:monospace; font-size:11px; color:#A3C9BE;">${item.message_id || '--'}</td>
-                            <td style="padding:10px; font-size:12px;">${tsStr}</td>
-                            <td style="padding:10px; font-weight:600; color:#38BDF8;">${item.device_id || '--'}</td>
-                            <td style="padding:10px; font-size:12px;">${item.building_id || 'Block B Hostel'}</td>
-                            <td style="padding:10px; font-weight:700; color:#00D09C;">${summaryStr}</td>
-                            <td style="padding:10px;">${provBadge}</td>
-                            <td style="padding:10px;">${statusBadge}</td>
-                        </tr>
-                        `;
-                    }).join("");
+                if (streamData.stream && streamData.stream.length > 0) {
+                    window.cachedStreamList = streamData.stream;
+                    updateLiveTelemetryFromStream(streamData.stream);
+                    renderStreamTable();
+                    renderDynamicFleet();
+                    renderSensorMatrixTable(window.cachedDevicesList, streamData.stream);
                 }
             }
         } catch (e) {
@@ -2372,6 +3664,109 @@ function initIotSimulator() {
         }
     };
 
+
+    const fetchAdaptiveStatus = async () => {
+        try {
+            const res = await fetch("/api/v1/iot/telemetry/adaptive-status");
+            if (!res.ok) return;
+            const data = await res.json();
+
+            const badgeEl = document.getElementById("adaptiveReportingBadge");
+            const modeTextEl = document.getElementById("adaptiveReportingModeText");
+            const nextReportEl = document.getElementById("adaptiveNextReportText");
+            const cadencePill = document.getElementById("cadenceStatusPill");
+            const lastAgeEl = document.getElementById("cadenceLastReceivedAge");
+            const nextTimeEl = document.getElementById("cadenceNextExpectedTime");
+            const anomStatusEl = document.getElementById("cadenceAnomalyStatusText");
+            const edgeAlertPill = document.getElementById("cadenceEdgeAlertPill");
+            const backendAlertPill = document.getElementById("cadenceBackendAlertPill");
+
+            const state = data.campus_reporting_state || "NORMAL_15M";
+            const nextSec = data.campus_next_report_expected_sec !== undefined ? data.campus_next_report_expected_sec : 900;
+            const formatSec = (s) => {
+                if (s === null || s === undefined || isNaN(s)) return "--";
+                if (s <= 0) return "Due now";
+                const m = Math.floor(s / 60);
+                const remS = Math.floor(s % 60);
+                return m > 0 ? (m + "m " + remS + "s") : (remS + "s");
+            };
+
+            const nextStr = formatSec(nextSec);
+            if (nextReportEl) nextReportEl.textContent = "(Next: in " + nextStr + ")";
+            if (nextTimeEl) nextTimeEl.textContent = "In " + nextStr;
+
+            if (state === "ANOMALY_5M") {
+                if (modeTextEl) modeTextEl.textContent = "Anomaly monitoring · 5 min";
+                if (badgeEl) {
+                    badgeEl.style.background = "rgba(239, 68, 68, 0.2)";
+                    badgeEl.style.borderColor = "#EF4444";
+                    badgeEl.style.color = "#EF4444";
+                }
+                if (cadencePill) {
+                    cadencePill.textContent = "ANOMALY MONITORING · 5 MIN CADENCE";
+                    cadencePill.className = "badge-red";
+                    cadencePill.style.cssText = "background: rgba(239, 68, 68, 0.2); color: #EF4444; border: 1px solid #EF4444; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 800;";
+                }
+            } else if (state === "RECOVERY_5M") {
+                if (modeTextEl) modeTextEl.textContent = "Recovery check · 5 min";
+                if (badgeEl) {
+                    badgeEl.style.background = "rgba(245, 158, 11, 0.2)";
+                    badgeEl.style.borderColor = "#F59E0B";
+                    badgeEl.style.color = "#F59E0B";
+                }
+                if (cadencePill) {
+                    cadencePill.textContent = "RECOVERY CHECK · 5 MIN CADENCE (Verifying Stability)";
+                    cadencePill.className = "badge-amber";
+                    cadencePill.style.cssText = "background: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 1px solid #F59E0B; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 800;";
+                }
+            } else {
+                if (modeTextEl) modeTextEl.textContent = "Normal · 15 min";
+                if (badgeEl) {
+                    badgeEl.style.background = "rgba(0, 208, 156, 0.15)";
+                    badgeEl.style.borderColor = "#00D09C";
+                    badgeEl.style.color = "#00D09C";
+                }
+                if (cadencePill) {
+                    cadencePill.textContent = "NORMAL · 15 MIN CADENCE";
+                    cadencePill.className = "badge-mint";
+                    cadencePill.style.cssText = "background: rgba(0, 208, 156, 0.15); color: #00D09C; border: 1px solid rgba(0, 208, 156, 0.4); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 800;";
+                }
+            }
+
+            // Anomaly details & pills
+            const hasAnom = data.active_anomalies && data.active_anomalies.length > 0;
+            if (hasAnom) {
+                const firstAnom = data.active_anomalies[0];
+                if (anomStatusEl) {
+                    const devText = firstAnom.device_id || "Campus";
+                    const metText = firstAnom.metric || firstAnom.issue || "Anomaly";
+                    const obsText = firstAnom.observed_value !== undefined ? firstAnom.observed_value : "--";
+                    const rsnText = firstAnom.reason || firstAnom.details || "Deviation outside baseline bounds";
+                    anomStatusEl.innerHTML = "⚠️ <strong style=\"color: #F87171;\">" + devText + "</strong>: " + metText + " = <strong>" + obsText + "</strong> &mdash; <span style=\"color: #FCA5A5;\">" + rsnText + "</span>";
+                }
+                const hasEdge = data.active_anomalies.some(a => a.origin === "EDGE_DETECTED" || a.origin === "EDGE_FIRMWARE");
+                const hasBackend = data.active_anomalies.some(a => a.origin === "BACKEND_DETECTED" || a.origin === "BACKEND_ADAPTIVE_ENGINE");
+                if (edgeAlertPill) edgeAlertPill.style.display = hasEdge ? "inline-flex" : "none";
+                if (backendAlertPill) backendAlertPill.style.display = hasBackend ? "inline-flex" : "none";
+            } else {
+                if (anomStatusEl) {
+                    anomStatusEl.innerHTML = "All telemetry metrics nominal across campus. Internal acquisition continuous (2.0s loop). High-frequency pulse counting active.";
+                }
+                if (edgeAlertPill) edgeAlertPill.style.display = "none";
+                if (backendAlertPill) backendAlertPill.style.display = "none";
+            }
+
+            if (lastAgeEl && data.last_telemetry_at) {
+                const elapsedSec = Math.max(0, Math.round((Date.now() - new Date(data.last_telemetry_at).getTime()) / 1000));
+                lastAgeEl.textContent = elapsedSec + "s ago";
+            } else if (lastAgeEl) {
+                lastAgeEl.textContent = "Live streaming";
+            }
+        } catch (e) {
+            console.error("Adaptive status sync error:", e);
+        }
+    };
+
     const btnRefreshIotLog = document.getElementById("btnRefreshIotLog");
     if (btnRefreshIotLog) {
         btnRefreshIotLog.addEventListener("click", () => {
@@ -2384,16 +3779,21 @@ function initIotSimulator() {
     window.fetchIotStreamLog = fetchStreamLog;
 
     // Initial fetch
+    initFleetFilterButtons();
     fetchStatus();
     fetchStreamLog();
+    renderDynamicFleet();
     syncGlobalTelemetryDashboard();
+    fetchAdaptiveStatus();
 
-    // Auto refresh interval every 2.5s across all tabs
+    // Auto refresh interval: 1.0s fast cadence for instant live sensor responsiveness in demo
     setInterval(() => {
         syncGlobalTelemetryDashboard();
         fetchStatus();
         fetchStreamLog();
-    }, 2500);
+        renderDynamicFleet();
+        fetchAdaptiveStatus();
+    }, 1000);
 }
 
 

@@ -97,6 +97,11 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
     "tank_level_pct": ("tank_level_pct", "%"),
     "tank_level_percent": ("tank_level_pct", "%"),
     "tank_distance_cm": ("tank_distance_cm", "cm"),
+    "distance_cm": ("tank_distance_cm", "cm"),
+    "distance": ("tank_distance_cm", "cm"),
+    "sonar_distance_cm": ("tank_distance_cm", "cm"),
+    "ultrasonic_distance_cm": ("tank_distance_cm", "cm"),
+    "bin_distance_cm": ("bin_distance_cm", "cm"),
 
     # Environmental & Auxiliary (Context Sensors)
     "temperature_c": ("temperature_c", "°C"),
@@ -109,6 +114,8 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
     "air_quality_aqi": ("air_quality_aqi", "AQI"),
     "air_aqi": ("air_quality_aqi", "AQI"),
     "aqi": ("air_quality_aqi", "AQI"),
+    "air_raw_adc": ("air_raw_adc", "count"),
+    "air_relative_index": ("air_relative_index", "index"),
     "co2_ppm": ("co2_ppm", "ppm"),
     "pm25": ("pm25", "ug/m3"),
     "pm2_5": ("pm25", "ug/m3"),
@@ -120,13 +127,64 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
     "fill_level_percent": ("fill_level_percent", "%"),
     "fill_level_pct": ("fill_level_percent", "%"),
     "waste_fill_pct": ("fill_level_percent", "%"),
+    "bin_fill_pct": ("fill_level_percent", "%"),
+    "bin_fill_percent": ("fill_level_percent", "%"),
+    "bin_level_pct": ("fill_level_percent", "%"),
+    "bin_distance": ("bin_distance_cm", "cm"),
+    "waste_distance_cm": ("bin_distance_cm", "cm"),
     "estimated_waste_kg": ("estimated_waste_kg", "kg"),
     "waste_weight_kg": ("estimated_waste_kg", "kg"),
-    "waste_mass_kg": ("estimated_waste_kg", "kg")
+    "waste_mass_kg": ("estimated_waste_kg", "kg"),
+
+    # MQ-135 and Analog Environmental Sensors (Raw Signals & Indicative Estimates)
+    "mq135_raw_adc": ("mq135_raw_adc", "count"),
+    "raw_adc": ("mq135_raw_adc", "count"),
+    "mq135_voltage_v": ("mq135_voltage_v", "V"),
+    "sensor_voltage_v": ("mq135_voltage_v", "V"),
+    "mq135_co2_estimate_ppm": ("mq135_co2_estimate_ppm", "ppm (sensor estimate)"),
+    "mq135_co2_estimate": ("mq135_co2_estimate_ppm", "ppm (sensor estimate)"),
+    "mq135_warmup_status": ("mq135_warmup_status", "status"),
+
+    # DHT11 Temperature & Humidity Sensor
+    "dht_temperature_c": ("temperature_c", "°C"),
+    "dht11_temperature_c": ("temperature_c", "°C"),
+    "dht_humidity_pct": ("humidity_pct", "%"),
+    "dht11_humidity_pct": ("humidity_pct", "%"),
+    "heat_index_c": ("heat_index_c", "°C"),
+    "heat_index": ("heat_index_c", "°C"),
+
+    # PZEM-004T Metrology Monitor
+    "pzem_voltage_v": ("voltage_v", "V"),
+    "pzem_current_a": ("current_a", "A"),
+    "pzem_power_w": ("active_power_kw", "kW"),
+    "pzem_power_kw": ("active_power_kw", "kW"),
+    "pzem_energy_kwh": ("cumulative_energy_kwh", "kWh"),
+    "pzem_energy_wh": ("cumulative_energy_kwh", "kWh"),
+    "pzem_frequency_hz": ("frequency_hz", "Hz"),
+    "pzem_power_factor": ("power_factor", "ratio"),
+
+    # ZJ-S201 Water Flow Sensor
+    "water_cumulative_liters": ("water_cumulative_liters", "L"),
+    "cumulative_liters": ("water_cumulative_liters", "L"),
+
+    # Hardware Status Indicators
+    "meter_status": ("meter_status", "status"),
+    "tank_status": ("tank_status", "status"),
+
+    # Adaptive Telemetry Reporting & Anomaly Metrics
+    "reporting_interval_sec": ("reporting_interval_sec", "s"),
+    "reporting_state": ("reporting_state", "status"),
+    "is_anomaly": ("is_anomaly", "status"),
+    "anomaly_score": ("anomaly_score", "score"),
+    "anomaly_detected": ("anomaly_detected", "status")
 }
 
 # Plausible range limits for physical sanity checking
 METRIC_RANGE_LIMITS: Dict[str, Tuple[float, float]] = {
+    "mq135_raw_adc": (0.0, 4095.0),
+    "mq135_voltage_v": (0.0, 5.0),
+    "mq135_co2_estimate_ppm": (0.0, 10000.0),
+    "mq135_warmup_status": (0.0, 1.0),
     "cumulative_energy_kwh": (0.0, 1e9),
     "active_power_kw": (0.0, 25000.0),
     "voltage_v": (0.0, 1000.0),
@@ -151,6 +209,12 @@ METRIC_RANGE_LIMITS: Dict[str, Tuple[float, float]] = {
     "water_pressure_kpa": (0.0, 5000.0),
     "tank_level_pct": (0.0, 100.0),
     "tank_distance_cm": (0.0, 1000.0),
+    "distance_cm": (0.0, 1000.0),
+    "distance": (0.0, 1000.0),
+    "sonar_distance_cm": (0.0, 1000.0),
+    "bin_distance_cm": (0.0, 1000.0),
+    "air_raw_adc": (0.0, 4095.0),
+    "air_relative_index": (0.0, 100.0),
     "temperature_c": (-30.0, 85.0),
     "humidity_pct": (0.0, 100.0),
     "occupancy_count": (0, 100000),
@@ -160,7 +224,14 @@ METRIC_RANGE_LIMITS: Dict[str, Tuple[float, float]] = {
     "pm10": (0.0, 1500.0),
     "fill_level_percent": (0.0, 100.0),
     "estimated_waste_kg": (0.0, 10000.0),
-    "hvac_load_kw": (0.0, 10000.0)
+    "hvac_load_kw": (0.0, 10000.0),
+    "heat_index_c": (-30.0, 100.0),
+    "water_cumulative_liters": (0.0, 1e11),
+    "reporting_interval_sec": (1.0, 86400.0),
+    "reporting_state": (0.0, 100.0),
+    "is_anomaly": (0.0, 1.0),
+    "anomaly_score": (0.0, 1.0),
+    "anomaly_detected": (0.0, 1.0)
 }
 
 
@@ -198,6 +269,16 @@ class TelemetryEnvelope(BaseModel):
     metrics: List[CanonicalMetric] = Field(default_factory=list)
     is_valid_timestamp: bool = True
     timestamp_error: Optional[str] = None
+    reporting_state: str = "NORMAL_15M"
+    reporting_interval_sec: int = 900
+    next_report_expected_sec: Optional[int] = None
+    is_anomaly: bool = False
+    anomaly_origin: Optional[str] = None
+    anomaly_metric: Optional[str] = None
+    anomaly_observed_value: Optional[float] = None
+    anomaly_threshold: Optional[float] = None
+    anomaly_reason: Optional[str] = None
+    anomaly_details: Optional[Dict[str, Any]] = None
 
     @field_validator("device_id")
     @classmethod
@@ -349,7 +430,16 @@ def normalize_telemetry_payload(payload: Dict[str, Any], default_source: Optiona
                         q_val = MetricQuality(str(m["quality"]).lower())
                     except Exception:
                         q_val = MetricQuality.GOOD
+                metric_status = str(m.get("status", "")).strip().upper()
+                if metric_status and metric_status not in {"OK", "GOOD", "MEASURED"}:
+                    warnings.append(f"SENSOR_FAULT: metric '{m_name}' unavailable ({metric_status}); value was not ingested.")
+                    continue
                 raw_metric_pairs.append((str(m_name), m["value"], m.get("unit"), q_val))
+
+    # Case A2: Dictionary of metrics: "metrics": {"active_power_kw": 4.85, ...}
+    elif "metrics" in payload and isinstance(payload["metrics"], dict):
+        for k, v in payload["metrics"].items():
+            raw_metric_pairs.append((k, v, None, MetricQuality.GOOD))
 
     # Case B: Hardware protocol "measurements": {"voltage_v": 231.5, ...}
     if "measurements" in payload and isinstance(payload["measurements"], dict):
@@ -375,29 +465,59 @@ def normalize_telemetry_payload(payload: Dict[str, Any], default_source: Optiona
     flat_map: Dict[str, float] = {}
 
     for raw_name, val, raw_unit, quality in raw_metric_pairs:
+        if quality == MetricQuality.BAD:
+            warnings.append(f"SENSOR_FAULT: metric '{raw_name}' was marked quality=bad.")
+            continue
         # Check finite numerical value
         try:
             num_val = float(val)
         except (TypeError, ValueError):
-            warnings.append(f"Ignored non-numeric metric '{raw_name}' with value '{val}'.")
+            prefix = "SENSOR_FAULT: " if val is None else ""
+            warnings.append(f"{prefix}ignored non-numeric or missing metric '{raw_name}' with value '{val}'.")
             continue
 
         if math.isnan(num_val) or math.isinf(num_val):
-            raise ValueError(f"Metric '{raw_name}' contains non-finite value '{val}'.")
+            warnings.append(f"SENSOR_FAULT: ignored non-finite metric '{raw_name}'.")
+            continue
 
         raw_lower = raw_name.strip().lower()
         if raw_lower in CANONICAL_METRIC_MAP:
             can_name, can_unit = CANONICAL_METRIC_MAP[raw_lower]
         else:
-            # Pass-through unrecognized metric with given unit
-            can_name = raw_lower
-            can_unit = raw_unit or ""
+            warnings.append(f"Ignored unknown metric '{raw_name}'.")
+            continue
 
-        # Unit conversions if necessary
-        # e.g., if water cumulative is in liters, convert to m3
-        if can_name == "cumulative_water_m3" and raw_unit and str(raw_unit).lower() in ["l", "liters", "litre", "litres"]:
-            num_val = round(num_val / 1000.0, 4)
-            warnings.append("Converted cumulative water from liters to m³.")
+        # Convert explicitly supported source units before range validation.
+        source_unit = str(raw_unit or "").strip().lower().replace(" ", "")
+        if not source_unit and raw_lower == "pzem_power_w":
+            source_unit = "w"
+        elif not source_unit and raw_lower == "pzem_energy_wh":
+            source_unit = "wh"
+        conversions = {
+            ("active_power_kw", "w"): (0.001, "Converted active power from W to kW."),
+            ("cumulative_energy_kwh", "wh"): (0.001, "Converted cumulative energy from Wh to kWh."),
+            ("cumulative_water_m3", "l"): (0.001, "Converted cumulative water from liters to m³."),
+        }
+        conversion = conversions.get((can_name, source_unit))
+        if conversion:
+            num_val *= conversion[0]
+            warnings.append(conversion[1])
+        elif raw_unit:
+            normalized_expected = can_unit.lower().replace("³", "3").replace("µ", "u")
+            normalized_source = source_unit.replace("³", "3").replace("µ", "u")
+            unit_aliases = {
+                "mq135_co2_estimate_ppm": {"ppm", "ppm(sensorestimate)"},
+                "pm25": {"ug/m3", "µg/m3", "µg/m³"},
+                "pm10": {"ug/m3", "µg/m3", "µg/m³"},
+                "cumulative_water_m3": {"m3", "m³"},
+            }
+            valid_units = {normalized_expected} | {
+                unit.replace("³", "3").replace("µ", "u").lower().replace(" ", "")
+                for unit in unit_aliases.get(can_name, set())
+            }
+            if normalized_source not in valid_units:
+                warnings.append(f"Ignored metric '{raw_name}': unit '{raw_unit}' does not match expected '{can_unit}'.")
+                continue
 
         # Range verification
         if can_name in METRIC_RANGE_LIMITS:
@@ -424,11 +544,36 @@ def normalize_telemetry_payload(payload: Dict[str, Any], default_source: Optiona
 
         flat_map[can_name] = round(num_val, 4)
 
+    has_sensor_fault = any(w.startswith("SENSOR_FAULT:") for w in warnings)
+    if not canonical_metrics and not has_sensor_fault:
+        raise ValueError("Telemetry payload contains no recognized, valid numeric metrics.")
+
     # Keep interval energy separate from cumulative meter totalizers.
     if "water_flow_lmin" in flat_map and "water_flow_lpm" not in flat_map:
         flat_map["water_flow_lpm"] = flat_map["water_flow_lmin"]
     if "cumulative_water_m3" in flat_map and "water_total_m3" not in flat_map:
         flat_map["water_total_m3"] = flat_map["cumulative_water_m3"]
+
+    # Adaptive reporting metadata extraction
+    reporting_state = str(payload.get("reporting_state") or "NORMAL_15M").strip().upper()
+    try:
+        rep_int_sec = int(payload.get("reporting_interval_sec") or (300 if ("ANOMALY" in reporting_state or "RECOVERY" in reporting_state) else 900))
+    except Exception:
+        rep_int_sec = 900
+
+    next_rep_sec = payload.get("next_report_expected_sec")
+    try:
+        next_rep_sec = int(next_rep_sec) if next_rep_sec is not None else rep_int_sec
+    except Exception:
+        next_rep_sec = rep_int_sec
+
+    is_anom = bool(payload.get("is_anomaly") or payload.get("anomaly_detected"))
+    anom_details = payload.get("anomaly_details")
+    anom_origin = payload.get("anomaly_origin") or (anom_details.get("origin") if isinstance(anom_details, dict) else None)
+    anom_metric = payload.get("anomaly_metric") or (anom_details.get("metric") if isinstance(anom_details, dict) else None)
+    anom_obs = payload.get("anomaly_observed_value") or (anom_details.get("observed_value") if isinstance(anom_details, dict) else None)
+    anom_thresh = payload.get("anomaly_threshold") or (anom_details.get("threshold") if isinstance(anom_details, dict) else None)
+    anom_reason = payload.get("anomaly_reason") or (anom_details.get("reason") if isinstance(anom_details, dict) else None)
 
     envelope = TelemetryEnvelope(
         schema_version=payload.get("schema_version", "1.0"),
@@ -444,7 +589,17 @@ def normalize_telemetry_payload(payload: Dict[str, Any], default_source: Optiona
         sequence_number=sequence_num,
         metrics=canonical_metrics,
         is_valid_timestamp=is_valid_timestamp,
-        timestamp_error=timestamp_error
+        timestamp_error=timestamp_error,
+        reporting_state=reporting_state,
+        reporting_interval_sec=rep_int_sec,
+        next_report_expected_sec=next_rep_sec,
+        is_anomaly=is_anom,
+        anomaly_origin=anom_origin,
+        anomaly_metric=anom_metric,
+        anomaly_observed_value=float(anom_obs) if anom_obs is not None else None,
+        anomaly_threshold=float(anom_thresh) if anom_thresh is not None else None,
+        anomaly_reason=anom_reason,
+        anomaly_details=anom_details if isinstance(anom_details, dict) else None
     )
 
     return envelope, flat_map, warnings

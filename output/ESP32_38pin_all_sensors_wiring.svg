@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200">
+<defs>
+  <style>
+    text{font-family:Arial,Helvetica,sans-serif;fill:#172033} .title{font-size:34px;font-weight:700;fill:#fff}.sub{font-size:17px;fill:#e7efff}
+    .hdr{font-size:21px;font-weight:700}.body{font-size:17px}.small{font-size:14px}.pin{font-size:16px;font-weight:700}
+  </style>
+  <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#25334b"/></marker>
+</defs>
+<rect width="1600" height="1200" fill="#f4f7fb"/>
+<rect x="0" y="0" width="1600" height="95" fill="#173b66"/>
+<text x="800" y="48" text-anchor="middle" class="title">ESP32 38-Pin DevKit + Sensor Wiring</text>
+<text x="800" y="77" text-anchor="middle" class="sub">Use GPIO labels printed on the DevKit / expansion-board sockets</text>
+
+<!-- ESP32 + expansion board -->
+<rect x="590" y="240" width="420" height="555" rx="26" fill="#6b2a82" stroke="#45205a" stroke-width="5"/>
+<text x="800" y="276" text-anchor="middle" font-size="20" font-weight="700" fill="#fff">38-PIN EXPANSION BOARD</text>
+<rect x="700" y="300" width="200" height="445" rx="18" fill="#202c3d" stroke="#0d1726" stroke-width="4"/>
+<rect x="735" y="323" width="130" height="135" rx="12" fill="#c9d1d9" stroke="#8894a1" stroke-width="3"/>
+<text x="800" y="385" text-anchor="middle" font-size="20" font-weight="700">ESP32</text>
+<text x="800" y="412" text-anchor="middle" class="small">WROOM-32</text>
+<rect x="770" y="700" width="60" height="28" rx="6" fill="#c9d1d9"/>
+<text x="800" y="687" text-anchor="middle" font-size="13" fill="#fff">USB end</text>
+<!-- signal breakout pins, left -->
+<g fill="#d8e2ed" stroke="#fff" stroke-width="1">
+ <circle cx="700" cy="495" r="9"/><circle cx="700" cy="535" r="9"/><circle cx="700" cy="575" r="9"/><circle cx="700" cy="615" r="9"/><circle cx="700" cy="655" r="9"/>
+ <circle cx="900" cy="495" r="9"/><circle cx="900" cy="535" r="9"/><circle cx="900" cy="575" r="9"/><circle cx="900" cy="615" r="9"/><circle cx="900" cy="655" r="9"/>
+</g>
+<text x="685" y="501" text-anchor="end" class="pin" fill="#fff">GPIO34</text>
+<text x="685" y="541" text-anchor="end" class="pin" fill="#fff">GPIO32</text>
+<text x="685" y="581" text-anchor="end" class="pin" fill="#fff">GPIO26</text>
+<text x="685" y="621" text-anchor="end" class="pin" fill="#fff">GPIO27</text>
+<text x="685" y="661" text-anchor="end" class="pin" fill="#fff">GPIO25</text>
+<text x="915" y="501" class="pin" fill="#fff">GPIO21 / SDA</text>
+<text x="915" y="541" class="pin" fill="#fff">GPIO22 / SCL</text>
+<text x="915" y="581" class="pin" fill="#fff">3V3</text>
+<text x="915" y="621" class="pin" fill="#fff">5V / VIN</text>
+<text x="915" y="661" class="pin" fill="#fff">GND</text>
+
+<!-- sensor cards -->
+<g>
+ <rect x="55" y="180" width="410" height="255" rx="18" fill="#fff" stroke="#6d7e91" stroke-width="2"/>
+ <text x="80" y="218" class="hdr">MQ-135 air sensor module</text>
+ <text x="80" y="255" class="body">VCC → 5V / VIN</text><text x="80" y="285" class="body">GND → common GND</text>
+ <text x="80" y="315" class="body">AO → 10kΩ → ADC node GPIO34</text>
+ <text x="80" y="345" class="body">ADC node → 18kΩ → GND</text>
+ <text x="80" y="379" class="small">DO not used. Divider keeps ADC input below 3.3V.</text>
+ <text x="80" y="405" class="small">Do not connect 5V AO directly to ESP32.</text>
+
+ <rect x="55" y="480" width="410" height="205" rx="18" fill="#fff" stroke="#6d7e91" stroke-width="2"/>
+ <text x="80" y="518" class="hdr">DHT11 temperature / humidity</text>
+ <text x="80" y="557" class="body">VCC → 3V3</text><text x="80" y="587" class="body">GND → common GND</text>
+ <text x="80" y="617" class="body">DATA / S → GPIO32</text>
+ <text x="80" y="651" class="small">Bare sensor: add 10kΩ from DATA to 3V3.</text>
+
+ <rect x="1135" y="180" width="410" height="235" rx="18" fill="#fff" stroke="#6d7e91" stroke-width="2"/>
+ <text x="1160" y="218" class="hdr">HC-SR04 ultrasonic</text>
+ <text x="1160" y="255" class="body">VCC → 5V / VIN</text><text x="1160" y="285" class="body">GND → common GND</text>
+ <text x="1160" y="315" class="body">TRIG → GPIO26</text>
+ <text x="1160" y="345" class="body">ECHO → 10kΩ → node GPIO27</text>
+ <text x="1160" y="375" class="body">GPIO27 node → 18kΩ → GND</text>
+ <text x="1160" y="400" class="small">Echo divider required: ESP32 GPIO is 3.3V.</text>
+
+ <rect x="1135" y="475" width="410" height="210" rx="18" fill="#fff" stroke="#6d7e91" stroke-width="2"/>
+ <text x="1160" y="513" class="hdr">ZJ-S201 water-flow sensor</text>
+ <text x="1160" y="552" class="body">Red VCC → 5V / VIN</text><text x="1160" y="582" class="body">Black GND → common GND</text>
+ <text x="1160" y="612" class="body">Yellow pulse → GPIO25</text>
+ <text x="1160" y="646" class="small">Open-collector type: use INPUT_PULLUP in code.</text>
+ <text x="1160" y="670" class="small">Confirm your sensor lead colors / output type.</text>
+
+ <rect x="1135" y="745" width="410" height="175" rx="18" fill="#fff" stroke="#6d7e91" stroke-width="2"/>
+ <text x="1160" y="783" class="hdr">0.96-inch I²C OLED</text>
+ <text x="1160" y="822" class="body">VCC → 3V3  |  GND → common GND</text>
+ <text x="1160" y="854" class="body">SDA → GPIO21  |  SCL → GPIO22</text>
+ <text x="1160" y="888" class="small">If not detected, scan I²C address (often 0x3C).</text>
+</g>
+
+<!-- colored route lines -->
+<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+ <!-- MQ analog route --> <path d="M465 315 H520 V495 H700" stroke="#df8b16"/>
+ <!-- DHT data --> <path d="M465 617 H530 V535 H700" stroke="#19a66a"/>
+ <!-- ultrasonic --> <path d="M1135 315 H1080 V575 H900" stroke="#ed4f55"/><path d="M1135 345 H1050 V615 H900" stroke="#286fe0"/>
+ <!-- flow --> <path d="M1135 612 H1095 V655 H900" stroke="#d29a00"/>
+ <!-- i2c --> <path d="M1135 854 H1075 V495 H900" stroke="#9146c8"/><path d="M1135 875 H1035 V535 H900" stroke="#18a5a3"/>
+</g>
+<g font-size="13" font-weight="700">
+ <text x="530" y="480" fill="#af6900">AO via divider</text><text x="535" y="522" fill="#087847">DATA</text>
+ <text x="1057" y="561" fill="#b22f37">TRIG</text><text x="1022" y="603" fill="#1b54af">ECHO via divider</text>
+ <text x="1053" y="645" fill="#987000">PULSE</text><text x="1030" y="482" fill="#7134a2">SDA</text><text x="1005" y="522" fill="#087b79">SCL</text>
+</g>
+
+<!-- common rail reminder -->
+<rect x="55" y="735" width="960" height="185" rx="18" fill="#fff8df" stroke="#c69a27" stroke-width="2"/>
+<text x="82" y="778" class="hdr">Power and wiring notes</text>
+<text x="82" y="815" class="body">• All sensor grounds and ESP32 GND must be connected together.</text>
+<text x="82" y="847" class="body">• Use the expansion board’s labeled 5V, 3V3, GND, and GPIO sockets.</text>
+<text x="82" y="879" class="body">• GPIO34 is input-only; suitable for MQ-135 analog reading. Avoid 5V on any GPIO.</text>
+<text x="82" y="906" class="small">The expansion board fans out pins; it does not make ESP32 GPIOs 5V-tolerant.</text>
+<rect x="55" y="965" width="1490" height="155" rx="18" fill="#fff0ed" stroke="#d55745" stroke-width="2"/>
+<text x="82" y="1008" class="hdr" fill="#9b2e24">Before powering</text>
+<text x="82" y="1046" class="body">Disconnect USB while wiring. Check every module’s pin labels and resistor-divider junctions before reconnecting power.</text>
+<text x="82" y="1080" class="body">MQ-135 needs warm-up; DHT11 and OLED use 3.3V logic. Keep water away from the ESP32 and expansion board.</text>
+<text x="82" y="1110" class="small">Suggested pins: MQ AO=34, DHT DATA=32, HC-SR04 TRIG=26/ECHO=27, ZJ-S201 pulse=25, OLED SDA=21/SCL=22.</text>
+</svg>

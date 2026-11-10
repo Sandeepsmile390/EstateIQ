@@ -67,6 +67,15 @@ app = FastAPI(
     version="1.0.0"
 )
 
+@app.middleware("http")
+async def log_bad_requests(request: Request, call_next):
+    body_bytes = await request.body()
+    response = await call_next(request)
+    if response.status_code == 400:
+        print(f"[HTTP-400-DEBUG] URL: {request.url.path} | Body: {body_bytes.decode('utf-8', errors='replace')}", flush=True)
+    return response
+
+
 @app.exception_handler(AIServiceError)
 def ai_service_exception_handler(request: Request, exc: AIServiceError):
     return JSONResponse(
@@ -102,6 +111,10 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Prevent stale caching so client browsers always render real-time UI & live sensor data
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     return response
 
 @app.on_event("startup")
@@ -270,7 +283,7 @@ def auth_login(req: LoginRequest):
     permissions = ROLE_PERMISSIONS.get(user["role"], [])
     
     # Unrestricted tab opening policy: all logged-in roles can access all tabs
-    tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "iot-simulator", "iot-monitor", "faq", "decision-intelligence", "models", "esg", "billing", "work-orders", "ai-assistant"]
+    tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "resource-simulator", "iot-simulator", "iot-monitor", "faq", "decision-intelligence", "models", "esg", "billing", "work-orders", "ai-assistant"]
     role_key_norm = req.role.lower() if req.role else "admin"
     if user["role"] in ["SUPER_ADMIN", "FACILITY_ADMIN"]:
         avatar_bg = "#124B3E"
@@ -484,20 +497,36 @@ def get_latest_live_telemetry() -> Dict[str, Any]:
                 return pd.to_datetime(ts).timestamp()
             except Exception:
                 return 0.0
+        # Keep the overview internally coherent: merge only records from the same
+        # facility, building, provenance, and verification class. A simulator or a
+        # neighboring building must never fill a missing hardware metric.
         rec = max(valid_records, key=_rec_sort_key)
-        m = rec.get("metrics", {})
+        src_type = rec.get("source_type", "simulated_iot")
+        is_verified_group = bool(rec.get("is_verified_hardware"))
+        group_key = (
+            rec.get("facility_id"), rec.get("building_id"), src_type,
+            is_verified_group if src_type == "real_sensor" else False,
+        )
+        group_records = [r for r in valid_records if (
+            r.get("facility_id"), r.get("building_id"), r.get("source_type", "simulated_iot"),
+            bool(r.get("is_verified_hardware")) if r.get("source_type") == "real_sensor" else False,
+        ) == group_key]
+        group_records.sort(key=_rec_sort_key, reverse=True)
         ts_str = rec.get("event_timestamp") or rec.get("ingested_at")
+        now_dt = pd.Timestamp.now(tz="UTC")
         try:
             ts_dt = pd.to_datetime(ts_str)
             if ts_dt.tzinfo is None:
                 ts_dt = ts_dt.tz_localize("UTC")
-            now_dt = pd.Timestamp.now(tz="UTC")
             age_sec = max(0.0, (now_dt - ts_dt).total_seconds())
         except Exception:
             age_sec = 0.0
 
-        src_type = rec.get("source_type", "simulated_iot")
-        badge = rec.get("data_source_badge") or ("[REAL SENSOR]" if src_type == "real_sensor" else "[SIMULATED IoT]")
+        badge = rec.get("data_source_badge") or (
+            "[REAL SENSOR]" if src_type == "real_sensor" and is_verified_group else
+            "[UNVERIFIED SENSOR - DEMO MODE]" if src_type == "real_sensor" else
+            "[SIMULATED IoT]" if src_type == "simulated_iot" else "[SYNTHETIC IoT DATA]"
+        )
         dev_id = rec.get("device_id", "DEV_SIM_01")
         dev = GLOBAL_DEVICE_REGISTRY.devices.get(dev_id)
         if dev:
@@ -509,6 +538,25 @@ def get_latest_live_telemetry() -> Dict[str, Any]:
                 dev_status = dev.status
         else:
             dev_status = "ONLINE" if age_sec <= 45 else ("STALE" if age_sec <= 300 else "OFFLINE")
+
+        # Use the newest fresh value per metric within this coherent source group.
+        metric_records: Dict[str, Dict[str, Any]] = {}
+        m: Dict[str, Any] = {}
+        contributing_device_ids = set()
+        for r in group_records:
+            r_ts = r.get("event_timestamp") or r.get("ingested_at") or ""
+            try:
+                r_dt = pd.to_datetime(r_ts)
+                if r_dt.tzinfo is None: r_dt = r_dt.tz_localize("UTC")
+                r_age = max(0.0, (now_dt - r_dt).total_seconds())
+            except Exception:
+                r_age = 0.0
+            if r_age <= 300.0:
+                contributing_device_ids.add(r.get("device_id"))
+                for k, v in r.get("metrics", {}).items():
+                    if k not in m and v is not None:
+                        m[k] = v
+                        metric_records[k] = r
 
         # Extract physical metrics honestly without fabricated fallbacks
         active_p = float(m["active_power_kw"]) if "active_power_kw" in m and m["active_power_kw"] is not None else (float(m["power_kw"]) if "power_kw" in m and m["power_kw"] is not None else None)
@@ -527,6 +575,17 @@ def get_latest_live_telemetry() -> Dict[str, Any]:
 
         temp = float(m["temperature_c"]) if "temperature_c" in m and m["temperature_c"] is not None else (float(m["temperature"]) if "temperature" in m and m["temperature"] is not None else None)
         hum = float(m["humidity_pct"]) if "humidity_pct" in m and m["humidity_pct"] is not None else (float(m["humidity"]) if "humidity" in m and m["humidity"] is not None else None)
+        heat_idx = float(m["heat_index_c"]) if "heat_index_c" in m and m["heat_index_c"] is not None else None
+        mq_adc = int(m["mq135_raw_adc"]) if "mq135_raw_adc" in m and m["mq135_raw_adc"] is not None else None
+        mq_volt = float(m["mq135_voltage_v"]) if "mq135_voltage_v" in m and m["mq135_voltage_v"] is not None else None
+        mq_co2 = float(m["mq135_co2_estimate_ppm"]) if "mq135_co2_estimate_ppm" in m and m["mq135_co2_estimate_ppm"] is not None else None
+
+        # Filter out phantom disconnected analog readings (pin floating at 0)
+        if mq_adc is not None and mq_adc < 80 and (mq_volt is None or mq_volt < 0.08):
+            mq_adc = None
+            mq_volt = None
+            mq_co2 = None
+        tank_dist = float(m["tank_distance_cm"]) if "tank_distance_cm" in m and m["tank_distance_cm"] is not None else None
         occ = int(m["occupancy_count"]) if "occupancy_count" in m and m["occupancy_count"] is not None else (int(m["occupancy"]) if "occupancy" in m and m["occupancy"] is not None else None)
         hvac = float(m["hvac_load_kw"]) if "hvac_load_kw" in m and m["hvac_load_kw"] is not None else (float(m["hvac_load"]) if "hvac_load" in m and m["hvac_load"] is not None else None)
         aqi = float(m["air_quality_aqi"]) if "air_quality_aqi" in m and m["air_quality_aqi"] is not None else (float(m["air_aqi"]) if "air_aqi" in m and m["air_aqi"] is not None else None)
@@ -552,21 +611,49 @@ def get_latest_live_telemetry() -> Dict[str, Any]:
         }
 
         metric_status: Dict[str, str] = {}
+        metric_source_keys = {
+            "active_power_kw": ("active_power_kw", "power_kw"),
+            "energy_kwh": ("energy_kwh", "interval_energy_kwh"),
+            "cumulative_energy_kwh": ("cumulative_energy_kwh",),
+            "voltage_v": ("voltage_v",), "current_a": ("current_a",),
+            "power_factor": ("power_factor",), "frequency_hz": ("frequency_hz",),
+            "water_flow_lmin": ("water_flow_lmin", "water_flow_lpm"),
+            "cumulative_water_m3": ("cumulative_water_m3",),
+            "water_pressure_bar": ("water_pressure_bar",), "tank_level_pct": ("tank_level_pct",),
+            "temperature": ("temperature_c", "temperature"),
+            "humidity": ("humidity_pct", "humidity"),
+            "occupancy": ("occupancy_count", "occupancy"),
+            "hvac_load": ("hvac_load_kw", "hvac_load"),
+            "air_aqi": ("air_quality_aqi", "air_aqi"),
+        }
         for k, v in metric_values.items():
             if v is None:
                 metric_status[k] = "UNAVAILABLE"
-            elif dev_status in ("STALE", "OFFLINE"):
-                metric_status[k] = dev_status
-            elif rec.get("is_verified_hardware"):
-                metric_status[k] = "MEASURED" if not rec.get("quality_warnings") else "DEGRADED"
-            elif src_type == "real_sensor":
-                metric_status[k] = "UNVERIFIED_DEMO"
-            elif src_type == "simulated_iot":
-                metric_status[k] = "SIMULATED"
-            elif src_type == "derived":
-                metric_status[k] = "DERIVED"
+                continue
+            source_key = next((key for key in metric_source_keys.get(k, (k,)) if key in metric_records), None)
+            if source_key is None:
+                metric_status[k] = "UNAVAILABLE"
             else:
-                metric_status[k] = "SYNTHETIC"
+                metric_rec = metric_records[source_key]
+                metric_ts = metric_rec.get("event_timestamp") or metric_rec.get("ingested_at") or ""
+                try:
+                    metric_age = max(0.0, (now_dt - pd.to_datetime(metric_ts, utc=True)).total_seconds())
+                except Exception:
+                    metric_age = float("inf")
+                if metric_age > 300:
+                    metric_status[k] = "OFFLINE"
+                elif metric_age > 45:
+                    metric_status[k] = "STALE"
+                elif src_type == "real_sensor" and not is_verified_group:
+                    metric_status[k] = "UNVERIFIED_DEMO"
+                elif src_type == "real_sensor":
+                    metric_status[k] = "DEGRADED" if metric_rec.get("quality_warnings") else "MEASURED"
+                elif src_type == "simulated_iot":
+                    metric_status[k] = "SIMULATED"
+                elif src_type == "derived":
+                    metric_status[k] = "DERIVED"
+                else:
+                    metric_status[k] = "SYNTHETIC"
 
         return {
             "energy_kwh": int_e,
@@ -584,13 +671,21 @@ def get_latest_live_telemetry() -> Dict[str, Any]:
             "cumulative_water_m3": cum_w,
             "water_pressure_bar": w_press,
             "tank_level_pct": t_lvl,
+            "tank_distance_cm": tank_dist,
+            "heat_index_c": heat_idx,
+            "mq135_raw_adc": mq_adc,
+            "mq135_voltage_v": mq_volt,
+            "mq135_co2_estimate_ppm": mq_co2,
             "air_aqi": aqi,
             "building_id": rec.get("building_id", "Block B Hostel"),
             "device_id": dev_id,
+            "contributing_device_ids": sorted(x for x in contributing_device_ids if x),
+            "facility_id": rec.get("facility_id"),
             "device_status": dev_status,
             "timestamp": ts_str,
             "data_freshness_sec": round(age_sec, 1),
             "source_type": src_type,
+            "is_verified_hardware": is_verified_group,
             "data_source_badge": badge,
             "metric_status": metric_status,
             "quality_warnings": rec.get("quality_warnings", [])
@@ -623,6 +718,7 @@ def get_latest_live_telemetry() -> Dict[str, Any]:
         "timestamp": sim_status.get("simulated_timestamp"),
         "data_freshness_sec": 1.0,
         "source_type": "simulated_iot",
+        "is_verified_hardware": False,
         "data_source_badge": "[SIMULATED IoT]",
         "metric_status": all_sim_status,
         "quality_warnings": []
@@ -676,6 +772,30 @@ def energy_forecast(user: Dict[str, Any] = Depends(require_permission("energy.re
 # In-memory registry for alert cooldown/hysteresis
 ALERT_COOLDOWN_REGISTRY: Dict[str, float] = {}
 
+
+def _sustained_power_samples(records: List[Dict[str, Any]], threshold_kw: float, now_utc: pd.Timestamp) -> List[Dict[str, Any]]:
+    """Return the newest three same-meter samples above threshold if recent and contiguous."""
+    candidates = []
+    for record in records:
+        metrics = record.get("metrics", {})
+        value = metrics.get("active_power_kw", metrics.get("power_kw"))
+        raw_timestamp = record.get("event_timestamp") or record.get("ingested_at")
+        try:
+            timestamp = pd.to_datetime(raw_timestamp, utc=True) if raw_timestamp else None
+        except Exception:
+            timestamp = None
+        if value is not None and timestamp is not None:
+            candidates.append((timestamp, float(value), record))
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    recent = candidates[:3]
+    if len(recent) < 3 or any(value < threshold_kw for _, value, _ in recent):
+        return []
+    if any((now_utc - ts).total_seconds() > 3600 for ts, _, _ in recent):
+        return []
+    if any((recent[index][0] - recent[index + 1][0]).total_seconds() > 1200 for index in range(2)):
+        return []
+    return [record for _, _, record in recent]
+
 @app.get("/api/v1/energy/anomalies")
 def energy_anomalies(user: Dict[str, Any] = Depends(require_permission("energy.read"))):
     live = get_latest_live_telemetry()
@@ -727,29 +847,75 @@ def energy_anomalies(user: Dict[str, Any] = Depends(require_permission("energy.r
         }
 
     # Rule 1: Thermal HVAC Load Surge
-    eval_val = actual_kwh if actual_kwh is not None else actual_power
     hvac_load_val = live.get("hvac_load") or 0.0
-    if eval_val is not None:
-        is_surge = (actual_kwh is not None and actual_kwh > exp_kwh * 1.15) or (eval_val >= 180.0 and hvac_load_val >= 60.0)
+    if actual_kwh is not None or actual_power is not None:
+        is_surge = (actual_kwh is not None and actual_kwh > exp_kwh * 1.15) or (actual_power is not None and actual_power >= 180.0 and hvac_load_val >= 60.0)
         if is_surge:
-            dev_pct = round(((eval_val - exp_kwh) / max(1.0, exp_kwh)) * 100, 1)
-            severity = "CRITICAL" if dev_pct > 60 or eval_val >= 180.0 else "HIGH"
+            dev_pct = round(((actual_kwh - exp_kwh) / max(1.0, exp_kwh)) * 100, 1) if actual_kwh is not None else None
+            severity = "CRITICAL" if (dev_pct is not None and dev_pct > 60) or (actual_power is not None and actual_power >= 180.0 and hvac_load_val >= 60.0) else "HIGH"
             anomalies_list.append({
                 "id": "ALT_SURGE_HVAC",
                 "device_id": live["device_id"],
                 "building": building,
                 "issue": "HVAC Thermal Load Surge",
                 "severity": severity,
-                "observed_value": f"{round(eval_val, 1)} {'kWh' if actual_kwh is not None else 'kW'}",
+                "observed_value": f"{round(actual_kwh, 2)} kWh" if actual_kwh is not None else f"{round(actual_power, 2)} kW",
                 "expected_range": f"{round(exp_kwh * 0.8, 1)} - {round(exp_kwh * 1.1, 1)} kWh",
                 "actual_kwh": round(actual_kwh, 1) if actual_kwh is not None else None,
                 "expected_kwh": round(exp_kwh, 1),
-                "deviation_percent": f"+{dev_pct}%",
+                "deviation_percent": f"+{dev_pct}%" if dev_pct is not None else "Power threshold exceeded",
                 "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
                 "explanation": f"Live telemetry detected load surging {dev_pct}% above contextual baseline during ambient heat ({temp_context}°C).",
                 "recommended_action": "Adjust HVAC setpoint by +2°C and shift non-essential thermal load to off-peak.",
                 "data_source_badge": live["data_source_badge"]
             })
+
+    # Rule 1b: hardware-scale persistent after-hours load (e.g. the team's bulb demo).
+    # Use a same-meter time series and never mix power (kW) with interval energy (kWh).
+    closed_start = int(os.getenv("ESTATEIQ_CLOSED_HOURS_START", "22")) % 24
+    closed_end = int(os.getenv("ESTATEIQ_CLOSED_HOURS_END", "6")) % 24
+    is_closed_hours = (closed_start > closed_end and (hour >= closed_start or hour < closed_end)) or (
+        closed_start < closed_end and closed_start <= hour < closed_end
+    )
+    try:
+        after_hours_threshold_kw = max(0.0, float(os.getenv("ESTATEIQ_AFTER_HOURS_POWER_THRESHOLD_KW", "0.05")))
+    except ValueError:
+        after_hours_threshold_kw = 0.05
+    if is_closed_hours:
+        power_records = [
+            record for record in GLOBAL_DEVICE_REGISTRY.telemetry_history
+            if record.get("is_valid_sample", True) and not record.get("quarantined") and not record.get("is_late_sample")
+            and record.get("facility_id") == live.get("facility_id")
+            and record.get("building_id") == building
+            and record.get("source_type", "simulated_iot") == live.get("source_type")
+            and (live.get("source_type") != "real_sensor" or bool(record.get("is_verified_hardware")) == bool(live.get("is_verified_hardware")))
+            and ("active_power_kw" in record.get("metrics", {}) or "power_kw" in record.get("metrics", {}))
+        ]
+        if power_records:
+            newest_power = max(power_records, key=lambda record: pd.to_datetime(record.get("event_timestamp") or record.get("ingested_at"), utc=True, errors="coerce"))
+            meter_id = newest_power.get("device_id")
+            same_meter = [record for record in power_records if record.get("device_id") == meter_id]
+            now_utc = pd.Timestamp.now(tz="UTC")
+            sustained = _sustained_power_samples(same_meter, after_hours_threshold_kw, now_utc)
+            if sustained:
+                power_value = float(sustained[0].get("metrics", {}).get("active_power_kw", sustained[0].get("metrics", {}).get("power_kw")))
+                verified = bool(sustained[0].get("is_verified_hardware")) and live.get("source_type") == "real_sensor"
+                anomalies_list.append({
+                    "id": "ALT_AFTER_HOURS_SMALL_LOAD",
+                    "device_id": meter_id,
+                    "building": building,
+                    "issue": "Persistent After-Hours Electrical Load",
+                    "severity": "HIGH" if verified else "MEDIUM",
+                    "observed_value": f"{power_value:.3f} kW",
+                    "expected_range": f"Below {after_hours_threshold_kw:.3f} kW during configured closed hours",
+                    "actual_kwh": round(actual_kwh, 3) if actual_kwh is not None else None,
+                    "expected_kwh": None,
+                    "deviation_percent": "Persistent threshold exceedance",
+                    "timestamp": sustained[0].get("event_timestamp") or now_utc.isoformat(),
+                    "explanation": f"Three consecutive readings from the same meter exceeded the configured {after_hours_threshold_kw:.3f} kW threshold during closed hours. This low-load rule supports small test loads; validate the device schedule before action.",
+                    "recommended_action": "Inspect the connected load and operating schedule; switch off only after confirming it is safe and authorized.",
+                    "data_source_badge": live.get("data_source_badge"),
+                })
 
     # Rule 2: After-Hours Consumption Waste
     if live.get("occupancy") is not None and live.get("hvac_load") is not None:
@@ -979,6 +1145,131 @@ def energy_anomalies(user: Dict[str, Any] = Depends(require_permission("energy.r
             "data_source_badge": live["data_source_badge"]
         })
 
+    # Rule 6: Low Power Factor Anomaly (PZEM-004T / Modbus Metrology)
+    pf_val = live.get("power_factor")
+    if pf_val is not None and pf_val > 0.0 and pf_val < 0.85:
+        kw_now = eval_val or 10.0
+        phi = math.acos(max(0.1, min(1.0, pf_val)))
+        kvar_waste = round(kw_now * math.tan(phi), 2)
+        anomalies_list.append({
+            "id": "ALT_LOW_POWER_FACTOR",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "Low Power Factor / Inductive Reactive Waste",
+            "severity": "HIGH" if pf_val < 0.80 else "MEDIUM",
+            "observed_value": f"PF: {round(pf_val, 2)} (Lagging)",
+            "expected_range": ">= 0.95 (Grid Standard)",
+            "actual_kwh": round(actual_kwh, 1) if actual_kwh is not None else None,
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": f"-{round((0.95 - pf_val) / 0.95 * 100, 1)}%",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": f"Power factor lagging at {round(pf_val, 2)} with ~{kvar_waste} kVAR uncompensated reactive load. Increases electrical line losses and utility penalty exposure.",
+            "recommended_action": "Switch in Automatic Power Factor Correction (APFC) capacitor bank stage 2.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
+    # Rule 7: Overhead Water Tank Low Level / Dry Run Pump Hazard (Ultrasonic Sonar)
+    tank_val = live.get("tank_level_pct")
+    if tank_val is not None and tank_val < 15.0:
+        dist_now = live.get("tank_distance_cm") or 180.0
+        anomalies_list.append({
+            "id": "ALT_TANK_DEPLETION",
+            "device_id": "WATER-BLOCK-B-001",
+            "building": building,
+            "issue": "Critical Water Storage Depletion - Dry-Run Pump Hazard",
+            "severity": "CRITICAL",
+            "observed_value": f"{round(tank_val, 1)}% Fill ({round(dist_now, 1)} cm)",
+            "expected_range": "25% - 90% Operating Band",
+            "actual_kwh": round(actual_kwh, 1) if actual_kwh is not None else None,
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": f"-{round((25.0 - tank_val) / 25.0 * 100, 1)}%",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": f"Ultrasonic water level sonar detected tank level at {round(tank_val, 1)}% (< 15%). Immediate danger of pump cavitation and water outage.",
+            "recommended_action": "Engage dry-run motor interlock cutoff and initiate ground-sump refill cycle.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
+    # Rule 8: Rooftop Water Tank Approaching Overflow (Ultrasonic Sonar)
+    if tank_val is not None and tank_val > 95.0 and (live.get("water_flow_lmin") or 0.0) > 0.5:
+        anomalies_list.append({
+            "id": "ALT_TANK_OVERFLOW",
+            "device_id": "WATER-BLOCK-B-001",
+            "building": building,
+            "issue": "Water Storage Tank Approaching Overflow",
+            "severity": "HIGH",
+            "observed_value": f"{round(tank_val, 1)}% Fill",
+            "expected_range": "< 90% High Water Cutoff",
+            "actual_kwh": round(actual_kwh, 1) if actual_kwh is not None else None,
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": f"+{round((tank_val - 90.0) / 90.0 * 100, 1)}%",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": f"Tank level reached {round(tank_val, 1)}% with ongoing inflow. Overflow spill imminent.",
+            "recommended_action": "De-energize intake transfer pump and close inlet solenoid valve.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
+    # Rule 9: Relative MQ-135 response alert. MQ-135 is not a calibrated CO2/AQI instrument.
+    mq_ppm = live.get("mq135_co2_estimate_ppm")
+    mq_raw = live.get("mq135_raw_adc")
+    if mq_raw is not None and mq_raw > 1800:
+        anomalies_list.append({
+            "id": "ALT_AIR_QUALITY_HAZARD",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "MQ-135 Relative Gas Response Elevated",
+            "severity": "MEDIUM",
+            "observed_value": f"Raw ADC: {mq_raw} / 4095" + (f"; uncalibrated estimate {round(mq_ppm, 0)} ppm" if mq_ppm is not None else ""),
+            "expected_range": "Configured relative-response threshold: 1800 ADC counts",
+            "actual_kwh": round(actual_kwh, 1) if actual_kwh is not None else None,
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": f"+{round((mq_raw - 1800.0) / 1800.0 * 100, 1)}% raw response",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": "The MQ-135 raw analog response exceeded the configured relative threshold. This module is not calibrated here as a CO2, PM2.5, or certified AQI instrument; treat this as a change signal and verify with a suitable air-quality meter.",
+            "recommended_action": "Check sensor warm-up/calibration status and safely ventilate the area if the response persists; verify with a calibrated air-quality instrument.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
+    # Rule 10: Thermal Heat Stress Hazard (DHT11 Temperature & Humidity Sensor)
+    t_now = live.get("temperature")
+    h_now = live.get("humidity")
+    hi_now = live.get("heat_index_c")
+    if (t_now is not None and t_now >= 36.0) or (hi_now is not None and hi_now >= 40.0):
+        anomalies_list.append({
+            "id": "ALT_THERMAL_HEAT_STRESS",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "Thermal Heat Stress Danger - Occupant Welfare Risk",
+            "severity": "HIGH",
+            "observed_value": f"Temp: {round(t_now, 1)}°C | Heat Index: {round(hi_now or t_now, 1)}°C",
+            "expected_range": "22°C - 26°C Thermal Comfort Band",
+            "actual_kwh": round(actual_kwh, 1) if actual_kwh is not None else None,
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": f"+{round(((t_now or 30.0) - 26.0) / 26.0 * 100, 1)}%",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": f"DHT11 climate sensor measured temperature {round(t_now, 1)}°C with calculated NOAA Heat Index {round(hi_now or t_now, 1)}°C exceeding safe occupancy thresholds.",
+            "recommended_action": "Increase HVAC chilled water flow and deploy localized spot cooling.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
+    # Rule 11: High Relative Humidity / Mold Risk (DHT11)
+    if h_now is not None and h_now > 82.0:
+        anomalies_list.append({
+            "id": "ALT_HIGH_HUMIDITY_MOLD",
+            "device_id": live["device_id"],
+            "building": building,
+            "issue": "Excessive Relative Humidity - Structural Mold & Condensation Hazard",
+            "severity": "MEDIUM",
+            "observed_value": f"{round(h_now, 1)}% RH",
+            "expected_range": "30% - 60% ASHRAE 55 Standard",
+            "actual_kwh": round(actual_kwh, 1) if actual_kwh is not None else None,
+            "expected_kwh": round(exp_kwh, 1),
+            "deviation_percent": f"+{round((h_now - 60.0) / 60.0 * 100, 1)}%",
+            "timestamp": live["timestamp"] or pd.Timestamp.now().isoformat(),
+            "explanation": f"DHT11 measured sustained relative humidity of {round(h_now, 1)}% (> 82%). High risk of pipe condensation, fungal spores, and structural deterioration.",
+            "recommended_action": "Activate HVAC dehumidification cycle and inspect zone for building envelope moisture ingress.",
+            "data_source_badge": live["data_source_badge"]
+        })
+
     if not anomalies_list:
         anomalies_list = [{
             "id": "ALT_NORMAL_00",
@@ -1184,18 +1475,37 @@ memory_instance = DecisionMemoryStore()
 @app.get("/api/v1/intelligence/fusion")
 def get_intelligence_fusion_overview(user: Dict[str, Any] = Depends(require_permission("alerts.read"))):
     live = get_latest_live_telemetry()
-    kwh_val = live.get("energy_kwh") if live.get("energy_kwh") is not None else 140.0
-    temp_val = live.get("temperature") if live.get("temperature") is not None else 28.5
-    occ_val = live.get("occupancy") if live.get("occupancy") is not None else 120
-    hvac_val = live.get("hvac_load") if live.get("hvac_load") is not None else 55.0
+    required_inputs = {
+        "energy_kwh": live.get("energy_kwh"),
+        "temperature": live.get("temperature"),
+        "occupancy": live.get("occupancy"),
+        "hvac_load": live.get("hvac_load"),
+    }
+    missing_inputs = [key for key, value in required_inputs.items() if value is None]
+    if missing_inputs:
+        return {
+            "status": "INSUFFICIENT_DATA",
+            "message": "Fusion analysis was not run because required telemetry is unavailable.",
+            "missing_inputs": missing_inputs,
+            "building_id": live.get("building_id"),
+            "source_type": live.get("source_type"),
+            "data_source_badge": live.get("data_source_badge"),
+            "provenance": "NO_ANALYSIS_PERFORMED",
+        }
+
+    kwh_val = float(required_inputs["energy_kwh"])
+    temp_val = float(required_inputs["temperature"])
+    occ_val = int(required_inputs["occupancy"])
+    hvac_val = float(required_inputs["hvac_load"])
 
     df_live = pd.DataFrame([{
         "energy_kwh": kwh_val,
         "temperature": temp_val,
         "occupancy": occ_val,
-        "hvac_load": hvac_val
+        "hvac_load": hvac_val,
+        "event_timestamp": live.get("timestamp"),
     }])
-    return fusion_instance.run_fusion_analysis(
+    result = fusion_instance.run_fusion_analysis(
         df_telemetry=df_live,
         building_id=live["building_id"],
         actual_kwh=kwh_val,
@@ -1203,6 +1513,10 @@ def get_intelligence_fusion_overview(user: Dict[str, Any] = Depends(require_perm
         temperature=float(temp_val),
         hvac_load=float(hvac_val)
     )
+    result["source_type"] = live.get("source_type")
+    result["data_source_badge"] = live.get("data_source_badge")
+    result["device_id"] = live.get("device_id")
+    return result
 
 @app.get("/api/v1/intelligence/confidence")
 def get_intelligence_confidence(user: Dict[str, Any] = Depends(require_permission("alerts.read"))):
@@ -1215,9 +1529,27 @@ def get_model_consensus(user: Dict[str, Any] = Depends(require_permission("alert
 @app.get("/api/v1/intelligence/business-impact")
 def get_business_impact(user: Dict[str, Any] = Depends(require_permission("alerts.read"))):
     live = get_latest_live_telemetry()
-    occ_val = live.get("occupancy") if live.get("occupancy") is not None else 80.0
-    temp_val = live.get("temperature") if live.get("temperature") is not None else 28.0
-    kwh_val = live.get("energy_kwh") if live.get("energy_kwh") is not None else 140.0
+    if live.get("energy_kwh") is None:
+        return {
+            "status": "INSUFFICIENT_DATA",
+            "message": "Business impact was not estimated because interval energy telemetry is unavailable.",
+            "missing_inputs": ["energy_kwh"],
+            "building_id": live.get("building_id"),
+            "source_type": live.get("source_type"),
+            "data_source_badge": live.get("data_source_badge"),
+        }
+    occ_val = live.get("occupancy")
+    temp_val = live.get("temperature")
+    kwh_val = float(live["energy_kwh"])
+    if occ_val is None or temp_val is None:
+        return {
+            "status": "INSUFFICIENT_DATA",
+            "message": "Business impact was not estimated because contextual baseline inputs are unavailable.",
+            "missing_inputs": [name for name, value in (("occupancy", occ_val), ("temperature", temp_val)) if value is None],
+            "building_id": live.get("building_id"),
+            "source_type": live.get("source_type"),
+            "data_source_badge": live.get("data_source_badge"),
+        }
     exp_kwh = baseline_engine.calculate_expected_kwh(
         building_id=live["building_id"],
         hour=pd.Timestamp.now().hour,
@@ -1684,9 +2016,149 @@ def register_simulator_device(instance_id: str, device_payload: Union[Dict[str, 
         device_payload["instance_id"] = instance_id
         return GLOBAL_DEVICE_REGISTRY.register_device(device_payload)
 
+@app.get("/api/v1/iot/telemetry/adaptive-status")
+def get_adaptive_telemetry_status():
+    """Returns real-time status of adaptive reporting cadences and active anomalies across all devices."""
+    devices = GLOBAL_DEVICE_REGISTRY.list_devices()
+    now_ts = time.time()
+
+    has_anomaly = any(d.reporting_state == "ANOMALY_5M" or (d.active_anomaly is not None) for d in devices)
+    has_recovery = any(d.reporting_state == "RECOVERY_5M" for d in devices)
+
+    if has_anomaly:
+        overall_mode = "ANOMALY_5M"
+        overall_label = "Anomaly monitoring · 5 min"
+        interval_sec = 300
+    elif has_recovery:
+        overall_mode = "RECOVERY_5M"
+        overall_label = "Recovery check · 5 min"
+        interval_sec = 300
+    else:
+        overall_mode = "NORMAL_15M"
+        overall_label = "Normal · 15 min"
+        interval_sec = 900
+
+    active_anomalies = []
+    dev_summaries = []
+    min_next_expected_sec = float(interval_sec)
+
+    for d in devices:
+        age_sec = None
+        if d.last_sample_at:
+            try:
+                lts = datetime.datetime.fromisoformat(d.last_sample_at.replace("Z", "+00:00")).timestamp()
+                age_sec = max(0.0, round(now_ts - lts, 1))
+            except Exception:
+                pass
+
+        next_sec = None
+        if d.next_report_expected_at:
+            try:
+                nts = datetime.datetime.fromisoformat(d.next_report_expected_at.replace("Z", "+00:00")).timestamp()
+                next_sec = max(0.0, round(nts - now_ts, 1))
+                if next_sec < min_next_expected_sec:
+                    min_next_expected_sec = next_sec
+            except Exception:
+                pass
+
+        if d.active_anomaly:
+            anom = d.active_anomaly.copy()
+            anom["device_id"] = d.device_id
+            anom["building_id"] = d.building_id
+            anom["data_source_badge"] = d.data_source_badge
+            active_anomalies.append(anom)
+
+        dev_summaries.append({
+            "device_id": d.device_id,
+            "device_name": d.device_name,
+            "device_type": d.device_type,
+            "building_id": d.building_id,
+            "status": d.status,
+            "source_type": d.source_type,
+            "data_source_badge": d.data_source_badge,
+            "is_verified_hardware": d.is_verified_hardware,
+            "reporting_state": d.reporting_state,
+            "reporting_interval_sec": d.reporting_interval_sec,
+            "last_sample_at": d.last_sample_at,
+            "last_sample_age_sec": age_sec,
+            "next_report_expected_at": d.next_report_expected_at,
+            "next_report_expected_sec": next_sec,
+            "active_anomaly": d.active_anomaly
+        })
+
+    return {
+        "status": "SUCCESS",
+        "campus_reporting_state": overall_mode,
+        "campus_reporting_mode_label": overall_label,
+        "campus_reporting_interval_sec": interval_sec,
+        "reporting_interval_sec": interval_sec,
+        "campus_next_report_expected_sec": round(min_next_expected_sec, 1),
+        "next_report_expected_sec": round(min_next_expected_sec, 1),
+        "active_devices_count": len(devices),
+        "active_anomalies_count": len(active_anomalies),
+        "active_anomalies": active_anomalies,
+        "devices": dev_summaries,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
+
+
+@app.post("/api/v1/iot/telemetry/evaluate-benchmark")
+def evaluate_anomaly_benchmark(request_data: Optional[Dict[str, Any]] = None):
+    """Runs time-ordered holdout evaluation comparing improved contextual MAD detector with legacy static thresholding."""
+    from src.services.anomaly_engine import GLOBAL_ADAPTIVE_ANOMALY_ENGINE
+
+    records = []
+    custom_records = request_data.get("scenario_data") if request_data else None
+    metric = (request_data.get("metric_name") or request_data.get("metric")) if request_data else "active_power_kw"
+    device_id = (request_data.get("device_id") or "METER-BLOCK-B-001") if request_data else "METER-BLOCK-B-001"
+    building_id = (request_data.get("building_id") or "Block B Hostel") if request_data else "Block B Hostel"
+    static_thresh = request_data.get("static_threshold") if request_data else 90.0
+
+    if custom_records:
+        records = custom_records
+    else:
+        base_time = datetime.datetime(2026, 11, 8, 0, 0, 0, tzinfo=datetime.timezone.utc)
+        for i in range(96):
+            ts = base_time + datetime.timedelta(minutes=15 * i)
+            hr = ts.hour
+            val = 20.0 if hr < 6 else (75.0 if 9 <= hr < 18 else 50.0)
+            gt = False
+            if i == 20:
+                val = 98.0  # Transient single-sample spike
+                gt = False
+            elif 50 <= i <= 52:
+                val = 135.0  # Genuine sustained overload
+                gt = True
+            records.append({
+                "timestamp": ts.isoformat().replace("+00:00", "Z"),
+                "value": val,
+                "active_power_kw": val,
+                "ground_truth_anomaly": gt
+            })
+
+    res = GLOBAL_ADAPTIVE_ANOMALY_ENGINE.evaluate_historical_holdout(
+        records=records,
+        metric=metric,
+        device_id=device_id,
+        building_id=building_id,
+        static_threshold=static_thresh
+    )
+    return {
+        "status": "COMPLETED",
+        "comparison": res,
+        **res
+    }
+
+
 @app.post("/api/v1/iot/telemetry")
 def ingest_iot_telemetry(payload: Dict[str, Any]):
+    dev_id = payload.get("device_id")
+    src = payload.get("source_type", "unknown")
     res = GLOBAL_DEVICE_REGISTRY.ingest_telemetry(payload)
+    if not (res.get("success") or res.get("accepted")):
+        print(f"[REJECTED-400] Dev: {dev_id} | Err: {res.get('error')} | Payload: {payload}", flush=True)
+    raw_m = payload.get("metrics") or payload.get("telemetry") or {}
+    print(f"[LIVE-TELEMETRY] Dev: {dev_id} | Src: {src} | Status: {res.get('status')} | Metrics: {raw_m}", flush=True)
     if not (res.get("success") or res.get("accepted")):
         raise HTTPException(status_code=400, detail=res.get("error") or res.get("reason", "INGESTION_FAILED"))
     return res
@@ -1750,6 +2222,29 @@ def get_iot_device_details(device_id: str):
     data["device"] = dev.dict()
     data["recent_telemetry"] = history
     return data
+
+@app.get("/api/v1/iot/time")
+@app.get("/api/v1/system/time")
+def get_server_iot_time():
+    """Returns authoritative server UTC time for edge gateways to synchronize when UDP NTP port 123 is blocked on cellular hotspots."""
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    utc_str = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return {
+        "epoch_seconds": int(now_utc.timestamp()),
+        "iso_timestamp": utc_str,
+        "utc_timestamp": utc_str,
+        "server_status": "ONLINE"
+    }
+
+@app.get("/api/v1/iot/devices/{device_id}/live")
+def get_device_live_status(device_id: str):
+    """Returns dynamic freshness, connection status, verified hardware provenance, and recent history points."""
+    freshness = GLOBAL_DEVICE_REGISTRY.get_device_freshness_status(device_id)
+    if freshness.get("status") == "UNKNOWN":
+        raise HTTPException(status_code=404, detail="DEVICE_NOT_FOUND")
+    samples = GLOBAL_DEVICE_REGISTRY.get_device_recent_samples(device_id, limit=30)
+    freshness["recent_samples"] = samples
+    return freshness
 
 @app.get("/api/v1/iot/devices/{device_id}/telemetry/latest")
 def get_latest_device_telemetry(device_id: str):
@@ -1850,6 +2345,23 @@ def resume_iot_simulator():
 @app.post("/api/v1/iot-simulator/stop")
 def stop_iot_simulator():
     return GLOBAL_IOT_SIMULATOR.stop_simulation()
+
+@app.post("/api/v1/iot-simulator/stop-all")
+@app.post("/api/v1/iot/simulators/stop-all")
+def stop_all_simulators_endpoint():
+    """Stops all running simulator engines, pauses virtual tick generation, and purges simulated buffers."""
+    sim_status = GLOBAL_IOT_SIMULATOR.stop_simulation()
+    GLOBAL_DEVICE_REGISTRY.purge_simulated_telemetry()
+    return {
+        "success": True,
+        "message": "All simulators stopped. Canonical telemetry stream now contains verified real hardware only.",
+        "simulator_status": sim_status,
+        "total_records": len(GLOBAL_DEVICE_REGISTRY.telemetry_history),
+        "real_hardware_devices": [
+            d.device_id for d in GLOBAL_DEVICE_REGISTRY.devices.values()
+            if d.is_verified_hardware or d.source_type == "real_sensor"
+        ]
+    }
 
 @app.post("/api/v1/iot-simulator/step")
 def step_iot_simulator():

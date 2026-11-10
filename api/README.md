@@ -17,7 +17,7 @@ This directory houses the primary REST backend and real-time streaming services 
 
 ### 1. Canonical IoT Telemetry & Edge Streaming (`/api/v1/iot/*`)
 - **`POST /api/v1/iot/telemetry`**: Ingests single telemetry JSON object or JSON array batch. Validates schemas, tags data provenance (`[REAL SENSOR]` vs `[SIMULATED DATA]`), updates device registry, and broadcasts to live SSE subscribers.
-- **`GET /api/v1/iot/telemetry/stream`**: Server-Sent Events (SSE) live stream endpoint for real-time frontend visualization without polling.
+- **`GET /api/v1/iot/telemetry/stream`**: Returns a JSON snapshot of recent telemetry records and registry statistics. The current dashboard refreshes by polling; this route is not an SSE/WebSocket stream.
 - **`GET /api/v1/iot/telemetry/recent`**: Retrieves the most recent telemetry readings filtered by `device_id` or `building_id`.
 - **`GET /api/v1/iot/devices`**: Returns inventory of registered hardware meters and simulated device profiles, current health status (`ONLINE`, `STREAMING`, `STALE`, `OFFLINE`), and last sample.
 - **`POST /api/v1/iot/devices/register`**: Registers or updates device profile specifications.

@@ -119,7 +119,12 @@ class DecisionTraceEngine:
             },
             "step_9_assumptions": [
                 f"Data Quality Score: {dq['overall_data_quality_score']}/100 ({dq['quality_grade']})",
-                f"Model Consensus: {consensus['anomaly_votes_count']}/{consensus['models_evaluated_count']} models agree ({consensus['model_consensus_score']*100:.0f}%)",
+                (
+                    f"Model Consensus: {consensus['anomaly_votes_count']}/{consensus['models_evaluated_count']} models agree "
+                    f"({consensus['model_consensus_score'] * 100:.0f}%)"
+                    if consensus.get("model_consensus_score") is not None
+                    else "Model Consensus: insufficient independent model evidence; no consensus score available."
+                ),
                 f"Decision Confidence: {conf_info['overall_confidence_pct']}%",
                 f"Cost of Inaction: ₹{impact['cost_of_inaction']['daily_cost_inaction_inr']}/day"
             ],

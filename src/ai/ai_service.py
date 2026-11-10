@@ -366,49 +366,66 @@ class EstateIQAIService:
             ]
         elif intent_type == "IOT_STATUS" or any(w in user_query.lower() for w in ["iot", "sensor", "telemetry", "reading", "value", "device"]):
             live_devs = evidence_packet.get("live_device_readings", {})
-            dev_elec = live_devs.get("DEV_ELEC_01", {})
+            dev_elec = live_devs.get("METER-BLOCK-B-001") or live_devs.get("DEV_ELEC_01", {})
             dev_hvac = live_devs.get("DEV_HVAC_01", {})
-            dev_water = live_devs.get("DEV_WATER_01", {})
-            dev_env = live_devs.get("DEV_ENV_01", {})
+            dev_water = live_devs.get("WATER-BLOCK-B-001") or live_devs.get("DEV_WATER_01", {})
+            dev_env = live_devs.get("ENV-BLOCK-B-001") or live_devs.get("DEV_ENV_01", {})
+            dev_waste = live_devs.get("WASTE-BLOCK-B-001", {})
 
-            power_kw = dev_elec.get("active_power_kw", 145.2)
-            energy_kwh = dev_elec.get("energy_kwh", 36.3)
-            voltage = dev_elec.get("line_voltage_v", 415.0)
-            current = dev_elec.get("current_a", 202.0)
-            pf = dev_elec.get("power_factor", 0.94)
+            power_kw = dev_elec.get("active_power_kw")
+            energy_kwh = dev_elec.get("energy_kwh")
+            voltage = dev_elec.get("line_voltage_v")
+            current = dev_elec.get("current_a")
+            pf = dev_elec.get("power_factor")
 
-            hvac_kw = dev_hvac.get("hvac_load_kw", 58.0)
-            hvac_stat = dev_hvac.get("hvac_status", "ON")
+            hvac_kw = dev_hvac.get("hvac_load_kw")
+            hvac_stat = dev_hvac.get("hvac_status", "STANDBY")
 
-            water_flow = dev_water.get("water_flow_lmin", 50.0)
-            tank_pct = dev_water.get("tank_level_pct", 82.0)
+            water_flow = dev_water.get("water_flow_lmin")
+            tank_pct = dev_water.get("tank_level_pct")
 
-            temp = dev_env.get("room_temperature_c", 32.0)
-            occ = dev_env.get("occupancy_count", 140)
-            aqi = dev_env.get("indoor_aqi", 110.5)
+            temp = dev_env.get("room_temperature_c")
+            occ = dev_env.get("occupancy_count")
+            aqi = dev_env.get("indoor_aqi")
+
+            waste_fill = dev_waste.get("fill_level_pct")
+            waste_dist = dev_waste.get("bin_distance_cm")
+
+            # Determine real hardware provenance
+            reg_summary = evidence_packet.get("query_meta", {}).get("iot_registry", {})
+            online_count = reg_summary.get("online_devices", 0)
+            status_text = f"ONLINE ({online_count} nodes streaming)" if online_count > 0 else "STANDBY / MONITORING"
+
+            has_hw = any(
+                isinstance(d, dict) and (d.get("data_source_badge") == "[REAL SENSOR]" or d.get("is_verified_hardware"))
+                for d in [dev_elec, dev_water, dev_env, dev_waste]
+            )
+            badge = "[REAL SENSOR]" if has_hw else "[SIMULATED IoT]"
+
+            elec_disp = f"{power_kw} kW | {voltage or 230.0} V | {current or 0.0} A" if power_kw is not None else "Standby (no active load)"
+            water_disp = f"{water_flow} L/min | Tank: {tank_pct}%" if water_flow is not None else "Standby"
+            waste_disp = f"{waste_fill}% fill ({waste_dist} cm clearance)" if waste_fill is not None else "Awaiting reading"
+            env_disp = f"{temp} °C | {aqi} AQI (indicative)" if temp is not None else "Standby"
 
             summary = (
-                f"Live IoT Telemetry Monitoring (Status: CONNECTED & STREAMING):\n\n"
-                f"• Main Electrical Submeter (DEV_ELEC_01): Active Power = {power_kw} kW | Energy = {energy_kwh} kWh | Line Voltage = {voltage} V | Current = {current} A | Power Factor = {pf}\n"
-                f"• HVAC Chiller & Compressor Monitor (DEV_HVAC_01): HVAC Load = {hvac_kw} kW | Status = {hvac_stat}\n"
-                f"• Water Riser Flow & Tank Level (DEV_WATER_01): Water Flow = {water_flow} L/min | Tank Level = {tank_pct}%\n"
-                f"• Environmental & Occupancy Node (DEV_ENV_01): Room Temp = {temp} °C | Occupancy = {occ} people | Indoor AQI = {aqi}"
+                f"Campus IoT Telemetry Status ({status_text}):\n\n"
+                f"• Main Electrical Meter (METER-BLOCK-B-001): {elec_disp}\n"
+                f"• Water Riser & Tank Node (WATER-BLOCK-B-001): {water_disp}\n"
+                f"• Smart Waste Bin Node (WASTE-BLOCK-B-001): {waste_disp}\n"
+                f"• Environmental & Air Node (ENV-BLOCK-B-001): {env_disp}\n\n"
+                f"Sensor Disclaimer: MQ-135 output is an uncalibrated indicative gas estimate for trend awareness; not certified EPA/CPCB AQI."
             )
             what_happened = ""
             why_list = []
-            badge = "[SIMULATED IoT]"
             evidence_list = [
-                {"metric": "DEV_ELEC_01 Active Power (kW)", "value": power_kw},
-                {"metric": "DEV_ELEC_01 Energy (kWh)", "value": energy_kwh},
-                {"metric": "DEV_ELEC_01 Line Voltage (V)", "value": voltage},
-                {"metric": "DEV_ELEC_01 Current (A)", "value": current},
-                {"metric": "DEV_ELEC_01 Power Factor", "value": pf},
-                {"metric": "DEV_HVAC_01 HVAC Load (kW)", "value": hvac_kw},
-                {"metric": "DEV_WATER_01 Water Flow (L/min)", "value": water_flow},
-                {"metric": "DEV_WATER_01 Tank Level (%)", "value": tank_pct},
-                {"metric": "DEV_ENV_01 Room Temp (°C)", "value": temp},
-                {"metric": "DEV_ENV_01 Occupancy", "value": occ},
-                {"metric": "DEV_ENV_01 Indoor AQI", "value": aqi}
+                {"metric": "Active Power (kW)", "value": power_kw if power_kw is not None else 0.0},
+                {"metric": "Line Voltage (V)", "value": voltage if voltage is not None else 230.0},
+                {"metric": "Water Flow (L/min)", "value": water_flow if water_flow is not None else 0.0},
+                {"metric": "Tank Level (%)", "value": tank_pct if tank_pct is not None else 0.0},
+                {"metric": "Waste Bin Fill (%)", "value": waste_fill if waste_fill is not None else 0.0},
+                {"metric": "Waste Clearance Distance (cm)", "value": waste_dist if waste_dist is not None else 0.0},
+                {"metric": "Room Temp (°C)", "value": temp if temp is not None else 0.0},
+                {"metric": "Indoor AQI (Indicative)", "value": aqi if aqi is not None else 0.0}
             ]
             actions_list = [
                 {"title": "Open Live IoT Monitor tab to view streaming charts", "reason": "Real-time telemetry tracking", "expected_cost_saving_inr": 0},

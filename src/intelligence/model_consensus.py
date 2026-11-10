@@ -13,23 +13,39 @@ class ModelConsensusEngine:
     
     def evaluate_consensus(
         self,
-        xgboost_anomaly_prob: float = 0.85,
-        isolation_forest_score: float = 0.88,
-        prophet_anomaly_flag: bool = True,
-        contextual_anomaly_flag: bool = True,
+        xgboost_anomaly_prob: Optional[float] = None,
+        isolation_forest_score: Optional[float] = None,
+        prophet_anomaly_flag: Optional[bool] = None,
+        contextual_anomaly_flag: Optional[bool] = None,
         lof_score: Optional[float] = None
     ) -> Dict[str, Any]:
         """Calculates consensus ratio and disagreement metric."""
         
-        signals = {
-            "XGBoost Regressor": 1.0 if xgboost_anomaly_prob >= 0.70 else 0.0,
-            "Isolation Forest": 1.0 if isolation_forest_score >= 0.70 else 0.0,
-            "Prophet Time-Series": 1.0 if prophet_anomaly_flag else 0.0,
-            "Contextual Baseline": 1.0 if contextual_anomaly_flag else 0.0
-        }
+        signals = {}
+        if xgboost_anomaly_prob is not None:
+            signals["XGBoost Regressor"] = 1.0 if xgboost_anomaly_prob >= 0.70 else 0.0
+        if isolation_forest_score is not None:
+            signals["Isolation Forest"] = 1.0 if isolation_forest_score >= 0.70 else 0.0
+        if prophet_anomaly_flag is not None:
+            signals["Prophet Time-Series"] = 1.0 if prophet_anomaly_flag else 0.0
+        if contextual_anomaly_flag is not None:
+            signals["Contextual Baseline"] = 1.0 if contextual_anomaly_flag else 0.0
         
         if lof_score is not None:
             signals["Local Outlier Factor (LOF)"] = 1.0 if lof_score >= 0.70 else 0.0
+
+        if len(signals) < 2:
+            return {
+                "model_consensus_score": None,
+                "model_disagreement_score": None,
+                "majority_anomaly_flag": None,
+                "models_evaluated_count": len(signals),
+                "anomaly_votes_count": int(sum(signals.values())),
+                "model_signals": signals,
+                "consensus_status": "INSUFFICIENT_EVIDENCE",
+                "consensus_explanation": "At least two independent model signals are required to report model consensus.",
+                "provenance": "MODEL_CONSENSUS_ENGINE"
+            }
 
         votes = list(signals.values())
         mean_vote = float(np.mean(votes))

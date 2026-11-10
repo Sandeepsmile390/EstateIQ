@@ -351,6 +351,7 @@ COMMAND_CENTER_CSS = """
     .badge-predicted { background: rgba(139, 92, 246, 0.15); color: #C084FC; border: 1px solid #8B5CF6; }
     .badge-simulated { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid #F59E0B; }
     .badge-synthetic { background: rgba(100, 116, 139, 0.2); color: #94A3B8; border: 1px solid #64748B; }
+    .badge-hardware { background: rgba(0, 208, 156, 0.2); color: #00D09C; border: 1px solid #00D09C; }
 
     .pill-badge {
         display: inline-flex;
@@ -481,7 +482,9 @@ def render_badge(badge_type: str = "observed") -> str:
         "observed": ('badge-observed', 'OBSERVED DATA'),
         "predicted": ('badge-predicted', 'ML PREDICTION'),
         "simulated": ('badge-simulated', 'SIMULATED SCENARIO'),
-        "synthetic": ('badge-synthetic', 'SYNTHETIC IoT DATA')
+        "synthetic": ('badge-synthetic', 'SYNTHETIC IoT DATA'),
+        "hardware": ('badge-hardware', 'LIVE HARDWARE'),
+        "real_sensor": ('badge-hardware', 'REAL SENSOR')
     }
     css_cls, label = badge_map.get(badge_type.lower(), badge_map["observed"])
     return f'<span class="trust-badge {css_cls}">{label}</span>'

@@ -172,10 +172,10 @@ class StandaloneSimulatorManager:
                 "backend_url": self.config.backend_url,
                 "backend_connected": self.backend_connected,
                 "auto_ingest": self.config.auto_ingest,
-                "electricity": self.electricity.dict(),
-                "water": self.water.dict(),
-                "air": self.air.dict(),
-                "waste": self.waste.dict(),
+                "electricity": self.electricity.model_dump(),
+                "water": self.water.model_dump(),
+                "air": self.air.model_dump(),
+                "waste": self.waste.model_dump(),
                 "provenance_badge": "[SIMULATED DATA]",
                 "is_verified_hardware": False
             }

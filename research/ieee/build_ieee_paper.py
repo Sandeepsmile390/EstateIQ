@@ -86,7 +86,7 @@ cw = (W - lm - rm - gap) / 2.0  # 258.48 pt
 # Read markdown manuscript
 lines = MD.read_text(encoding='utf-8').splitlines()
 
-title = 'EstateIQ-DIF: A Robust Seasonal-Baseline and Rule-Fusion Framework for Building Energy Anomaly Triage'
+title = lines[0].replace('# ', '').strip() if lines and lines[0].startswith('# ') else 'EstateIQ-DIF: A Robust Seasonal-Baseline and Rule-Fusion Framework for Building Energy Anomaly Triage'
 abstract = ''
 for i, line in enumerate(lines):
     if line.strip() == '## Abstract':
@@ -151,7 +151,7 @@ def page_art(c, doc):
         # Running header on page 2+
         c.setFont('Times-Italic', 6.0)
         c.setFillColor(colors.HexColor('#596773'))
-        c.drawString(lm, H - 0.35 * inch, 'ESTATEIQ-DIF: ROBUST SEASONAL-BASELINE AND RULE-FUSION FRAMEWORK FOR BUILDING ENERGY TRIAGE')
+        c.drawString(lm, H - 0.35 * inch, 'ESTATEIQ-DIF: ADAPTIVE MULTI-MODAL TELEMETRY & DECISION FRAMEWORK FOR BUILDING TRIAGE')
         c.drawRightString(W - rm, H - 0.35 * inch, 'GENERIC IEEE RESEARCH DRAFT')
         c.setStrokeColor(colors.HexColor('#D1D9DF'))
         c.setLineWidth(0.4)
@@ -291,12 +291,12 @@ while i < len(lines):
             eq_num = int(m.group(1))
             eq_img = EQ_DIR / f'eq_{eq_num}.png'
             if eq_img.exists():
-                if eq_num in [10, 19]:
+                if eq_num in [10, 19, 27]:
                     eh = 36.0
-                elif eq_num == 21:
+                elif eq_num in [21, 26]:
                     eh = 49.0
-                elif eq_num in [2, 4, 12, 13, 15, 22, 25]:
-                    eh = 27.5
+                elif eq_num in [2, 4, 12, 13, 15, 22, 25, 28, 29, 30]:
+                    eh = 28.5
                 else:
                     eh = 24.5
                 story.extend([
@@ -324,14 +324,15 @@ while i < len(lines):
                 i += 1
             if full_img_path.exists():
                 img_w = cw
-                if 'fig1' in fpath: img_h = 92
-                elif 'fig2' in fpath: img_h = 86
-                elif 'fig3' in fpath: img_h = 82
+                if 'fig1' in fpath: img_h = 100
+                elif 'fig2' in fpath: img_h = 84
+                elif 'fig3' in fpath: img_h = 80
                 elif 'fig4' in fpath: img_h = 88
-                elif 'fig5' in fpath: img_w = 175; img_h = 120
-                elif 'fig6' in fpath: img_h = 85
+                elif 'fig5' in fpath: img_h = 88
+                elif 'fig6' in fpath: img_h = 84
                 elif 'fig7' in fpath: img_h = 76
-                elif 'fig8' in fpath: img_h = 90
+                elif 'fig8' in fpath: img_h = 91
+                elif 'fig9' in fpath: img_h = 136
                 else: img_h = 85
 
                 story.extend([
@@ -382,16 +383,21 @@ while i < len(lines):
                 # Table V: Event-Level Metrics
                 col_w = [cw * 0.35, cw * 0.16, cw * 0.15, cw * 0.16, cw * 0.18]
             elif ncols == 6:
-                # Table II (Forecasting), Table VII (Held-Out FPR), or Table VIII (Microbenchmark)
+                # Table II (Forecasting), Table VII (Held-Out FPR), Table X (Network Transmission), or Table XI (Microbenchmark)
                 if 'MAE' in header_str:
                     col_w = [cw * 0.31, cw * 0.14, cw * 0.14, cw * 0.10, cw * 0.13, cw * 0.18]
                 elif 'Building ID' in header_str:
                     col_w = [cw * 0.18, cw * 0.16, cw * 0.18, cw * 0.16, cw * 0.16, cw * 0.16]
+                elif 'Strategy' in header_str or 'Reporting' in header_str:
+                    col_w = [cw * 0.26, cw * 0.17, cw * 0.17, cw * 0.12, cw * 0.12, cw * 0.16]
                 else:
                     col_w = [cw * 0.18, cw * 0.15, cw * 0.16, cw * 0.16, cw * 0.16, cw * 0.19]
             elif ncols == 7:
                 # Table IV: Anomaly Detection Benchmark and Baseline Comparisons
                 col_w = [cw * 0.31, cw * 0.105, cw * 0.105, cw * 0.105, cw * 0.11, cw * 0.11, cw * 0.155]
+            elif ncols == 8:
+                # Table IX: Sequential Replay Benchmark
+                col_w = [cw * 0.28, cw * 0.09, cw * 0.09, cw * 0.09, cw * 0.09, cw * 0.11, cw * 0.11, cw * 0.14]
             elif ncols == 9:
                 # Table IV (Ablation) or Table VI (Threshold Sensitivity)
                 if 'Threshold' in header_str:

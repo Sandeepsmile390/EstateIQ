@@ -1,6 +1,0 @@
-__pycache__/
-*.py[cod]
-.env
-data/*.json
-*.sqlite3
-.pytest_cache/

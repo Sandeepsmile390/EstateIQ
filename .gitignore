@@ -46,6 +46,8 @@ venv.bak/
 # Environment variables & secrets
 .env
 !.env.example
+hardware/esp32/firmware/config.h
+hardware/esp32/firmware/main/config.h
 
 # IDEs and Editors
 .vscode/

@@ -22,7 +22,7 @@
 
     // --- Simulator Core State ---
     const simulatorState = {
-        globalRunning: true,
+        globalRunning: false,
         globalIntervalMs: 5000,
         activeTab: "all", // "all", "electricity", "water", "air", "waste"
         timerId: null,
@@ -37,7 +37,7 @@
             name: "Block B Main Power Submeter",
             facilityId: "FAC_GEC_CAMPUS",
             buildingId: "Block B Hostel",
-            running: true,
+            running: false,
             baselineKw: 55.0,
             scenario: "NORMAL", // NORMAL, PEAK_DEMAND, AFTER_HOURS_WASTE, VOLTAGE_INSTABILITY
             cumulativeKwh: 3420.5,
@@ -62,7 +62,7 @@
             name: "Block B Hydro Main Inflow",
             facilityId: "FAC_GEC_CAMPUS",
             buildingId: "Block B Hostel",
-            running: true,
+            running: false,
             baselineLmin: 35.0,
             scenario: "NORMAL", // NORMAL, SUSTAINED_LEAK, BURST_FLOW, LOW_FLOW
             cumulativeM3: 842.15,
@@ -84,7 +84,7 @@
             name: "Block B Environmental Quality Hub",
             facilityId: "FAC_GEC_CAMPUS",
             buildingId: "Block B Hostel",
-            running: true,
+            running: false,
             baselineOccupancy: 120,
             scenario: "NORMAL", // NORMAL, POOR_VENTILATION, PARTICULATE_SPIKE, SENSOR_FAULT
             latest: {
@@ -110,7 +110,7 @@
             name: "Block B Central Dumpster Bin #1",
             facilityId: "FAC_GEC_CAMPUS",
             buildingId: "Block B Hostel",
-            running: true,
+            running: false,
             accumulationRatePct: 2.5,
             scenario: "NORMAL", // NORMAL, EVENT_RAPID, BIN_FULL, RESET_EMPTIED
             fillLevelPct: 38.0,
@@ -1292,7 +1292,10 @@
             bindEventListeners();
             initCharts();
             syncInputsWithState();
-            startTimer();
+            updateMetricsDOM();
+            if (simulatorState.globalRunning) {
+                startTimer();
+            }
         },
         getState: function () {
             return simulatorState;

@@ -137,6 +137,10 @@ class DataQualityEngine:
         warnings = record.get("quality_warnings", [])
         for w in warnings:
             issues.append(f"Ingestion warning: {w}")
+            if str(w).upper().startswith("SENSOR_FAULT:"):
+                issues.append("Explicit sensor fault was reported by the telemetry envelope.")
+                suppress_resource_anomalies = True
+                is_reliable = False
             if "rollback" in w.lower() or "reset" in w.lower():
                 issues.append("Meter counter reset/rollover detected. Interval consumption calculation requires baseline re-anchoring.")
                 suppress_resource_anomalies = True

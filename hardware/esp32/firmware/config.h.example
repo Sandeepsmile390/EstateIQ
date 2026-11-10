@@ -1,147 +1,109 @@
 /*
- * EstateIQ ESP32 Edge Gateway Configuration Template (hardware/esp32/firmware/config.h.example)
- * Copy this file to "config.h" and enter your site-specific credentials and calibration parameters.
- * DO NOT commit config.h containing real secrets to source control.
+ * EstateIQ ESP32 Edge Gateway Configuration Example (hardware/esp32/firmware/config.h.example)
+ * Copy this file to config.h and customize your Wi-Fi credentials and endpoint IPs.
  */
 
 #ifndef ESTATEIQ_CONFIG_H
 #define ESTATEIQ_CONFIG_H
 
 // =========================================================================================
-// 1. NETWORK & MQTT BROKER CONFIGURATION
+// 1. NETWORK & TRANSPORT CONFIGURATION
 // =========================================================================================
-#define WIFI_SSID           "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD       "YOUR_WIFI_PASSWORD"
+#define WIFI_SSID                   "YOUR_WIFI_SSID"
+#define WIFI_PASSWORD               "YOUR_WIFI_PASSWORD"
 
-#define MQTT_BROKER_HOST    "192.168.1.100"    // IP of local server, Raspberry Pi, or broker
-#define MQTT_BROKER_PORT    1883
-#define MQTT_CLIENT_ID      "ESP32_EDGE_GATEWAY_01"
-#define MQTT_USERNAME       ""                 // Optional: Set if broker requires auth
-#define MQTT_PASSWORD       ""                 // Optional: Set if broker requires auth
+#define USE_HTTP_INGESTION          1
+#define HTTP_API_ENDPOINT           "http://192.168.1.100:8000/api/v1/iot/telemetry"
+#define SYSTEM_TIME_ENDPOINT        "http://192.168.1.100:8000/api/v1/system/time"
+#define HTTP_REQUEST_TIMEOUT_MS     5000
 
-// =========================================================================================
-// 1b. TRANSPORT CONFIGURATION: MQTT vs DIRECT HTTP INGESTION
-// =========================================================================================
-// Set USE_HTTP_INGESTION to 1 to transmit directly to EstateIQ FastAPI endpoint (/api/v1/iot/telemetry).
-// Set USE_HTTP_INGESTION to 0 to transmit via MQTT broker topics (estateiq/#).
-#define USE_HTTP_INGESTION  0                  // 0 = MQTT Broker (Default), 1 = Direct HTTP POST
-#define HTTP_API_ENDPOINT   "http://192.168.1.100:8000/api/v1/iot/telemetry"
-#define HTTP_REQUEST_TIMEOUT_MS 5000           // 5 seconds connection & POST timeout
+// Set this to the server-side ESTATEIQ_GATEWAY_API_KEY. Never commit the real key.
+#define GATEWAY_API_KEY             "REPLACE_WITH_SERVER_PROVISIONED_GATEWAY_KEY"
+// Use a unique gateway/client ID for each physical ESP32.
+#define MQTT_CLIENT_ID              "ESP32_GATEWAY_NODE_A_CHANGE_ME"
 
-// Provisioned physical gateway credential (must match backend registry provisioning)
-// ⚠️ Do NOT commit actual secrets to source control. In production, load from environment.
-#define GATEWAY_API_KEY     "UNCONFIGURED_SET_IN_ENV"
+#define MQTT_BROKER_HOST            "192.168.1.100"
+#define MQTT_BROKER_PORT            1883
+#define MQTT_USERNAME               ""
+#define MQTT_PASSWORD               ""
+#define MQTT_PUBLISH_QOS            0
+#define MQTT_RETAIN_FLAG            false
 
-// PubSubClient publish() operates strictly at QoS 0.
-// Outgoing messages are NOT retained on the broker (retained=false).
-#define MQTT_PUBLISH_QOS    0
-#define MQTT_RETAIN_FLAG    false
+#define FACILITY_ID                 "FAC_GEC_CAMPUS"
+#define BUILDING_ID                 "Block B Hostel"
+#define DEVICE_ID_ELEC              "HW-ELEC-NODE-A"
+#define DEVICE_ID_WATER             "HW-WATER-NODE-A"
+#define DEVICE_ID_ENV               "HW-ENV-NODE-A"
 
-// =========================================================================================
-// 2. FACILITY & TELEMETRY TOPIC HIERARCHY
-// =========================================================================================
-#define FACILITY_ID         "FAC_GEC_CAMPUS"
-#define BUILDING_ID         "Block B Hostel"
-#define DEVICE_ID_ELEC      "METER-BLOCK-B-001"
-#define DEVICE_ID_WATER     "WATER-BLOCK-B-001"
-
-// Canonical topic structure: estateiq/{facility}/{building}/meter/{device}/telemetry
-#define MQTT_TOPIC_ELEC     "estateiq/FAC_GEC_CAMPUS/Block_B_Hostel/meter/METER-BLOCK-B-001/telemetry"
-#define MQTT_TOPIC_WATER    "estateiq/FAC_GEC_CAMPUS/Block_B_Hostel/meter/WATER-BLOCK-B-001/telemetry"
+#define MQTT_TOPIC_ELEC             "estateiq/FAC_GEC_CAMPUS/Block_B_Hostel/meter/HW-ELEC-NODE-A/telemetry"
+#define MQTT_TOPIC_WATER            "estateiq/FAC_GEC_CAMPUS/Block_B_Hostel/meter/HW-WATER-NODE-A/telemetry"
+#define MQTT_TOPIC_ENV              "estateiq/FAC_GEC_CAMPUS/Block_B_Hostel/meter/HW-ENV-NODE-A/telemetry"
 
 // =========================================================================================
-// 3. ELECTRICITY METER: MODBUS RTU RS-485 CONFIGURATION
+// 2. HARDWARE PIN DEFINITIONS
 // =========================================================================================
-// ⚠️ ELECTRICAL SAFETY & ISOLATION SPECIFICATION:
-// NEVER connect AC mains or raw CT leads directly to ESP32 pins.
-// Sensing MUST occur through an enclosed, certified DIN-rail energy meter over an
-// industrially isolated RS-485 transceiver module with isolated-side power:
-// - Recommended: Mornsun TD301D485H (3.3V logic, manual DE/RE direction on GPIO4) or
-//   TD301D485H-A (automatic direction switching, set RS485_DE_RE_PIN to -1). Both provide
-//   an integrated isolated DC-DC converter and a manufacturer-tested 2500 VDC galvanic
-//   isolation barrier (1 minute withstand, leakage < 1mA; do NOT describe as kV RMS).
-// - Discrete alternative: TI ISO3082 isolated transceiver paired with a dedicated
-//   isolated DC-DC supply (e.g. Mornsun B0505S-1WR3).
-// - NON-ISOLATED WARNING: Bare MAX485 or MAX13487 transceiver ICs and generic breakout
-//   boards (such as XY-017) share common ground with the MCU, lack an isolated DC-DC
-//   supply, and do NOT provide a certified galvanic isolation barrier.
-// - An ohmmeter continuity check (>10 MΩ) only proves absence of direct DC shorts;
-//   it does NOT certify or verify dielectric withstand under high voltage.
-//
-// ⚠️ METER MODEL COMPLIANCE:
-// This register map is strictly for Eastron SDM630 / SDM120 (Function 0x04 Input Registers).
-// Other industrial meters (e.g., Schneider Electric PM5350 / Conzerv EM6400 / Selec MFM384) use
-// different register addresses, function codes (0x03 Holding Registers), and baud rates.
-// Do NOT attempt to read other meter models with this register map without modifying registers.
-#define RS485_RX_PIN        16                 // ESP32 RX2 connected to RS-485 RO
-#define RS485_TX_PIN        17                 // ESP32 TX2 connected to RS-485 DI
-#define RS485_DE_RE_PIN     4                  // Transmit Enable (HIGH=TX, LOW=RX); set to -1 if auto-directional (e.g. TD301D485H-A)
-#define MODBUS_BAUD_RATE    9600               // Default for Eastron SDM630: 9600 8N1
-#define MODBUS_SLAVE_ID     1                  // Modbus slave address of meter
+#define PZEM_ENABLED                1
+#define PZEM_RX_PIN                 16
+#define PZEM_TX_PIN                 17
+#define PZEM_BAUD_RATE              9600
+#define PZEM_SLAVE_ADDR             0x01
 
-// Confirmed Meter Model: Eastron SDM630-Modbus Three-Phase DIN Rail Meter
-// Register addresses (Input Registers, Read Function 0x04, IEEE 754 32-bit float):
-#define REG_VOLTAGE_L1              0x0000     // Volts (V)
-#define REG_CURRENT_L1              0x0006     // Amperes (A)
-#define REG_ACTIVE_POWER_TOTAL      0x0034     // Total Active Power in Watts (W) -> firmware divides by 1000.0 to kW
-#define REG_POWER_FACTOR            0x001E     // Total Power Factor (ratio)
-#define REG_FREQUENCY               0x0046     // Grid Frequency in Hertz (Hz)
-#define REG_ACTIVE_ENERGY_IMPORT    0x0156     // Cumulative Import Active Energy in kWh
-
-// Modbus Float Byte/Word Order:
-// 1 = Big-Endian (ABCD) - Standard for Eastron SDM630
-// 0 = Mid-Little / Word Swap (CDAB) - Standard for some Schneider / Selec meters
-#define MODBUS_FLOAT_WORD_ORDER_ABCD 1
-
-// =========================================================================================
-// 4. WATER FLOW SENSOR: YF-S201 TURBINE HALL PULSE COUNTER
-// =========================================================================================
-// ⚠️ ELECTRICAL SAFETY & OUTPUT CIRCUIT NOTICE:
-// The YF-S201 operates from a 5V supply and its Hall output pulses swing up to 5.0V.
-// NEVER connect a 5V signal directly to an ESP32 GPIO (3.3V maximum input rating).
-// - If your breakout module has an active onboard 5V pullup resistor, you MUST install a
-//   voltage divider: Yellow Signal -> 10k ohm resistor -> ESP32 GPIO5 -> 20k ohm resistor -> GND.
-//   This steps 5.0V down to 3.33V safely.
-// - If your sensor is raw open-collector (no internal pullup), pull up to ESP32 3.3V.
-// ALWAYS verify the open-circuit pulse voltage with a multimeter before connecting to the ESP32!
-#define WATER_PULSE_PIN     5                  // Digital GPIO with hardware interrupt & internal pullup
-
-// YF-S201 Calibration Parameters:
-// Nominal factory specification: ~450 pulses per liter (7.5 Hz per L/min)
-// Operating Flow Range: 1.0 to 30.0 L/min. Alerts outside this range are unachievable.
-// Calibration Procedure: Pass a measured 5-liter volume through the sensor, count total pulses,
-// and set: FLOW_CALIBRATION_PULSES_PER_LITER = (total_pulses / 5.0f).
+#define WATER_FLOW_ENABLED          1
+#define WATER_PULSE_PIN             4
 #define FLOW_CALIBRATION_PULSES_PER_LITER 450.0f
-#define PULSE_FACTOR_L_PER_PULSE          (1.0f / FLOW_CALIBRATION_PULSES_PER_LITER)
+#define PULSE_FACTOR_L_PER_PULSE    (1.0f / FLOW_CALIBRATION_PULSES_PER_LITER)
+#define WATER_FLOW_MAX_RATED_LMIN   30.0f
+
+#define AJSR04M_ENABLED             1
+#define AJSR04M_TRIG_PIN            5
+#define AJSR04M_ECHO_PIN            18
+#define TANK_TOTAL_DEPTH_CM         200.0f
+#define TANK_MIN_BLIND_DISTANCE_CM  20.0f
+
+#define DHT11_ENABLED               1
+#define DHT11_PIN                   23
+
+#define MQ135_ENABLED               1
+#define MQ135_ANALOG_PIN            34
+#define MQ135_VOLTAGE_DIVIDER_RATIO 1.6667f // For 10k series / 15k shunt from a verified 0-5V AO output
+#define MQ135_WARMUP_PERIOD_SEC     180
+
+#define OLED_ENABLED                1
+#define OLED_SDA_PIN                21
+#define OLED_SCL_PIN                22
+#define OLED_I2C_ADDRESS            0x3C
 
 // =========================================================================================
-// 5. OPTIONAL ANALOG SENSORS (PRESSURE & TANK LEVEL)
+// 3. ADAPTIVE TELEMETRY REPORTING & EDGE ANOMALY CONFIGURATION
 // =========================================================================================
-// ⚠️ ELECTRICAL SAFETY FOR 4-20 mA TRANSMITTERS:
-// Standard 250 ohm shunts produce 20 mA * 250 ohms = 5.0V, which will permanently destroy the ESP32 ADC!
-// A 150 ohm precision shunt (0.1% tolerance) MUST be used instead:
-//   4 mA * 150 ohms = 0.60V
-//   20 mA * 150 ohms = 3.00V (well within ESP32 ADC1 0-3.3V range with ADC_ATTEN_DB_11).
-// Set pins to -1 to keep unequipped sensors safely disabled.
-#define WATER_PRESSURE_ANALOG_PIN         -1   // e.g. GPIO34 (ADC1 input-only) or -1 to disable
-#define PRESSURE_TRANSMITTER_MIN_BAR      0.0f
-#define PRESSURE_TRANSMITTER_MAX_BAR      10.0f
-#define PRESSURE_SHUNT_RESISTANCE_OHMS    150.0f
+#define SENSOR_ACQUISITION_INTERVAL_MS 2000    // 2.0s acquisition loop
+#define REPORT_INTERVAL_NORMAL_MS      900000UL // 15 minutes = 900,000 ms
+#define REPORT_INTERVAL_ANOMALY_MS     300000UL // 5 minutes  = 300,000 ms
+#define RECOVERY_CONFIRMATION_CYCLES   3        // Consecutive normal reporting periods before 15m return
 
-// Tank Level Sensor (Ultrasonic or Hydrostatic):
-// Kept disabled by default (-1). An uncalibrated ADC count cannot be claimed as a valid level measurement.
-// Calibration requires actual tank geometry: distance when empty (cm) and distance when full (cm).
-#define TANK_LEVEL_ANALOG_PIN             -1   // -1 = disabled
+#ifndef DEMO_FAST_CADENCE_ENABLED
+#define DEMO_FAST_CADENCE_ENABLED      0
+#endif
 
-// =========================================================================================
-// 6. CADENCE & VOLATILE OFFLINE QUEUE
-// =========================================================================================
-#define SAMPLING_INTERVAL_MS 15000             // 15 seconds canonical telemetry publishing interval
-#define OFFLINE_QUEUE_SIZE   30                // Maximum envelopes buffered in ESP32 RAM during outages
+#if DEMO_FAST_CADENCE_ENABLED == 1
+#define REPORT_INTERVAL_NORMAL_ACTIVE_MS   15000UL // 15 seconds demo
+#define REPORT_INTERVAL_ANOMALY_ACTIVE_MS  5000UL  // 5 seconds demo
+#else
+#define REPORT_INTERVAL_NORMAL_ACTIVE_MS   REPORT_INTERVAL_NORMAL_MS
+#define REPORT_INTERVAL_ANOMALY_ACTIVE_MS  REPORT_INTERVAL_ANOMALY_MS
+#endif
 
-// ⚠️ DATA VOLATILITY DISCLAIMER:
-// The offline queue is stored in ESP32 volatile SRAM (ring buffer).
-// Packets queued during network dropouts will be lost if the ESP32 reboots or loses power.
-// Non-volatile Flash wear management (SPIFFS/LittleFS) is intentionally omitted to prevent flash burnout.
+#define EDGE_ANOMALY_ELEC_VOLTAGE_MIN  195.0f
+#define EDGE_ANOMALY_ELEC_VOLTAGE_MAX  255.0f
+#define EDGE_ANOMALY_ELEC_POWER_MAX    3.5f
+#define EDGE_ANOMALY_ELEC_PF_MIN       0.70f
+#define EDGE_ANOMALY_WATER_FLOW_MAX    18.0f
+#define EDGE_ANOMALY_TANK_DIST_MIN     25.0f
+#define EDGE_ANOMALY_TANK_DIST_MAX     190.0f
+#define EDGE_ANOMALY_GAS_ADC_MAX       1800
+#define EDGE_ANOMALY_TEMP_MAX          45.0f
+#define EDGE_ANOMALY_PERSISTENCE_COUNT 3
+
+#define OFFLINE_QUEUE_SIZE             30
 
 #endif // ESTATEIQ_CONFIG_H

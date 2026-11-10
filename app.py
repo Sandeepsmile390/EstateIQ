@@ -207,6 +207,7 @@ web_ui_tabs = [
     "Mobility & Air",
     "What-If Simulator",
     "Resource Simulator (IoT)",
+    "Live Hardware (ESP32)",
     "Reports & Scoped Exports",
     "AI Operational Co-Pilot",
     "ESG & Carbon Audit",
@@ -1265,6 +1266,400 @@ elif menu == "Resource Simulator (IoT)":
         <span>Provenance: <strong style="color: #F5C577;">[SIMULATED IoT]</strong> | Hardware Flags: <strong style="color: #00D09C;">is_verified_hardware=False</strong></span>
     </div>
     """, unsafe_allow_html=True)
+
+
+
+elif menu == "Live Hardware (ESP32)":
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    import datetime
+    import plotly.graph_objects as go
+
+    st.markdown(f"### {get_icon('Cpu', '#00D09C', 24)} Live Hardware Telemetry Node (ESP32 Edge Gateway) {render_badge('hardware')}", unsafe_allow_html=True)
+    st.caption("Real-Time Physical Microcontroller Telemetry Ingested via Wi-Fi (HTTP REST / MQTT) into EstateIQ Canonical Registry")
+
+    # Architecture & Provenance Callout
+    st.markdown("""
+    <div style="background: rgba(0, 208, 156, 0.08); border: 1.5px solid #00D09C; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; color: #00D09C; font-size: 0.88rem; letter-spacing: 0.5px;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#00D09C; box-shadow: 0 0 8px #00D09C;"></span>
+                VERIFIED HARDWARE DATA PIPELINE — PHYSICAL SENSOR TELEMETRY
+            </div>
+            <span style="background: rgba(0,208,156,0.2); color: #00D09C; border: 1px solid #00D09C; border-radius: 12px; padding: 2px 10px; font-size: 0.72rem; font-weight: 700;">
+                [LIVE HARDWARE]
+            </span>
+        </div>
+        <p style="margin: 0; font-size: 0.83rem; color: #E2E8F0; line-height: 1.5;">
+            <strong>Data Transport Path:</strong> Physical Sensors (AJ-SR04M Ultrasonic / MQ-135 / Metrology) &rarr; ESP32 Edge Gateway &rarr; Wi-Fi (Local LAN / Hotspot) &rarr; Laptop-Hosted EstateIQ Backend (<code>POST /api/v1/iot/telemetry</code>).
+            <br>
+            <strong>USB Connection Role:</strong> The USB cable provides regulated 5V DC power, Arduino IDE firmware upload, and 115200 baud serial diagnostics. Telemetry is transmitted over Wi-Fi directly to the application layer.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Dynamic Hardware & Simulator Device Inventory
+    all_registered_devices = GLOBAL_DEVICE_REGISTRY.devices
+
+    hw_devices = {
+        "WATER-BLOCK-B-001": {
+            "name": "Block B Water & Tank Node",
+            "desc": "AJ-SR04M Ultrasonic Water Level (Trig: GPIO5, Echo: GPIO18) & Pulse Flow",
+            "type": "water_meter",
+            "is_hw": True
+        },
+        "ENV-BLOCK-B-001": {
+            "name": "Block B Environmental Node",
+            "desc": "MQ-135 Air Quality Sensor on ADC1 GPIO34",
+            "type": "air_quality_monitor",
+            "is_hw": True
+        },
+        "METER-BLOCK-B-001": {
+            "name": "Block B Main Power Meter",
+            "desc": "Eastron SDM630 Modbus / PZEM-004T on GPIO16/17",
+            "type": "electricity_meter",
+            "is_hw": True
+        }
+    }
+
+    # Dynamically discover all additional devices registered in the system (hardware & simulator)
+    for dev_id, dev_obj in all_registered_devices.items():
+        if dev_id not in hw_devices:
+            is_dev_hw = getattr(dev_obj, 'is_verified_hardware', False) or getattr(dev_obj, 'source_type', '') == 'real_sensor'
+            hw_devices[dev_id] = {
+                "name": getattr(dev_obj, 'device_name', dev_id),
+                "desc": f"{dev_obj.device_type.replace('_', ' ').title()} ({'Physical Hardware' if is_dev_hw else 'Simulator Node'})",
+                "type": dev_obj.device_type,
+                "is_hw": is_dev_hw
+            }
+
+    # Discover Live Connected Physical Sensors and Active Devices
+    online_hw_devices = {}
+    for dev_id, meta in hw_devices.items():
+        st_info = GLOBAL_DEVICE_REGISTRY.get_device_freshness_status(dev_id)
+        if st_info.get("status") in ("ONLINE", "STREAMING", "STALE") and st_info.get("last_sample_at") is not None:
+            online_hw_devices[dev_id] = meta
+
+    # Active Live Sensor Detection Banner
+    if online_hw_devices:
+        conn_pills = " &nbsp;|&nbsp; ".join([f"<strong>{meta['name']}</strong> <span style='color:#00F0B5;'>({GLOBAL_DEVICE_REGISTRY.get_device_freshness_status(dev_id).get('status', 'ONLINE')})</span>" for dev_id, meta in online_hw_devices.items()])
+        st.markdown(f"""
+        <div style="background: rgba(0, 240, 181, 0.12); border: 1.5px solid #00F0B5; border-radius: 10px; padding: 12px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-size: 0.88rem; color: #FFFFFF;">
+                <span style="color: #00F0B5; font-weight: 800;">🟢 ACTIVE TELEMETRY NODES STREAMING:</span>&nbsp; {conn_pills}
+            </div>
+            <span style="background: rgba(0,240,181,0.25); color: #00F0B5; border: 1px solid #00F0B5; border-radius: 12px; padding: 3px 12px; font-size: 0.75rem; font-weight: 800;">
+                LIVE STREAMING
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid #38BDF8; border-radius: 10px; padding: 12px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-size: 0.86rem; color: #E2E8F0;">
+                <span style="color: #38BDF8; font-weight: 800;">📡 LISTENING FOR TELEMETRY:</span>&nbsp; Connect your ESP32 hardware or trigger the simulator to stream live readings.
+            </div>
+            <span style="background: rgba(56,189,248,0.2); color: #38BDF8; border: 1px solid #38BDF8; border-radius: 12px; padding: 3px 12px; font-size: 0.75rem; font-weight: 800;">
+                ENDPOINT: :8000
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    col_filter, col_spacer = st.columns([3, 1])
+    with col_filter:
+        view_filter = st.radio(
+            "Display Filter:",
+            options=["Connected Live Sensors Only", "All Hardware Slots", "All Devices (Hardware + Simulator)"],
+            index=0 if online_hw_devices else 1,
+            horizontal=True
+        )
+
+    # Selectable Device Options based on Filter
+    if view_filter == "Connected Live Sensors Only" and online_hw_devices:
+        active_keys = list(online_hw_devices.keys())
+    elif view_filter == "All Hardware Slots":
+        active_keys = [k for k, v in hw_devices.items() if v.get("is_hw", True)]
+    else:
+        active_keys = list(hw_devices.keys())
+
+    col_sel, col_stat = st.columns([2, 1])
+    with col_sel:
+        selected_hw_id = st.selectbox(
+            "Select Hardware Node to Monitor:",
+            options=active_keys,
+            format_func=lambda x: f"{x} - {hw_devices[x]['name']} ({hw_devices[x]['desc']})"
+        )
+
+    # Freshness & Health from Registry
+    freshness = GLOBAL_DEVICE_REGISTRY.get_device_freshness_status(selected_hw_id)
+    status_label = freshness.get("status", "CONNECTING")
+    age_sec = freshness.get("age_sec")
+    is_hw = freshness.get("is_verified_hardware", False)
+
+    status_color = "#00D09C" if status_label == "ONLINE" else ("#F59E0B" if status_label == "STALE" else ("#EF4444" if status_label == "OFFLINE" else "#38BDF8"))
+    status_bg = "rgba(0, 208, 156, 0.12)" if status_label == "ONLINE" else ("rgba(245, 158, 11, 0.12)" if status_label == "STALE" else ("rgba(239, 68, 68, 0.12)" if status_label == "OFFLINE" else "rgba(56, 189, 248, 0.12)"))
+
+    with col_stat:
+        age_text = f"{age_sec:.1f}s ago" if age_sec is not None else "Awaiting Data"
+        st.markdown(f"""
+        <div style="background: {status_bg}; border: 1px solid {status_color}; border-radius: 10px; padding: 10px 14px; text-align: center; margin-top: 4px;">
+            <div style="font-size: 0.72rem; color: #A3C9BE; font-weight: 700; text-transform: uppercase;">Node Connection State</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: {status_color}; margin: 2px 0;">{status_label}</div>
+            <div style="font-size: 0.72rem; color: #94A3B8;">Freshness: <strong>{age_text}</strong></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Ingested History & Recent Values
+    recent_samples = GLOBAL_DEVICE_REGISTRY.get_device_recent_samples(selected_hw_id, limit=30)
+    latest_metrics = freshness.get("last_telemetry") or {}
+    if recent_samples:
+        latest_metrics = recent_samples[-1].get("metrics") or recent_samples[-1].get("telemetry") or latest_metrics
+
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+
+    # Render Metric Cards Based on Selected Hardware Device
+    if selected_hw_id == "WATER-BLOCK-B-001":
+        has_telemetry = bool(freshness.get("last_sample_at"))
+        m_dist = latest_metrics.get("tank_distance_cm")
+        m_tank = latest_metrics.get("tank_level_pct")
+        m_flow = latest_metrics.get("water_flow_lmin")
+        m_m3 = latest_metrics.get("cumulative_water_m3")
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            dist_str = f"{float(m_dist):.1f}" if m_dist is not None else "--"
+            render_kpi_card("Ultrasonic Distance", dist_str, " cm", "AJ-SR04M Echo Time", "neutral", "Radio", "#38BDF8")
+        with c2:
+            tank_str = f"{float(m_tank):.1f}" if m_tank is not None else "--"
+            render_kpi_card("Water Tank Fill Level", tank_str, " %", "Vessel Geometry Calc", "neutral", "Droplets", "#00D09C")
+        with c3:
+            flow_str = f"{float(m_flow):.1f}" if m_flow is not None else "--"
+            render_kpi_card("Line Flow Rate", flow_str, " L/min", "YF-S201 Hall Pulse", "neutral", "Activity", "#F59E0B")
+        with c4:
+            m3_str = f"{float(m_m3):.3f}" if m_m3 is not None else "--"
+            render_kpi_card("Cumulative Volume", m3_str, " m³", "Integrated Hydro Meter", "neutral", "Layers", "#2BB49B")
+
+        # Visual Animated Gauge for AJ-SR04M Water Tank Level
+        if m_tank is not None or m_dist is not None:
+            pct_val = max(0.0, min(100.0, float(m_tank))) if m_tank is not None else 0.0
+            dist_val = float(m_dist) if m_dist is not None else 0.0
+            st.markdown(f"""
+            <div style="background: rgba(18, 75, 62, 0.4); border: 1.5px solid rgba(0, 208, 156, 0.35); border-radius: 12px; padding: 16px 20px; margin: 18px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="font-size: 0.84rem; font-weight: 700; color: #A3C9BE; text-transform: uppercase; letter-spacing: 0.5px;">
+                        🌊 AJ-SR04M Ultrasonic Water Reservoir Level
+                    </div>
+                    <div style="font-size: 0.9rem; font-weight: 800; color: #00D09C;">
+                        {pct_val:.1f}% FULL &nbsp;|&nbsp; Measured Surface Distance: <span style="color:#38BDF8;">{dist_val:.1f} cm</span>
+                    </div>
+                </div>
+                <div style="width: 100%; height: 26px; background: rgba(0,0,0,0.3); border-radius: 13px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.08);">
+                    <div style="width: {pct_val}%; height: 100%; background: linear-gradient(90deg, #38BDF8 0%, #00D09C 100%); border-radius: 13px; transition: width 0.6s ease-in-out; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px;">
+                        <span style="font-size: 11px; font-weight: 800; color: #04120F;">{pct_val:.0f}%</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: #94A3B8; margin-top: 6px;">
+                    <span>Tank Bottom (Empty: 200 cm)</span>
+                    <span>Transducer (Min Distance: 20 cm)</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    elif selected_hw_id == "ENV-BLOCK-B-001":
+        has_telemetry = bool(freshness.get("last_sample_at"))
+        m_adc = latest_metrics.get("mq135_raw_adc", latest_metrics.get("raw_adc"))
+        m_volt = latest_metrics.get("mq135_voltage_v", latest_metrics.get("sensor_voltage_v"))
+        m_co2 = latest_metrics.get("mq135_co2_estimate_ppm", latest_metrics.get("co2_estimate_ppm"))
+        m_warm = latest_metrics.get("mq135_warmup_status", 1)
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            adc_str = f"{int(m_adc):,}" if m_adc is not None else "--"
+            render_kpi_card("Raw ADC Signal", adc_str, " count", "Resolution: 12-bit ADC1", "neutral", "Activity", "#F59E0B")
+        with c2:
+            volt_str = f"{float(m_volt):.2f}" if m_volt is not None else "--"
+            render_kpi_card("Sensor Voltage", volt_str, " V", "Scaled: 10k/20k Divider", "neutral", "Zap", "#38BDF8")
+        with c3:
+            co2_str = f"{int(m_co2):,}" if m_co2 is not None else "--"
+            render_kpi_card("Indicative Gas Est.", co2_str, " ppm (est)", "Curve: MOS Resistance", "neutral", "Wind", "#00D09C")
+        with c4:
+            warm_text = "STABILIZED" if m_warm == 1 else ("WARMING UP (180s)" if m_warm == 0 else "--")
+            warm_dir = "neutral" if m_warm == 1 else "down"
+            render_kpi_card("Heater Status", warm_text, "", "MOS Substrate Heater", warm_dir, "ShieldCheck", "#2BB49B")
+
+        # Scientific Calibration & Limitations Disclosure Callout
+        st.markdown("""
+        <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid #F59E0B; border-radius: 4px; padding: 10px 14px; margin: 16px 0;">
+            <div style="font-weight: 700; color: #F59E0B; font-size: 0.8rem; margin-bottom: 4px;">
+                ⚠️ SENSOR CALIBRATION & SELECTIVITY DISCLOSURE (MQ-135)
+            </div>
+            <div style="font-size: 0.78rem; color: #CBD5E1; line-height: 1.45;">
+                The MQ-135 is a broad-spectrum metal-oxide semiconductor (MOS) resistance sensor. Its analog voltage output reflects relative conductivity changes across multiple gases. The displayed ppm figure is an <strong>uncalibrated indicative curve estimate</strong> intended solely for observing indoor relative trends (e.g. human exhalation). It does <strong>not</strong> represent certified laboratory measurements.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    elif selected_hw_id == "METER-BLOCK-B-001":
+        has_telemetry = bool(freshness.get("last_sample_at"))
+        m_pow = latest_metrics.get("active_power_kw")
+        m_kwh = latest_metrics.get("cumulative_energy_kwh", latest_metrics.get("energy_kwh"))
+        m_volt = latest_metrics.get("voltage_v")
+        m_curr = latest_metrics.get("current_a")
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            pow_str = f"{float(m_pow):.1f}" if m_pow is not None else "--"
+            render_kpi_card("Active Power", pow_str, " kW", "PZEM-004T / CT Input", "neutral", "Zap", "#00D09C")
+        with c2:
+            kwh_str = f"{float(m_kwh):.1f}" if m_kwh is not None else "--"
+            render_kpi_card("Cumulative Energy", kwh_str, " kWh", "Monotonic Counter", "neutral", "Activity", "#38BDF8")
+        with c3:
+            volt_str = f"{float(m_volt):.1f}" if m_volt is not None else "--"
+            render_kpi_card("Mains Voltage", volt_str, " V", "RMS Grid Potential", "neutral", "Cpu", "#F59E0B")
+        with c4:
+            curr_str = f"{float(m_curr):.1f}" if m_curr is not None else "--"
+            render_kpi_card("Line Current", curr_str, " A", "PF: ~0.95 Nominal", "neutral", "Layers", "#2BB49B")
+
+    else:
+        # Dynamic rendering for any additional hardware or simulator device
+        has_telemetry = bool(freshness.get("last_sample_at"))
+        if latest_metrics:
+            metric_items = [(k, v) for k, v in latest_metrics.items() if not k.startswith('_')][:8]
+            cols = st.columns(min(4, max(1, len(metric_items))))
+            for idx, (m_key, m_val) in enumerate(metric_items):
+                with cols[idx % len(cols)]:
+                    val_str = f"{float(m_val):.2f}" if isinstance(m_val, (int, float)) else str(m_val)
+                    label_str = m_key.replace("_", " ").title()
+                    accent_colors = ["#00F0B5", "#38BDF8", "#F59E0B", "#A855F7", "#34D399"]
+                    render_kpi_card(label_str, val_str, "", f"Live Metric: {m_key}", "neutral", "Activity", accent_colors[idx % len(accent_colors)])
+        else:
+            st.info(f"Node {selected_hw_id} registered. Awaiting incoming telemetry packets.")
+
+    # Time-Series Chart of Recent Physical Samples
+    st.markdown("#### Real-Time Hardware Sensor History")
+    if recent_samples:
+        timestamps = [s.get("event_timestamp", s.get("sent_timestamp", ""))[-8:] for s in recent_samples]
+        fig = go.Figure()
+
+        if selected_hw_id == "WATER-BLOCK-B-001":
+            tank_vals = [s.get("metrics", {}).get("tank_level_pct") for s in recent_samples]
+            dist_vals = [s.get("metrics", {}).get("tank_distance_cm") for s in recent_samples]
+            f_vals = [s.get("metrics", {}).get("water_flow_lmin") for s in recent_samples]
+
+            if any(v is not None for v in tank_vals):
+                fig.add_trace(go.Scatter(
+                    x=timestamps, y=[v if v is not None else 0 for v in tank_vals],
+                    mode="lines+markers", name="Tank Fill Level (%)",
+                    line=dict(color="#00D09C", width=2.5), marker=dict(size=6, color="#00D09C")
+                ))
+            if any(v is not None for v in dist_vals):
+                fig.add_trace(go.Scatter(
+                    x=timestamps, y=[v if v is not None else 0 for v in dist_vals],
+                    mode="lines+markers", name="Ultrasonic Distance (cm)",
+                    line=dict(color="#38BDF8", width=2.0, dash="dot"), marker=dict(size=5, color="#38BDF8")
+                ))
+            if any(v is not None and v > 0 for v in f_vals):
+                fig.add_trace(go.Scatter(
+                    x=timestamps, y=[v if v is not None else 0 for v in f_vals],
+                    mode="lines+markers", name="Flow Rate (L/min)",
+                    line=dict(color="#F59E0B", width=2.0), marker=dict(size=5, color="#F59E0B")
+                ))
+            fig.update_layout(yaxis_title="Level (%) / Distance (cm)", height=320)
+        elif selected_hw_id == "ENV-BLOCK-B-001":
+            adc_vals = [s.get("metrics", {}).get("mq135_raw_adc", s.get("metrics", {}).get("raw_adc", 0)) for s in recent_samples]
+            fig.add_trace(go.Scatter(
+                x=timestamps, y=adc_vals, mode="lines+markers", name="Raw ADC (counts)",
+                line=dict(color="#F59E0B", width=2.5), marker=dict(size=6, color="#F59E0B")
+            ))
+            fig.update_layout(yaxis_title="ADC Counts (0-4095)", height=320)
+        elif selected_hw_id == "METER-BLOCK-B-001":
+            p_vals = [s.get("metrics", {}).get("active_power_kw", 0) for s in recent_samples]
+            fig.add_trace(go.Scatter(
+                x=timestamps, y=p_vals, mode="lines+markers", name="Active Power (kW)",
+                line=dict(color="#00D09C", width=2.5), marker=dict(size=6, color="#00D09C")
+            ))
+            fig.update_layout(yaxis_title="Power (kW)", height=320)
+        else:
+            # Dynamic multi-metric trend chart for any generic device
+            colors = ["#00F0B5", "#38BDF8", "#F59E0B", "#A855F7", "#EC4899", "#34D399"]
+            num_keys = [k for k, v in latest_metrics.items() if isinstance(v, (int, float))][:4]
+            for idx, k in enumerate(num_keys):
+                vals = [s.get("metrics", {}).get(k, 0) for s in recent_samples]
+                fig.add_trace(go.Scatter(
+                    x=timestamps, y=vals, mode="lines+markers",
+                    name=k.replace("_", " ").title(),
+                    line=dict(color=colors[idx % len(colors)], width=2.5),
+                    marker=dict(size=5, color=colors[idx % len(colors)])
+                ))
+            fig.update_layout(yaxis_title="Metric Value", height=320)
+
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(18,75,62,0.15)",
+            font=dict(color="#E2E8F0", size=11),
+            margin=dict(l=40, r=20, t=20, b=40),
+            xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)"),
+            yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.08)")
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Awaiting live telemetry from physical ESP32 board over Wi-Fi. In the meantime, you can test the pipeline using the verification action below.")
+
+    # Demonstration Stimulus & Ingestion Diagnostics Guide
+    with st.expander("🧪 Physical Sensor Stimulus Guide (Demonstration Procedures)"):
+        st.markdown("""
+        #### How to Demonstrate Live Sensor Stimulus during Evaluation:
+        1. **AJ-SR04M Ultrasonic Water Level Sensor (Distance & Fill Level):**
+           - Point the waterproof ultrasonic transducer at a flat surface (e.g. wall, cardboard, desk surface, or water surface in a cup/bucket).
+           - Move the sensor closer (e.g. 25 cm) and further away (e.g. 70 cm).
+           - Observe **Ultrasonic Distance (cm)** change in real time, and watch the animated **Water Tank Level Gauge** rise and fall dynamically!
+        2. **MQ-135 Air Quality Sensor (Exhalation Stimulus):**
+           - Bring your mouth ~5 cm from the MQ-135 metallic mesh sensor head and gently exhale 2–3 breaths.
+           - Human breath contains ~40,000 ppm CO₂ and moist air. The SnO₂ semiconductor conductivity increases immediately.
+           - Observe the **Raw ADC Signal** jump from background (~1,100–1,250 counts) to elevated levels (2,000–2,800+ counts), accompanied by voltage increase and rising indicative ppm.
+        3. **YF-S201 Water Flow Meter (Turbine Stimulus):**
+           - Gently blow air into the flow meter intake nozzle (or pour clean water through it).
+           - The internal magnetic turbine spins; Hall-effect sensor triggers hardware interrupts on GPIO18.
+           - Observe **Water Flow Rate (L/min)** update dynamically on the chart.
+        4. **Hardware Serial Diagnostics:**
+           - In Arduino IDE, open **Tools &rarr; Serial Monitor** at **115200 baud**.
+           - Verify ESP32 Wi-Fi connectivity: `[WIFI] Connected! Assigned IP: 172.16.222.x`
+           - Verify AJ-SR04M output: `[SENSOR-AJSR04M] Ultrasonic Distance: 35.4 cm | Tank Level: 82.3%`
+           - Verify HTTP POST responses: `[HTTP] Response code: 200`
+        """)
+
+    # Interactive Test Ping for Bench Validation
+    st.markdown("---")
+    st.markdown("##### 🔌 Hardware Ingestion Self-Test")
+    c_btn, c_expl = st.columns([1, 3])
+    with c_btn:
+        if st.button("Send Test Hardware Ping", use_container_width=True):
+            test_pkt = {
+                "message_id": f"TEST-HW-{int(datetime.datetime.now().timestamp())}",
+                "device_id": selected_hw_id,
+                "building_id": "Block B Hostel",
+                "facility_id": "FAC_GEC_CAMPUS",
+                "gateway_id": "ESP32_EDGE_GATEWAY_01",
+                "gateway_api_key": "gw_secret_estateiq_hw_2026",
+                "is_verified_hardware": True,
+                "source_type": "real_sensor",
+                "event_timestamp": datetime.datetime.now().isoformat(),
+                "metrics": {
+                    "tank_distance_cm": 35.4,
+                    "tank_level_pct": 82.3,
+                    "water_flow_lmin": 0.0,
+                    "cumulative_water_m3": 14.28
+                } if selected_hw_id == "WATER-BLOCK-B-001" else (
+                    {"mq135_raw_adc": 1340.0, "mq135_voltage_v": 1.08, "mq135_co2_estimate_ppm": 645.0, "mq135_warmup_status": 1.0}
+                    if selected_hw_id == "ENV-BLOCK-B-001" else
+                    {"active_power_kw": 51.2, "voltage_v": 232.0, "current_a": 25.1, "cumulative_energy_kwh": 1425.8}
+                )
+            }
+            res = GLOBAL_DEVICE_REGISTRY.ingest_telemetry(test_pkt)
+            st.success(f"Verified hardware packet ingested successfully: {res.get('message', 'Accepted')}")
+            st.rerun()
+    with c_expl:
+        st.caption("Injects an authenticated telemetry packet signed with `gateway_id: ESP32_EDGE_GATEWAY_01` to test UI rendering without physical ESP32 powered.")
+
 
 
 elif menu == "AI Operational Co-Pilot":

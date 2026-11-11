@@ -51,7 +51,8 @@
 #define PZEM_SLAVE_ADDR             0x01
 
 #define WATER_FLOW_ENABLED          1
-#define WATER_PULSE_PIN             26    // ZJ-S201 signal pin from supplied sketch
+#define WATER_PULSE_PIN             26    // Primary GPIO for water pulse interrupt
+#define WATER_PULSE_PIN_ALT         4     // Secondary / fallback GPIO for water pulse
 #define FLOW_CALIBRATION_PULSES_PER_LITER 450.0f
 #define PULSE_FACTOR_L_PER_PULSE    (1.0f / FLOW_CALIBRATION_PULSES_PER_LITER)
 #define WATER_FLOW_MAX_RATED_LMIN   30.0f
@@ -70,7 +71,8 @@
 #define BIN_MIN_BLIND_DISTANCE_CM   4.0f
 
 #define DHT11_ENABLED               1
-#define DHT11_PIN                   4     // DHT11 data pin from supplied sketch
+#define DHT11_PIN                   23    // GPIO 23 per official hardware guide (auto-fallbacks to GPIO 4)
+#define DHT11_PIN_ALT               4     // Secondary fallback GPIO for DHT11 data line
 
 #define MQ135_ENABLED               1
 #define MQ135_ANALOG_PIN            34
@@ -87,6 +89,7 @@
 #define OLED_SDA_PIN                21
 #define OLED_SCL_PIN                22
 #define OLED_I2C_ADDRESS            0x3C
+#define OLED_I2C_ADDRESS_ALT        0x3D
 
 // =========================================================================================
 // 3. ADAPTIVE TELEMETRY REPORTING & EDGE ANOMALY CONFIGURATION

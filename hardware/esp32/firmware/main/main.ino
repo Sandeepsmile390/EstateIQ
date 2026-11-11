@@ -29,6 +29,9 @@
 #include "config.h"
 
 DHT dhtSensor(DHT11_PIN, DHT11);
+#if defined(DHT11_PIN_ALT) && (DHT11_PIN_ALT >= 0)
+DHT dhtSensorAlt(DHT11_PIN_ALT, DHT11);
+#endif
 
 // Keep older local config.h files buildable. Set SYSTEM_TIME_ENDPOINT in config.h
 // to the backend's LAN URL to enable backend clock sync for your demo network.
@@ -345,19 +348,21 @@ static const uint8_t font5x7[] PROGMEM = {
 
 static uint8_t oledBuffer[128 * 8]; // 128x64 display buffer (1024 bytes)
 static bool oledInitialized = false;
+static uint8_t s_oledAddress = OLED_I2C_ADDRESS;
+static uint8_t s_oledColOffset = 0;
 static uint8_t oledConsecutiveErrors = 0;
 static uint8_t oledCurrentPage = 0;
 static unsigned long oledLastPageFlip = 0;
 
 static void oledCommand(uint8_t cmd) {
-    Wire.beginTransmission(OLED_I2C_ADDRESS);
+    Wire.beginTransmission(s_oledAddress);
     Wire.write(0x00); // Command stream
     Wire.write(cmd);
     Wire.endTransmission();
 }
 
 static void oledCommand2(uint8_t c1, uint8_t c2) {
-    Wire.beginTransmission(OLED_I2C_ADDRESS);
+    Wire.beginTransmission(s_oledAddress);
     Wire.write(0x00);
     Wire.write(c1);
     Wire.write(c2);
@@ -366,52 +371,101 @@ static void oledCommand2(uint8_t c1, uint8_t c2) {
 
 static void oledInitDisplay() {
     // 1. Hardware Power-On Stabilization Delay
-    // SSD1306 internal charge pump requires up to 150ms after VDD rises to stabilize.
-    // Transmitting too early causes random static snow (uninitialized GDDRAM).
     delay(150);
 
-    Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
-    // Use 100 kHz standard I2C clock. 400 kHz on jumper wires causes signal distortion
-    // and clock stretching failures that result in split-screen noise.
-    Wire.setClock(100000);
-    Wire.setTimeOut(50); // Prevent I2C bus lockup
+    // 2. Hardware I2C Bus Unlock & Recovery Sequence:
+    // If the ESP32 restarted during an active I2C transaction, the display slave
+    // may be holding SDA LOW. Clocking SCL 9 times clears any hung state.
+    pinMode(OLED_SCL_PIN, OUTPUT);
+    pinMode(OLED_SDA_PIN, INPUT_PULLUP);
+    for (int i = 0; i < 9; i++) {
+        digitalWrite(OLED_SCL_PIN, HIGH);
+        delayMicroseconds(5);
+        digitalWrite(OLED_SCL_PIN, LOW);
+        delayMicroseconds(5);
+    }
+    // Generate STOP condition
+    pinMode(OLED_SDA_PIN, OUTPUT);
+    digitalWrite(OLED_SDA_PIN, LOW);
+    delayMicroseconds(5);
+    digitalWrite(OLED_SCL_PIN, HIGH);
+    delayMicroseconds(5);
+    digitalWrite(OLED_SDA_PIN, HIGH);
+    delayMicroseconds(5);
 
-    // Probe I2C address
-    Wire.beginTransmission(OLED_I2C_ADDRESS);
-    if (Wire.endTransmission() != 0) {
-        Serial.printf("[OLED] SSD1306 not detected at 0x%02X; skipping screen init.\n", OLED_I2C_ADDRESS);
+    // 3. Initialize I2C Bus at 100 kHz
+    Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
+    Wire.setClock(100000);
+
+    // 4. Auto-detect OLED I2C Address (0x3C vs 0x3D)
+    uint8_t detected = 0;
+    const uint8_t candidateAddresses[] = { OLED_I2C_ADDRESS, OLED_I2C_ADDRESS_ALT, 0x3C, 0x3D };
+    for (size_t i = 0; i < sizeof(candidateAddresses); i++) {
+        Wire.beginTransmission(candidateAddresses[i]);
+        if (Wire.endTransmission() == 0) {
+            detected = candidateAddresses[i];
+            break;
+        }
+    }
+
+    // Fallback: If not found, probe swapped I2C pin configuration (SDA=22, SCL=21)
+    if (detected == 0) {
+        Wire.begin(OLED_SCL_PIN, OLED_SDA_PIN);
+        Wire.setClock(100000);
+        for (size_t i = 0; i < sizeof(candidateAddresses); i++) {
+            Wire.beginTransmission(candidateAddresses[i]);
+            if (Wire.endTransmission() == 0) {
+                detected = candidateAddresses[i];
+                Serial.println("[OLED] Notice: Display detected on swapped pins (SDA=22, SCL=21)");
+                break;
+            }
+        }
+    }
+
+    if (detected == 0) {
+        Serial.printf("[OLED] Display not detected on I2C bus (checked 0x3C, 0x3D); will auto-retry in background.\n");
         oledInitialized = false;
         return;
     }
 
-    // 2. Hardware Initialization Sequence (Universal SSD1306 & SH1106 compatible)
+    s_oledAddress = detected;
+    Serial.printf("[OLED] Connected to display at I2C address 0x%02X\n", s_oledAddress);
+
+    // 5. Universal Hardware Initialization Sequence (Dual SSD1306 & SH1106 charge-pump activation)
     oledCommand(0xAE); // Display OFF (sleep mode)
     oledCommand2(0xD5, 0x80); // Display clock divide ratio/oscillator
     oledCommand2(0xA8, 0x3F); // Multiplex ratio (64 lines)
     oledCommand2(0xD3, 0x00); // Display offset = 0
     oledCommand(0x40);        // Start line = 0
-    oledCommand2(0x8D, 0x14); // Enable internal DC-DC charge pump
-    oledCommand2(0x20, 0x02); // Page addressing mode (0x02) - robust against frame pointer desync
-    oledCommand(0xA1);        // Segment re-map: column 127 mapped to SEG0
+
+    // DUAL CHARGE PUMP ENABLE:
+    // - SSD1306 requires 0x8D 0x14 (Charge pump 7.5V)
+    // - SH1106 requires 0xAD 0x8B (DC-DC Converter 9.0V) & 0x32 (Pump mode)
+    oledCommand2(0x8D, 0x14); // SSD1306 DC-DC Charge Pump ON
+    oledCommand2(0xAD, 0x8B); // SH1106 DC-DC Converter ON (9.0V)
+    oledCommand(0x32);        // SH1106 DC-DC pump mode
+
+    oledCommand2(0x20, 0x02); // Page addressing mode (compatible with SSD1306 & SH1106)
+    oledCommand(0xA1);        // Segment re-map: col 127 mapped to SEG0
     oledCommand(0xC8);        // COM Output scan direction: remapped mode
     oledCommand2(0xDA, 0x12); // COM pins hardware config
-    oledCommand2(0x81, 0xCF); // Contrast control (high readability)
-    oledCommand2(0xD9, 0xF1); // Pre-charge period (internal charge pump)
+    oledCommand2(0x81, 0xFF); // Contrast control: Maximum brightness (0xFF / 255)
+    oledCommand2(0xD9, 0xF1); // Pre-charge period (fast discharge / charge)
     oledCommand2(0xDB, 0x40); // VCOMH deselect level (~0.77xVcc)
-    oledCommand(0xA4);        // Resume to RAM content display
+    oledCommand(0x2E);        // Deactivate horizontal scroll
+    oledCommand(0xA4);        // Entire display ON follows RAM content (not forced all ON)
     oledCommand(0xA6);        // Normal display (non-inverted)
 
-    // 3. CRITICAL: Clear physical GDDRAM with zeros BEFORE turning display ON!
-    // This permanently prevents random startup static snow from showing.
+    // 6. Clear physical GDDRAM with zero bytes across all 8 pages
     for (uint8_t p = 0; p < 8; p++) {
-        Wire.beginTransmission(OLED_I2C_ADDRESS);
+        Wire.beginTransmission(s_oledAddress);
         Wire.write(0x00);
         Wire.write(0xB0 + p); // Set page
         Wire.write(0x00);     // Low col = 0
         Wire.write(0x10);     // High col = 0
         Wire.endTransmission();
         for (uint8_t c = 0; c < 128; c += 16) {
-            Wire.beginTransmission(OLED_I2C_ADDRESS);
+            Wire.beginTransmission(s_oledAddress);
             Wire.write(0x40);
             for (uint8_t k = 0; k < 16; k++) {
                 Wire.write(0x00);
@@ -420,11 +474,12 @@ static void oledInitDisplay() {
         }
     }
 
-    oledCommand(0xAF); // Display ON (clean black background)
+    // 7. Turn Display ON
+    oledCommand(0xAF); // Display ON (clean bright pixels)
     memset(oledBuffer, 0x00, sizeof(oledBuffer));
     oledInitialized = true;
     oledConsecutiveErrors = 0;
-    Serial.println("[OLED] 0.96 Inch SSD1306 Display initialized cleanly on I2C 100kHz GPIO21/GPIO22");
+    Serial.printf("[OLED] Display turned ON successfully (I2C 0x%02X, Max Contrast 0xFF)!\n", s_oledAddress);
 }
 
 static void oledClear() {
@@ -468,11 +523,11 @@ static void oledRender() {
     bool hasError = false;
     for (uint8_t page = 0; page < 8; page++) {
         // Set page and column origin on each slice
-        Wire.beginTransmission(OLED_I2C_ADDRESS);
+        Wire.beginTransmission(s_oledAddress);
         Wire.write(0x00);
         Wire.write(0xB0 + page);
-        Wire.write(0x00);
-        Wire.write(0x10);
+        Wire.write(0x00 | (s_oledColOffset & 0x0F));
+        Wire.write(0x10 | ((s_oledColOffset >> 4) & 0x0F));
         if (Wire.endTransmission() != 0) {
             hasError = true;
             break;
@@ -480,7 +535,7 @@ static void oledRender() {
 
         const uint8_t* pPage = &oledBuffer[page * 128];
         for (uint8_t col = 0; col < 128; col += 16) {
-            Wire.beginTransmission(OLED_I2C_ADDRESS);
+            Wire.beginTransmission(s_oledAddress);
             Wire.write(0x40);
             for (uint8_t k = 0; k < 16; k++) {
                 Wire.write(pPage[col + k]);
@@ -495,10 +550,9 @@ static void oledRender() {
 
     if (hasError) {
         oledConsecutiveErrors++;
-        if (oledConsecutiveErrors >= 2) {
+        if (oledConsecutiveErrors >= 3) {
             Serial.println("[OLED-WARN] I2C transmission glitch detected; auto-recovering display bus...");
-            Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
-            Wire.setClock(100000);
+            oledInitialized = false;
             delay(50);
             oledInitDisplay();
         }
@@ -508,7 +562,14 @@ static void oledRender() {
 }
 
 static void oledUpdateDashboard() {
-    if (!oledInitialized) return;
+    if (!oledInitialized) {
+        static unsigned long s_lastOledInitRetry = 0;
+        if (millis() - s_lastOledInitRetry >= 2000UL) {
+            s_lastOledInitRetry = millis();
+            oledInitDisplay();
+        }
+        if (!oledInitialized) return;
+    }
 
     oledClear();
     char lineBuf[32];
@@ -602,8 +663,14 @@ static void oledUpdateDashboard() {
 // =========================================================================================
 // WATER FLOW INTERRUPT SERVICE ROUTINE (ZJ-S201 / YF-S201)
 // =========================================================================================
+static volatile unsigned long s_lastWaterPulseUs = 0;
 void IRAM_ATTR onWaterPulseISR() {
-    isrWaterPulseCount++;
+    unsigned long nowUs = micros();
+    // 1500us debounce (filters switch bounce / contact noise while supporting up to 600 Hz / ~80 L/min)
+    if (nowUs - s_lastWaterPulseUs >= 1500UL) {
+        isrWaterPulseCount++;
+        s_lastWaterPulseUs = nowUs;
+    }
 }
 
 // =========================================================================================
@@ -891,7 +958,7 @@ void maintainMQTT() {
 // =========================================================================================
 bool readWaterFlowSensor(WaterReadings &out) {
 #if defined(WATER_FLOW_ENABLED) && (WATER_FLOW_ENABLED == 1)
-    if (WATER_PULSE_PIN < 0) {
+    if (WATER_PULSE_PIN < 0 && (!defined(WATER_PULSE_PIN_ALT) || WATER_PULSE_PIN_ALT < 0)) {
         out.flow_valid = false;
         return false;
     }
@@ -911,8 +978,8 @@ bool readWaterFlowSensor(WaterReadings &out) {
     float deltaLiters = (float)deltaPulses * PULSE_FACTOR_L_PER_PULSE;
     float elapsedMinutes = (float)elapsedMs / 60000.0f;
 
-    float flowRate = deltaLiters / elapsedMinutes;
-    out.water_flow_lmin = (flowRate < 0.1f) ? 0.0f : flowRate;
+    float flowRate = (elapsedMinutes > 0.0f) ? (deltaLiters / elapsedMinutes) : 0.0f;
+    out.water_flow_lmin = (flowRate < 0.05f) ? 0.0f : flowRate;
 
     cumulativeWaterLiters += deltaLiters;
     cumulativeWaterVolumeM3 = cumulativeWaterLiters / 1000.0f;
@@ -923,8 +990,8 @@ bool readWaterFlowSensor(WaterReadings &out) {
     out.flow_valid = true;
 
     if (deltaPulses > 0) {
-        Serial.printf("[SENSOR-FLOW] Flow: %.2f L/min | Cumulative: %.3f m3 (%lu pulses)\n",
-                      out.water_flow_lmin, out.cumulative_water_m3, currentPulses);
+        Serial.printf("[WATER-FLOW] Active Flow: %.2f L/min | +%lu pulses | Total: %.3f L (%lu total pulses)\n",
+                      out.water_flow_lmin, deltaPulses, cumulativeWaterLiters, currentPulses);
     }
     return true;
 #else
@@ -1149,8 +1216,15 @@ bool readDHT11Sensor(EnvironmentalReadings &out) {
     static float lastValidHum = 0.0f;
     static unsigned long lastValidDhtMs = 0;
 
-    const float newHumidity = dhtSensor.readHumidity();
-    const float newTemperature = dhtSensor.readTemperature();
+    float newHumidity = dhtSensor.readHumidity();
+    float newTemperature = dhtSensor.readTemperature();
+
+#if defined(DHT11_PIN_ALT) && (DHT11_PIN_ALT >= 0)
+    if ((isnan(newHumidity) || isnan(newTemperature)) && DHT11_PIN_ALT != WATER_PULSE_PIN) {
+        newHumidity = dhtSensorAlt.readHumidity();
+        newTemperature = dhtSensorAlt.readTemperature();
+    }
+#endif
 
     if (isnan(newHumidity) || isnan(newTemperature) || newTemperature < -10.0f || newTemperature > 60.0f || newHumidity < 5.0f || newHumidity > 100.0f) {
         // Bridge single transient read miss for up to 8 seconds to prevent screen flickering
@@ -1281,13 +1355,20 @@ void setup() {
     Serial.printf("[ENDPOINT] %s\n", HTTP_API_ENDPOINT);
 
 
-    // 2. Initialize Water Flow Sensor Interrupt on GPIO 4
+    // 2. Initialize Water Flow Sensor Interrupt on Primary (GPIO 26) and Secondary (GPIO 4) Pins
 #if defined(WATER_FLOW_ENABLED) && (WATER_FLOW_ENABLED == 1)
     if (WATER_PULSE_PIN >= 0) {
         pinMode(WATER_PULSE_PIN, INPUT_PULLUP);
         attachInterrupt(digitalPinToInterrupt(WATER_PULSE_PIN), onWaterPulseISR, FALLING);
-        Serial.printf("[WATER-FLOW] ZJ-S201 Hall pulse interrupt attached on GPIO %d\n", WATER_PULSE_PIN);
+        Serial.printf("[WATER-FLOW] Primary Hall pulse interrupt attached on GPIO %d\n", WATER_PULSE_PIN);
     }
+#if defined(WATER_PULSE_PIN_ALT) && (WATER_PULSE_PIN_ALT >= 0)
+    if (WATER_PULSE_PIN_ALT != DHT11_PIN) {
+        pinMode(WATER_PULSE_PIN_ALT, INPUT_PULLUP);
+        attachInterrupt(digitalPinToInterrupt(WATER_PULSE_PIN_ALT), onWaterPulseISR, FALLING);
+        Serial.printf("[WATER-FLOW] Secondary Hall pulse interrupt attached on GPIO %d\n", WATER_PULSE_PIN_ALT);
+    }
+#endif
 #endif
 
     // 3. Initialize Ultrasonic Sonar Pins (Trig: GPIO5, Echo: GPIO18)
@@ -1305,8 +1386,14 @@ void setup() {
 #if defined(DHT11_ENABLED) && (DHT11_ENABLED == 1)
     if (DHT11_PIN >= 0) {
         dhtSensor.begin();
-        Serial.printf("[DHT11] Digital Temp/Humidity initialized on GPIO %d\n", DHT11_PIN);
+        Serial.printf("[DHT11] Primary Temp/Humidity initialized on GPIO %d\n", DHT11_PIN);
     }
+#if defined(DHT11_PIN_ALT) && (DHT11_PIN_ALT >= 0)
+    if (DHT11_PIN_ALT != WATER_PULSE_PIN) {
+        dhtSensorAlt.begin();
+        Serial.printf("[DHT11] Secondary Temp/Humidity initialized on GPIO %d\n", DHT11_PIN_ALT);
+    }
+#endif
 #endif
 
     // 5. Initialize MQ-135 Gas Sensor Analog Pin
@@ -1356,6 +1443,29 @@ void setup() {
 // MAIN EXECUTION LOOP
 // =========================================================================================
 void loop() {
+    // 0. Active Edge-Detection Polling for Water Flow Turbine (Zero Missed Pulses)
+#if defined(WATER_FLOW_ENABLED) && (WATER_FLOW_ENABLED == 1)
+    if (WATER_PULSE_PIN >= 0) {
+        static int s_lastWaterPinState1 = HIGH;
+        int s_curWaterPinState1 = digitalRead(WATER_PULSE_PIN);
+        if (s_lastWaterPinState1 == HIGH && s_curWaterPinState1 == LOW) {
+            onWaterPulseISR();
+        }
+        s_lastWaterPinState1 = s_curWaterPinState1;
+    }
+
+#if defined(WATER_PULSE_PIN_ALT) && (WATER_PULSE_PIN_ALT >= 0)
+    if (WATER_PULSE_PIN_ALT != DHT11_PIN) {
+        static int s_lastWaterPinState2 = HIGH;
+        int s_curWaterPinState2 = digitalRead(WATER_PULSE_PIN_ALT);
+        if (s_lastWaterPinState2 == HIGH && s_curWaterPinState2 == LOW) {
+            onWaterPulseISR();
+        }
+        s_lastWaterPinState2 = s_curWaterPinState2;
+    }
+#endif
+#endif
+
     maintainWiFi();
     maintainMQTT();
 

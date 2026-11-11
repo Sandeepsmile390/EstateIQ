@@ -76,6 +76,12 @@
 #define MQ135_ANALOG_PIN            34
 #define MQ135_VOLTAGE_DIVIDER_RATIO 1.4545f // 10k series / 22k to GND; calibrate to installed resistor values
 #define MQ135_WARMUP_PERIOD_SEC     180
+#define MQ135_CLEAN_AIR_ADC_MAX     450
+#define MQ135_MODERATE_ADC_MAX      850
+#define MQ135_POLLUTED_ADC_MAX      1300
+#define MQ135_SMOKE_ADC_THRESHOLD   1300
+#define MQ135_RL_KOHM               10.0f
+#define MQ135_RO_CLEAN_AIR_KOHM     76.63f
 
 #define OLED_ENABLED                1
 #define OLED_SDA_PIN                21

@@ -631,13 +631,17 @@ def get_latest_live_telemetry() -> Dict[str, Any]:
         heat_idx = float(m["heat_index_c"]) if "heat_index_c" in m and m["heat_index_c"] is not None else None
         mq_adc = int(m["mq135_raw_adc"]) if "mq135_raw_adc" in m and m["mq135_raw_adc"] is not None else None
         mq_volt = float(m["mq135_voltage_v"]) if "mq135_voltage_v" in m and m["mq135_voltage_v"] is not None else None
-        mq_co2 = float(m["mq135_co2_estimate_ppm"]) if "mq135_co2_estimate_ppm" in m and m["mq135_co2_estimate_ppm"] is not None else None
+        mq_co2 = float(m["mq135_estimated_ppm"]) if "mq135_estimated_ppm" in m and m["mq135_estimated_ppm"] is not None else (float(m["mq135_co2_estimate_ppm"]) if "mq135_co2_estimate_ppm" in m and m["mq135_co2_estimate_ppm"] is not None else None)
+        gas_alert = int(m["gas_alert"]) if "gas_alert" in m and m["gas_alert"] is not None else 0
+        smoke_alert = int(m["smoke_detected"]) if "smoke_detected" in m and m["smoke_detected"] is not None else 0
 
         # Filter out phantom disconnected analog readings (pin floating at 0)
         if mq_adc is not None and mq_adc < 80 and (mq_volt is None or mq_volt < 0.08):
             mq_adc = None
             mq_volt = None
             mq_co2 = None
+            gas_alert = 0
+            smoke_alert = 0
         tank_dist = float(m["tank_distance_cm"]) if "tank_distance_cm" in m and m["tank_distance_cm"] is not None else None
         occ = int(m["occupancy_count"]) if "occupancy_count" in m and m["occupancy_count"] is not None else (int(m["occupancy"]) if "occupancy" in m and m["occupancy"] is not None else None)
         hvac = float(m["hvac_load_kw"]) if "hvac_load_kw" in m and m["hvac_load_kw"] is not None else (float(m["hvac_load"]) if "hvac_load" in m and m["hvac_load"] is not None else None)
@@ -729,6 +733,9 @@ def get_latest_live_telemetry() -> Dict[str, Any]:
             "mq135_raw_adc": mq_adc,
             "mq135_voltage_v": mq_volt,
             "mq135_co2_estimate_ppm": mq_co2,
+            "mq135_estimated_ppm": mq_co2,
+            "gas_alert": gas_alert,
+            "smoke_detected": smoke_alert,
             "air_aqi": aqi,
             "building_id": rec.get("building_id", "Block B Hostel"),
             "device_id": dev_id,

@@ -150,6 +150,10 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
     "sensor_voltage_v": ("mq135_voltage_v", "V"),
     "mq135_co2_estimate_ppm": ("mq135_co2_estimate_ppm", "ppm (sensor estimate)"),
     "mq135_co2_estimate": ("mq135_co2_estimate_ppm", "ppm (sensor estimate)"),
+    "mq135_estimated_ppm": ("mq135_estimated_ppm", "ppm"),
+    "estimated_ppm": ("mq135_estimated_ppm", "ppm"),
+    "gas_alert": ("gas_alert", "flag"),
+    "smoke_detected": ("smoke_detected", "flag"),
     "mq135_warmup_status": ("mq135_warmup_status", "status"),
 
     # DHT11 Temperature & Humidity Sensor
@@ -196,6 +200,9 @@ METRIC_RANGE_LIMITS: Dict[str, Tuple[float, float]] = {
     "mq135_voltage_v": (0.0, 5.0),
     "mq135_adc_pin_voltage_v": (0.0, 3.3),
     "mq135_co2_estimate_ppm": (0.0, 10000.0),
+    "mq135_estimated_ppm": (0.0, 10000.0),
+    "gas_alert": (0.0, 1.0),
+    "smoke_detected": (0.0, 1.0),
     "mq135_warmup_status": (0.0, 1.0),
     "cumulative_energy_kwh": (0.0, 1e9),
     "active_power_kw": (0.0, 25000.0),

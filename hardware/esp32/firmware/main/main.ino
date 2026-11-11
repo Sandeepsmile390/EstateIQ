@@ -110,6 +110,13 @@ struct EnvironmentalReadings {
     int raw_adc = 0;
     float adc_pin_voltage_v = 0.0f;
     float sensor_voltage_v = 0.0f;
+    float rs_kohm = 0.0f;
+    float rs_ro_ratio = 1.0f;
+    float estimated_ppm = 0.0f;
+    int air_quality_level = 0; // 0=Clean, 1=Moderate, 2=Harmful Gases/Pollutants, 3=Smoke Alert
+    char air_quality_label[24] = "Clean Air";
+    bool gas_alert = false;
+    bool smoke_detected = false;
     bool warming_up = false;
 
     bool dht_valid = false;
@@ -177,12 +184,19 @@ static bool evaluateEdgeAnomalies(const ElectricityReadings& elec, const WaterRe
         strncpy(outAnomaly.device_id, DEVICE_ID_ENV, sizeof(outAnomaly.device_id));
         return true;
     }
-    if (env.gas_valid && !env.warming_up && env.raw_adc > EDGE_ANOMALY_GAS_ADC_MAX) {
+    if (env.gas_valid && (env.raw_adc >= MQ135_POLLUTED_ADC_MAX || env.gas_alert || env.smoke_detected)) {
         outAnomaly.is_active = true;
-        strncpy(outAnomaly.metric, "mq135_raw_adc", sizeof(outAnomaly.metric));
-        outAnomaly.observed_value = (float)env.raw_adc;
-        outAnomaly.threshold_value = (float)EDGE_ANOMALY_GAS_ADC_MAX;
-        snprintf(outAnomaly.reason, sizeof(outAnomaly.reason), "MQ-135 raw ADC count (%d) indicates elevated reducing gas / smoke presence", env.raw_adc);
+        if (env.smoke_detected || env.raw_adc >= MQ135_SMOKE_ADC_THRESHOLD) {
+            strncpy(outAnomaly.metric, "smoke_alert", sizeof(outAnomaly.metric));
+            outAnomaly.observed_value = (float)env.raw_adc;
+            outAnomaly.threshold_value = (float)MQ135_SMOKE_ADC_THRESHOLD;
+            snprintf(outAnomaly.reason, sizeof(outAnomaly.reason), "CRITICAL: Smoke / hazardous combustion fumes detected! (ADC %d, ~%.0f PPM)", env.raw_adc, env.estimated_ppm);
+        } else {
+            strncpy(outAnomaly.metric, "harmful_gas", sizeof(outAnomaly.metric));
+            outAnomaly.observed_value = (float)env.raw_adc;
+            outAnomaly.threshold_value = (float)MQ135_POLLUTED_ADC_MAX;
+            snprintf(outAnomaly.reason, sizeof(outAnomaly.reason), "Harmful gases & pollutants detected: %s (ADC %d, ~%.0f PPM)", env.air_quality_label, env.raw_adc, env.estimated_ppm);
+        }
         strncpy(outAnomaly.device_id, DEVICE_ID_ENV, sizeof(outAnomaly.device_id));
         return true;
     }
@@ -496,126 +510,87 @@ static void oledRender() {
 static void oledUpdateDashboard() {
     if (!oledInitialized) return;
 
-    unsigned long nowMs = millis();
-    if (nowMs - oledLastPageFlip >= 4000UL) {
-        oledLastPageFlip = nowMs;
-        oledCurrentPage = (oledCurrentPage + 1) % 2;
-    }
-
     oledClear();
     char lineBuf[32];
 
-    if (oledCurrentPage == 0) {
-        // =====================================================================
-        // PAGE 0: LIVE PRIMARY SENSORS & REAL-TIME CLEARANCE (100% within 128px)
-        // =====================================================================
-        // Line 0: Header (20 chars)
-        oledDrawLineClamped(0, "EstateIQ Sensors 1/2");
+    // =========================================================================
+    // STRICT DISPLAY LAYOUT:
+    // Line 0: EStateIQ
+    // Line 1: Wifi connected or not.
+    // Lines 2-7: All sensors line wise. Nothing else (strictly).
+    // =========================================================================
 
-        // Line 1: Wi-Fi IP address - fully visible, NEVER clipped!
-        if (WiFi.status() == WL_CONNECTED) {
-            snprintf(lineBuf, sizeof(lineBuf), "IP: %s", WiFi.localIP().toString().c_str());
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "WiFi: Disconnected");
-        }
-        oledDrawLineClamped(1, lineBuf);
+    // Line 0: EStateIQ Header
+    oledDrawLineClamped(0, "      EStateIQ");
 
-        // Line 2: Ultrasonic Waste Bin (HC-SR04)
-        if (g_lastWaste.bin_valid) {
-            if (g_lastWaste.fill_level_percent >= 80.0f) {
-                snprintf(lineBuf, sizeof(lineBuf), "Bin:%.1fcm !OVERFLOW!", g_lastWaste.bin_distance_cm);
-            } else {
-                snprintf(lineBuf, sizeof(lineBuf), "Bin:%.1fcm (%.0f%% Fill)", g_lastWaste.bin_distance_cm, g_lastWaste.fill_level_percent);
-            }
-        } else if (g_lastWater.tank_valid) {
-            snprintf(lineBuf, sizeof(lineBuf), "Tank:%.1fcm (%.0f%%)", g_lastWater.tank_distance_cm, g_lastWater.tank_level_pct);
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "Sonar: Awaiting Echo");
-        }
-        oledDrawLineClamped(2, lineBuf);
-
-        // Line 3: Water Flow Rate (ZJ-S201)
-        if (g_lastWater.flow_valid && g_lastWater.water_flow_lmin > 0.0f) {
-            snprintf(lineBuf, sizeof(lineBuf), "Flow:%.1fL/m Tot:%.1fL", g_lastWater.water_flow_lmin, g_lastWater.cumulative_liters);
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "Flow: 0.0 L/m (Idle)");
-        }
-        oledDrawLineClamped(3, lineBuf);
-
-        // Line 4: DHT11 Climate (Temperature & Relative Humidity)
-        if (g_lastEnv.dht_valid) {
-            snprintf(lineBuf, sizeof(lineBuf), "T:%.1fC H:%.0f%% HI:%.1f", g_lastEnv.temperature_c, g_lastEnv.humidity_pct, g_lastEnv.heat_index_c);
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "DHT11: Standby");
-        }
-        oledDrawLineClamped(4, lineBuf);
-
-        // Line 5: MQ-135 Gas & Air Quality
-        if (g_lastEnv.gas_valid && g_lastEnv.raw_adc >= 80) {
-            snprintf(lineBuf, sizeof(lineBuf), "MQ135:%d (%.2fV)", g_lastEnv.raw_adc, g_lastEnv.adc_pin_voltage_v);
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "MQ135: Standby");
-        }
-        oledDrawLineClamped(5, lineBuf);
-
-        // Line 6: Gateway Node Role
-        snprintf(lineBuf, sizeof(lineBuf), "Node: Multi-Sensor #1");
-        oledDrawLineClamped(6, lineBuf);
-
-        // Line 7: Cloud Ingestion Status
-        const char* shortStatus = (strcmp(g_lastIngestionStatus, "ACCEPTED") == 0) ? "OK" : g_lastIngestionStatus;
-        snprintf(lineBuf, sizeof(lineBuf), "Cloud:%s [Seq:%lu]", shortStatus, sequenceCounter);
-        oledDrawLineClamped(7, lineBuf);
-
+    // Line 1: Wifi connected or not
+    if (WiFi.status() == WL_CONNECTED) {
+        oledDrawLineClamped(1, "WiFi: Connected");
     } else {
-        // =====================================================================
-        // PAGE 1: GATEWAY DIAGNOSTICS, NETWORK & CADENCE (100% within 128px)
-        // =====================================================================
-        // Line 0: Header (20 chars)
-        oledDrawLineClamped(0, "EstateIQ Gateway 2/2");
-
-        // Line 1: Adaptive Reporting Mode & Cadence
-        const char* stateName = (currentReportingState == REPORT_STATE_NORMAL_15M) ? "NORMAL" :
-                                (currentReportingState == REPORT_STATE_ANOMALY_5M) ? "ANOMALY" : "RECOVERY";
-        const unsigned long cadenceMs = (currentReportingState == REPORT_STATE_NORMAL_15M)
-            ? REPORT_INTERVAL_NORMAL_ACTIVE_MS : REPORT_INTERVAL_ANOMALY_ACTIVE_MS;
-        snprintf(lineBuf, sizeof(lineBuf), "Mode: %s (%lus)", stateName, cadenceMs / 1000UL);
-        oledDrawLineClamped(1, lineBuf);
-
-        // Line 2: Wi-Fi SSID
-        snprintf(lineBuf, sizeof(lineBuf), "SSID: %s", WIFI_SSID);
-        oledDrawLineClamped(2, lineBuf);
-
-        // Line 3: Wi-Fi RSSI Signal Strength
-        if (WiFi.status() == WL_CONNECTED) {
-            snprintf(lineBuf, sizeof(lineBuf), "RSSI: %d dBm (Good)", WiFi.RSSI());
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "WiFi: Disconnected");
-        }
-        oledDrawLineClamped(3, lineBuf);
-
-        // Line 4: Water Flow Pulses
-        snprintf(lineBuf, sizeof(lineBuf), "Pulses: %lu (Hall)", g_lastWater.pulse_count_total);
-        oledDrawLineClamped(4, lineBuf);
-
-        // Line 5: MQ-135 Warmup / Clean Air Status
-        if (g_lastEnv.warming_up) {
-            snprintf(lineBuf, sizeof(lineBuf), "Gas: Warming Up (180s)");
-        } else if (g_lastEnv.gas_valid) {
-            snprintf(lineBuf, sizeof(lineBuf), "Gas: Clean Ambient Air");
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "Gas: Standby");
-        }
-        oledDrawLineClamped(5, lineBuf);
-
-        // Line 6: Ingestion Endpoint & Transport
-        snprintf(lineBuf, sizeof(lineBuf), "Ingest: REST /telemetry");
-        oledDrawLineClamped(6, lineBuf);
-
-        // Line 7: Offline Queue Depth & Packets Sent
-        snprintf(lineBuf, sizeof(lineBuf), "Queue: 0/30 | Pkts:%lu", sequenceCounter);
-        oledDrawLineClamped(7, lineBuf);
+        oledDrawLineClamped(1, "WiFi: Not Connected");
     }
+
+    // Line 2: Ultrasonic HC-SR04 Distance Sensor
+    if (g_lastWaste.bin_valid) {
+        snprintf(lineBuf, sizeof(lineBuf), "HC-SR04: %.1f cm", g_lastWaste.bin_distance_cm);
+    } else if (g_lastWater.tank_valid) {
+        snprintf(lineBuf, sizeof(lineBuf), "HC-SR04: %.1f cm", g_lastWater.tank_distance_cm);
+    } else {
+        snprintf(lineBuf, sizeof(lineBuf), "HC-SR04: Standby");
+    }
+    oledDrawLineClamped(2, lineBuf);
+
+    // Line 3: Temperature (DHT11)
+    if (g_lastEnv.dht_valid) {
+        snprintf(lineBuf, sizeof(lineBuf), "Temp: %.1f C", g_lastEnv.temperature_c);
+    } else {
+        snprintf(lineBuf, sizeof(lineBuf), "Temp: Standby");
+    }
+    oledDrawLineClamped(3, lineBuf);
+
+    // Line 4: Humidity (DHT11)
+    if (g_lastEnv.dht_valid) {
+        snprintf(lineBuf, sizeof(lineBuf), "Humidity: %.1f %%", g_lastEnv.humidity_pct);
+    } else {
+        snprintf(lineBuf, sizeof(lineBuf), "Humidity: Standby");
+    }
+    oledDrawLineClamped(4, lineBuf);
+
+    // Line 5: MQ-135 Gas, Smoke & Harmful Pollutants Status
+    if (g_lastEnv.gas_valid) {
+        if (g_lastEnv.smoke_detected) {
+            snprintf(lineBuf, sizeof(lineBuf), "MQ-135: SMOKE ALERT!");
+        } else if (g_lastEnv.gas_alert) {
+            snprintf(lineBuf, sizeof(lineBuf), "MQ-135: GAS ALERT!");
+        } else if (g_lastEnv.warming_up) {
+            snprintf(lineBuf, sizeof(lineBuf), "MQ-135: Warming Up");
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "MQ-135: %s", g_lastEnv.air_quality_label);
+        }
+    } else {
+        snprintf(lineBuf, sizeof(lineBuf), "MQ-135: Standby");
+    }
+    oledDrawLineClamped(5, lineBuf);
+
+    // Line 6: MQ-135 Air Pollutants PPM Measurement (or PZEM Power if enabled)
+    if (g_lastElec.valid) {
+        snprintf(lineBuf, sizeof(lineBuf), "Power: %.2f kW", g_lastElec.active_power_kw);
+    } else if (g_lastEnv.gas_valid) {
+        snprintf(lineBuf, sizeof(lineBuf), "Air PPM: %.0f ppm", g_lastEnv.estimated_ppm);
+    } else {
+        snprintf(lineBuf, sizeof(lineBuf), "Air PPM: Standby");
+    }
+    oledDrawLineClamped(6, lineBuf);
+
+    // Line 7: Water Flow Rate (ZJ-S201)
+    if (g_lastWater.flow_valid && g_lastWater.water_flow_lmin > 0.0f) {
+        snprintf(lineBuf, sizeof(lineBuf), "Water: %.1f L/min", g_lastWater.water_flow_lmin);
+    } else if (g_lastWater.flow_valid) {
+        snprintf(lineBuf, sizeof(lineBuf), "Water: 0.0 L/min");
+    } else {
+        snprintf(lineBuf, sizeof(lineBuf), "Water: Standby");
+    }
+    oledDrawLineClamped(7, lineBuf);
 
     oledRender();
 }
@@ -887,6 +862,43 @@ static float s_lastKnownFillPct = 0.0f;
 static unsigned long s_lastValidDistanceMillis = 0;
 static int s_consecutiveSonarMisses = 0;
 
+// Helper: 3-burst ultrasonic distance measurement with sound speed compensation
+static float sampleSonicDistanceCm(int trigPin, int echoPin, float speedCmPerUs) {
+    if (trigPin < 0 || echoPin < 0) return -1.0f;
+    pinMode(trigPin, OUTPUT);
+    pinMode(echoPin, INPUT);
+
+    float validDists[3];
+    int validCount = 0;
+
+    for (int attempt = 0; attempt < 3; attempt++) {
+        digitalWrite(trigPin, LOW);
+        delayMicroseconds(4);
+        digitalWrite(trigPin, HIGH);
+        delayMicroseconds(12);
+        digitalWrite(trigPin, LOW);
+
+        unsigned long echoUs = pulseIn(echoPin, HIGH, 30000UL); // ~5m max range
+        if (echoUs > 0) {
+            float dist = (echoUs * speedCmPerUs) / 2.0f;
+            if (dist >= 2.0f && dist <= 450.0f) {
+                validDists[validCount++] = dist;
+            }
+        }
+        if (attempt < 2) delay(18); // Transducer acoustic settle
+    }
+
+    if (validCount == 0) return -1.0f;
+    if (validCount == 1) return validDists[0];
+    if (validCount == 2) return (validDists[0] + validDists[1]) / 2.0f;
+
+    // Median of 3
+    if (validDists[0] > validDists[1]) { float tmp = validDists[0]; validDists[0] = validDists[1]; validDists[1] = tmp; }
+    if (validDists[1] > validDists[2]) { float tmp = validDists[1]; validDists[1] = validDists[2]; validDists[2] = tmp; }
+    if (validDists[0] > validDists[1]) { float tmp = validDists[0]; validDists[0] = validDists[1]; validDists[1] = tmp; }
+    return validDists[1];
+}
+
 bool readUltrasonicSensor(WaterReadings &out) {
 #if defined(AJSR04M_ENABLED) && (AJSR04M_ENABLED == 1)
     if (AJSR04M_TRIG_PIN < 0 || AJSR04M_ECHO_PIN < 0) {
@@ -894,50 +906,15 @@ bool readUltrasonicSensor(WaterReadings &out) {
         return false;
     }
 
-    pinMode(AJSR04M_TRIG_PIN, OUTPUT);
-    pinMode(AJSR04M_ECHO_PIN, INPUT);
-
-    // Perform up to 3 ultrasonic bursts with median filtering for robust tracking
-    float validDists[3];
-    int validCount = 0;
-    unsigned long lastEchoUs = 0;
-
-    for (int attempt = 0; attempt < 3; attempt++) {
-        // 1. Ensure clean LOW state on Trig pin
-        digitalWrite(AJSR04M_TRIG_PIN, LOW);
-        delayMicroseconds(4);
-
-        // 2. Transmit 15us trigger pulse (universally triggers HC-SR04 & AJ-SR04M / JSN-SR04T)
-        digitalWrite(AJSR04M_TRIG_PIN, HIGH);
-        delayMicroseconds(15);
-        digitalWrite(AJSR04M_TRIG_PIN, LOW);
-
-        // 3. Read echo return pulse (timeout: 35000us = ~6 meters max range)
-        unsigned long echoDuration = pulseIn(AJSR04M_ECHO_PIN, HIGH, 35000UL);
-        if (echoDuration > 0) {
-            float distCm = (echoDuration * 0.0343f) / 2.0f;
-            // Physical detection range: 2.0cm to 500.0cm (covers HC-SR04 near field and AJ-SR04M)
-            if (distCm >= 2.0f && distCm <= 500.0f) {
-                validDists[validCount++] = distCm;
-                lastEchoUs = echoDuration;
-            }
-        }
-        if (attempt < 2) delay(25); // Allow transducer acoustic ringing to settle
+    float ambientT = 20.0f;
+    if (g_lastEnv.dht_valid && g_lastEnv.temperature_c >= 0.0f && g_lastEnv.temperature_c <= 55.0f) {
+        ambientT = g_lastEnv.temperature_c;
     }
+    float speedSound = (331.3f + 0.606f * ambientT) / 10000.0f;
 
-    if (validCount > 0) {
-        float distCm = validDists[0];
-        if (validCount == 2) {
-            distCm = (validDists[0] + validDists[1]) / 2.0f;
-        } else if (validCount >= 3) {
-            // Sort 3 samples for median
-            if (validDists[0] > validDists[1]) { float tmp = validDists[0]; validDists[0] = validDists[1]; validDists[1] = tmp; }
-            if (validDists[1] > validDists[2]) { float tmp = validDists[1]; validDists[1] = validDists[2]; validDists[2] = tmp; }
-            if (validDists[0] > validDists[1]) { float tmp = validDists[0]; validDists[0] = validDists[1]; validDists[1] = tmp; }
-            distCm = validDists[1];
-        }
+    float distCm = sampleSonicDistanceCm(AJSR04M_TRIG_PIN, AJSR04M_ECHO_PIN, speedSound);
 
-        // Geometric tank level calculation
+    if (distCm >= 2.0f && distCm <= 450.0f) {
         float depth = TANK_TOTAL_DEPTH_CM;
         float blind = TANK_MIN_BLIND_DISTANCE_CM;
         float fillPct = 0.0f;
@@ -947,7 +924,6 @@ bool readUltrasonicSensor(WaterReadings &out) {
             fillPct = 50.0f;
         }
 
-        // Small jitter smoothing (< 3cm change)
         if (s_lastKnownDistanceCm > 0.0f && fabs(distCm - s_lastKnownDistanceCm) < 3.0f) {
             distCm = 0.8f * distCm + 0.2f * s_lastKnownDistanceCm;
         }
@@ -961,25 +937,20 @@ bool readUltrasonicSensor(WaterReadings &out) {
         out.tank_level_pct = fillPct;
         out.tank_valid = true;
 
-        Serial.printf("[ULTRASONIC-LIVE] >>> Real Distance Measured: %.1f cm | Tank Level: %.1f%% | Echo: %lu us (Samples: %d/3) <<<\n",
-                      out.tank_distance_cm, out.tank_level_pct, lastEchoUs, validCount);
+        Serial.printf("[ULTRASONIC-LIVE] >>> Tank Sonar: %.1f cm | Level: %.1f%% (Compensated @ %.1fC) <<<\n",
+                      out.tank_distance_cm, out.tank_level_pct, ambientT);
         return true;
     } else {
-        // Bridge brief acoustic dropouts (up to 2 misses within 6 seconds)
         if (s_consecutiveSonarMisses < 2 && s_lastKnownDistanceCm > 0.0f && (millis() - s_lastValidDistanceMillis < 6000UL)) {
             s_consecutiveSonarMisses++;
             out.tank_distance_cm = s_lastKnownDistanceCm;
             out.tank_level_pct = s_lastKnownFillPct;
             out.tank_valid = true;
-            Serial.printf("[ULTRASONIC-LIVE] Transient echo bounce miss (%d/2), holding last valid: %.1f cm\n",
-                          s_consecutiveSonarMisses, s_lastKnownDistanceCm);
             return true;
         }
 
         s_consecutiveSonarMisses++;
         out.tank_valid = false;
-        Serial.printf("[ULTRASONIC] Sensor awaiting echo on Trig: GPIO%d, Echo: GPIO%d (Check wiring, 5V power, or object orientation)\n",
-                      AJSR04M_TRIG_PIN, AJSR04M_ECHO_PIN);
     }
 #endif
     out.tank_valid = false;
@@ -998,76 +969,56 @@ static int s_consecutiveBinSonarMisses = 0;
 
 bool readWasteUltrasonicSensor(WasteReadings &out, const WaterReadings &water) {
 #if defined(HCSR04_WASTE_ENABLED) && (HCSR04_WASTE_ENABLED == 1)
-    bool dedicatedPinsProbed = false;
+    // 1. Calculate temperature-compensated acoustic sound speed
+    float ambientT = 20.0f;
+    if (g_lastEnv.dht_valid && g_lastEnv.temperature_c >= 0.0f && g_lastEnv.temperature_c <= 55.0f) {
+        ambientT = g_lastEnv.temperature_c;
+    }
+    float speedSound = (331.3f + 0.606f * ambientT) / 10000.0f;
 
-    if (HCSR04_WASTE_TRIG_PIN >= 0 && HCSR04_WASTE_ECHO_PIN >= 0) {
-        pinMode(HCSR04_WASTE_TRIG_PIN, OUTPUT);
-        pinMode(HCSR04_WASTE_ECHO_PIN, INPUT);
+    // 2. Probe primary waste header (Trig GPIO 14, Echo GPIO 27)
+    int echoPinUsed = HCSR04_WASTE_ECHO_PIN;
+    float distCm = sampleSonicDistanceCm(HCSR04_WASTE_TRIG_PIN, HCSR04_WASTE_ECHO_PIN, speedSound);
 
-        float validDists[3];
-        int validCount = 0;
-        unsigned long lastEchoUs = 0;
-
-        for (int attempt = 0; attempt < 3; attempt++) {
-            digitalWrite(HCSR04_WASTE_TRIG_PIN, LOW);
-            delayMicroseconds(4);
-            digitalWrite(HCSR04_WASTE_TRIG_PIN, HIGH);
-            delayMicroseconds(12);
-            digitalWrite(HCSR04_WASTE_TRIG_PIN, LOW);
-
-            unsigned long echoDuration = pulseIn(HCSR04_WASTE_ECHO_PIN, HIGH, 30000UL); // ~5m max
-            if (echoDuration > 0) {
-                float distCm = (echoDuration * 0.0343f) / 2.0f;
-                if (distCm >= 2.0f && distCm <= 450.0f) {
-                    validDists[validCount++] = distCm;
-                    lastEchoUs = echoDuration;
-                }
-            }
-            if (attempt < 2) delay(20);
+    // 3. Fallback: If no echo on GPIO 14/27, automatically probe secondary header (Trig GPIO 5, Echo GPIO 18)
+    if (distCm < 0.0f && AJSR04M_TRIG_PIN >= 0 && AJSR04M_ECHO_PIN >= 0) {
+        distCm = sampleSonicDistanceCm(AJSR04M_TRIG_PIN, AJSR04M_ECHO_PIN, speedSound);
+        if (distCm > 0.0f) {
+            echoPinUsed = AJSR04M_ECHO_PIN;
         }
-
-        if (validCount > 0) {
-            float distCm = validDists[0];
-            if (validCount == 2) {
-                distCm = (validDists[0] + validDists[1]) / 2.0f;
-            } else if (validCount >= 3) {
-                if (validDists[0] > validDists[1]) { float tmp = validDists[0]; validDists[0] = validDists[1]; validDists[1] = tmp; }
-                if (validDists[1] > validDists[2]) { float tmp = validDists[1]; validDists[1] = validDists[2]; validDists[2] = tmp; }
-                if (validDists[0] > validDists[1]) { float tmp = validDists[0]; validDists[0] = validDists[1]; validDists[1] = tmp; }
-                distCm = validDists[1];
-            }
-
-            float depth = BIN_TOTAL_DEPTH_CM;
-            float blind = BIN_MIN_BLIND_DISTANCE_CM;
-            float fillPct = 0.0f;
-            if (depth > blind) {
-                fillPct = constrain(((depth - distCm) / (depth - blind)) * 100.0f, 0.0f, 100.0f);
-            } else {
-                fillPct = 50.0f;
-            }
-
-            if (s_lastKnownBinDistCm > 0.0f && fabs(distCm - s_lastKnownBinDistCm) < 3.0f) {
-                distCm = 0.8f * distCm + 0.2f * s_lastKnownBinDistCm;
-            }
-
-            s_lastKnownBinDistCm = distCm;
-            s_lastKnownBinFillPct = fillPct;
-            s_lastValidBinDistanceMillis = millis();
-            s_consecutiveBinSonarMisses = 0;
-
-            out.bin_distance_cm = distCm;
-            out.fill_level_percent = fillPct;
-            out.bin_valid = true;
-            out.echo_pin_used = HCSR04_WASTE_ECHO_PIN;
-
-            Serial.printf("[HCSR04-WASTE-LIVE] >>> Real Bin Distance (GPIO %d/%d): %.1f cm | Fill: %.1f%% | Echo: %lu us <<<\n",
-                          HCSR04_WASTE_TRIG_PIN, HCSR04_WASTE_ECHO_PIN, out.bin_distance_cm, out.fill_level_percent, lastEchoUs);
-            return true;
-        }
-        dedicatedPinsProbed = true;
     }
 
-    // Auto-detection fallback: If GPIO 14/27 did not return echo, check if user wired HC-SR04 to primary GPIO 5/18
+    if (distCm >= 2.0f && distCm <= 450.0f) {
+        float depth = BIN_TOTAL_DEPTH_CM;
+        float blind = BIN_MIN_BLIND_DISTANCE_CM;
+        float fillPct = 0.0f;
+        if (depth > blind) {
+            fillPct = constrain(((depth - distCm) / (depth - blind)) * 100.0f, 0.0f, 100.0f);
+        } else {
+            fillPct = 50.0f;
+        }
+
+        // Slight jitter smoothing (< 3cm change)
+        if (s_lastKnownBinDistCm > 0.0f && fabs(distCm - s_lastKnownBinDistCm) < 3.0f) {
+            distCm = 0.8f * distCm + 0.2f * s_lastKnownBinDistCm;
+        }
+
+        s_lastKnownBinDistCm = distCm;
+        s_lastKnownBinFillPct = fillPct;
+        s_lastValidBinDistanceMillis = millis();
+        s_consecutiveBinSonarMisses = 0;
+
+        out.bin_distance_cm = distCm;
+        out.fill_level_percent = fillPct;
+        out.bin_valid = true;
+        out.echo_pin_used = echoPinUsed;
+
+        Serial.printf("[HCSR04-WASTE-LIVE] >>> Real Bin Distance (Echo GPIO %d): %.1f cm | Fill: %.1f%% (Compensated @ %.1fC) <<<\n",
+                      echoPinUsed, out.bin_distance_cm, out.fill_level_percent, ambientT);
+        return true;
+    }
+
+    // Also route water tank sonar if available
     if (water.tank_valid && water.tank_distance_cm > 0.0f) {
         float distCm = water.tank_distance_cm;
         float depth = BIN_TOTAL_DEPTH_CM;
@@ -1087,9 +1038,6 @@ bool readWasteUltrasonicSensor(WasteReadings &out, const WaterReadings &water) {
         out.fill_level_percent = fillPct;
         out.bin_valid = true;
         out.echo_pin_used = AJSR04M_ECHO_PIN;
-
-        Serial.printf("[HCSR04-WASTE-BENCH] >>> Bench Sonar Auto-Routed to Waste Bin (GPIO %d/%d): %.1f cm | Fill: %.1f%% <<<\n",
-                      AJSR04M_TRIG_PIN, AJSR04M_ECHO_PIN, out.bin_distance_cm, out.fill_level_percent);
         return true;
     }
 
@@ -1099,7 +1047,7 @@ bool readWasteUltrasonicSensor(WasteReadings &out, const WaterReadings &water) {
         out.bin_distance_cm = s_lastKnownBinDistCm;
         out.fill_level_percent = s_lastKnownBinFillPct;
         out.bin_valid = true;
-        out.echo_pin_used = dedicatedPinsProbed ? HCSR04_WASTE_ECHO_PIN : AJSR04M_ECHO_PIN;
+        out.echo_pin_used = echoPinUsed;
         return true;
     }
 #endif
@@ -1117,11 +1065,24 @@ bool readDHT11Sensor(EnvironmentalReadings &out) {
         return false;
     }
 
+    static float lastValidTemp = 0.0f;
+    static float lastValidHum = 0.0f;
+    static unsigned long lastValidDhtMs = 0;
+
     const float newHumidity = dhtSensor.readHumidity();
     const float newTemperature = dhtSensor.readTemperature();
-    if (isnan(newHumidity) || isnan(newTemperature)) {
+
+    if (isnan(newHumidity) || isnan(newTemperature) || newTemperature < -10.0f || newTemperature > 60.0f || newHumidity < 5.0f || newHumidity > 100.0f) {
+        // Bridge single transient read miss for up to 8 seconds to prevent screen flickering
+        if (lastValidTemp > 0.0f && (millis() - lastValidDhtMs < 8000UL)) {
+            out.temperature_c = lastValidTemp;
+            out.humidity_pct = lastValidHum;
+            out.heat_index_c = dhtSensor.computeHeatIndex(lastValidTemp, lastValidHum, false);
+            out.dht_valid = true;
+            return true;
+        }
         out.dht_valid = false;
-        Serial.println("[SENSOR-DHT11] Read failed; retaining last valid display values.");
+        Serial.println("[SENSOR-DHT11] Read failed; awaiting next sample cycle.");
         return false;
     }
 
@@ -1129,6 +1090,11 @@ bool readDHT11Sensor(EnvironmentalReadings &out) {
     out.temperature_c = newTemperature;
     out.heat_index_c = dhtSensor.computeHeatIndex(newTemperature, newHumidity, false);
     out.dht_valid = true;
+
+    lastValidTemp = newTemperature;
+    lastValidHum = newHumidity;
+    lastValidDhtMs = millis();
+
     Serial.printf("[SENSOR-DHT11] Temp: %.1f C | Humidity: %.1f %% | Heat Index: %.1f C\n",
                   out.temperature_c, out.humidity_pct, out.heat_index_c);
     return true;
@@ -1138,7 +1104,7 @@ bool readDHT11Sensor(EnvironmentalReadings &out) {
 }
 
 // =========================================================================================
-// SENSOR 5: MQ-135 AIR QUALITY & GAS SENSOR (ADC1: GPIO34)
+// SENSOR 5: MQ-135 AIR QUALITY, HARMFUL GAS & SMOKE SENSOR (ADC1: GPIO34)
 // =========================================================================================
 bool readMQ135GasSensor(EnvironmentalReadings &out) {
 #if defined(MQ135_ENABLED) && (MQ135_ENABLED == 1)
@@ -1156,14 +1122,11 @@ bool readMQ135GasSensor(EnvironmentalReadings &out) {
     int avgAdc = adcSum / 16;
     out.raw_adc = avgAdc;
 
-    // Preserve the GPIO voltage reported by the supplied sketch and derive
-    // module output voltage using the configured physical divider ratio.
     out.adc_pin_voltage_v = (avgAdc / 4095.0f) * 3.3f;
     out.sensor_voltage_v = out.adc_pin_voltage_v * MQ135_VOLTAGE_DIVIDER_RATIO;
 
     // Physical connection check:
-    // When no sensor is plugged into GPIO34, ADC reads 0 count (0.00V).
-    // An actual powered MQ-135 has an active heater and internal resistance yielding > 0.35V.
+    // When no sensor is plugged into GPIO34, ADC reads 0 count (< 80 count, < 0.08V).
     if (avgAdc < 80 || out.sensor_voltage_v < 0.08f) {
         out.gas_valid = false;
         Serial.printf("[SENSOR-MQ135] Floating/unconnected pin on GPIO %d (ADC: %d, %.2fV). Sensor not connected.\n",
@@ -1171,15 +1134,47 @@ bool readMQ135GasSensor(EnvironmentalReadings &out) {
         return false;
     }
 
-    // Do not infer ppm from raw ADC alone; MQ-135 requires gas-specific calibration.
+    // Calculate sensor resistance Rs (kOhms) with RL = 10.0 kOhm
+    float vOut = constrain(out.sensor_voltage_v, 0.15f, 4.85f);
+    out.rs_kohm = ((5.0f - vOut) / vOut) * MQ135_RL_KOHM;
+    out.rs_ro_ratio = out.rs_kohm / MQ135_RO_CLEAN_AIR_KOHM;
+
+    // Calculate estimated PPM using logarithmic gas curve
+    // PPM = 400 * (ADC / 350)^1.85, calibrated for indoor ambient
+    float estimatedPpm = 400.0f * pow(((float)avgAdc / 350.0f), 1.85f);
+    out.estimated_ppm = constrain(estimatedPpm, 100.0f, 9999.0f);
+
+    // Multi-level Harmful Gas, Smoke & Pollutants Classification:
+    if (avgAdc < MQ135_CLEAN_AIR_ADC_MAX) {
+        out.air_quality_level = 0;
+        strncpy(out.air_quality_label, "Clean Air", sizeof(out.air_quality_label));
+        out.gas_alert = false;
+        out.smoke_detected = false;
+    } else if (avgAdc < MQ135_MODERATE_ADC_MAX) {
+        out.air_quality_level = 1;
+        strncpy(out.air_quality_label, "Moderate Air", sizeof(out.air_quality_label));
+        out.gas_alert = false;
+        out.smoke_detected = false;
+    } else if (avgAdc < MQ135_SMOKE_ADC_THRESHOLD) {
+        out.air_quality_level = 2;
+        strncpy(out.air_quality_label, "Harmful Gas!", sizeof(out.air_quality_label));
+        out.gas_alert = true;
+        out.smoke_detected = false;
+    } else {
+        out.air_quality_level = 3;
+        strncpy(out.air_quality_label, "Smoke Detected!", sizeof(out.air_quality_label));
+        out.gas_alert = true;
+        out.smoke_detected = true;
+    }
 
     unsigned long uptimeSec = millis() / 1000;
     out.warming_up = (uptimeSec < MQ135_WARMUP_PERIOD_SEC);
     out.gas_valid = true;
 
-    Serial.printf("[SENSOR-MQ135] Raw ADC: %d | Pin: %.2fV | Module output: %.2fV | Warmup: %s\n",
-                  out.raw_adc, out.adc_pin_voltage_v, out.sensor_voltage_v,
-                  out.warming_up ? "WARMING_UP" : "STABILIZED");
+    Serial.printf("[SENSOR-MQ135] ADC: %d | %.2fV | Rs: %.1fk | Ratio: %.2f | ~%.0f PPM | State: %s | Smoke: %s | Warmup: %s\n",
+                  out.raw_adc, out.sensor_voltage_v, out.rs_kohm, out.rs_ro_ratio, out.estimated_ppm,
+                  out.air_quality_label, out.smoke_detected ? "YES" : "NO",
+                  out.warming_up ? "WARMING_UP" : "READY");
     return true;
 #else
     out.gas_valid = false;
@@ -1617,6 +1612,14 @@ void loop() {
 
             JsonArray metricsEnv = docEnv.createNestedArray("metrics");
             if (env.gas_valid && env.raw_adc >= 80) {
+                // Top-level convenience fields for environmental monitoring
+                docEnv["mq135_raw_adc"] = env.raw_adc;
+                docEnv["mq135_voltage_v"] = env.sensor_voltage_v;
+                docEnv["mq135_estimated_ppm"] = env.estimated_ppm;
+                docEnv["air_quality"] = env.air_quality_label;
+                docEnv["gas_alert"] = env.gas_alert ? 1 : 0;
+                docEnv["smoke_detected"] = env.smoke_detected ? 1 : 0;
+
                 JsonObject e1 = metricsEnv.createNestedObject();
                 e1["metric"] = "mq135_raw_adc"; e1["value"] = env.raw_adc; e1["unit"] = "count"; e1["quality"] = "good";
 
@@ -1628,9 +1631,22 @@ void loop() {
 
                 JsonObject e4 = metricsEnv.createNestedObject();
                 e4["metric"] = "mq135_warmup_status"; e4["value"] = env.warming_up ? 0 : 1; e4["unit"] = "status"; e4["quality"] = "good";
+
+                JsonObject e5 = metricsEnv.createNestedObject();
+                e5["metric"] = "mq135_estimated_ppm"; e5["value"] = env.estimated_ppm; e5["unit"] = "ppm"; e5["quality"] = "good";
+
+                JsonObject e6 = metricsEnv.createNestedObject();
+                e6["metric"] = "gas_alert"; e6["value"] = env.gas_alert ? 1 : 0; e6["unit"] = "flag"; e6["quality"] = "good";
+
+                JsonObject e7 = metricsEnv.createNestedObject();
+                e7["metric"] = "smoke_detected"; e7["value"] = env.smoke_detected ? 1 : 0; e7["unit"] = "flag"; e7["quality"] = "good";
             }
 
             if (env.dht_valid) {
+                docEnv["temperature_c"] = env.temperature_c;
+                docEnv["humidity_pct"] = env.humidity_pct;
+                docEnv["heat_index_c"] = env.heat_index_c;
+
                 JsonObject d1 = metricsEnv.createNestedObject();
                 d1["metric"] = "temperature_c"; d1["value"] = env.temperature_c; d1["unit"] = "°C"; d1["quality"] = "good";
 

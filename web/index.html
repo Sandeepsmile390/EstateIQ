@@ -365,7 +365,7 @@
                     <!-- SaaS Plan Badge -->
                     <div class="saas-plan-pill" id="headerPlanPill" data-tab-nav="billing">
                         <i class="fa-solid fa-crown text-gold"></i>
-                        <span class="plan-label" id="headerPlanLabel">Enterprise Pro</span>
+                        <span class="plan-label" id="headerPlanLabel">EstateIQ Pro</span>
                         <span class="upgrade-link">Upgrade</span>
                     </div>
 
@@ -3838,14 +3838,14 @@
 
                 <!-- TAB CONTENT 10: SAAS SUBSCRIPTION & BILLING -->
                 <div class="tab-content" id="contentBilling">
-                    <div class="module-tab-wrapper">
+                    <div class="module-tab-wrapper biz-model-container">
                         
-                        <!-- CURRENT ACTIVE SUBSCRIPTION CARD -->
+                        <!-- CURRENT ACTIVE SUBSCRIPTION HERO CARD -->
                         <div class="subscription-hero-card">
                             <div class="sub-hero-left">
                                 <span class="sub-badge-gold"><i class="fa-solid fa-crown"></i> PRO ACTIVE PLAN</span>
-                                <h1 class="sub-plan-name" id="billingCurrentPlanTitle">Enterprise Pro Tier</h1>
-                                <p class="sub-plan-price">₹1,19,999 / month <span class="inr-sub">(₹11.99 Lakhs / yr)</span> • Billed Annually (20% Savings)</p>
+                                <h1 class="sub-plan-name" id="billingCurrentPlanTitle">EstateIQ Professional</h1>
+                                <p class="sub-plan-price">₹5,999 / month <span class="inr-sub">(₹71,988 / year)</span> • Active Institutional License</p>
                             </div>
                             <div class="sub-hero-right">
                                 <div class="usage-meter-group">
@@ -3871,79 +3871,244 @@
                             </div>
                         </div>
 
-                        <!-- PRICING TIERS COMPARISON -->
-                        <div class="pricing-header-toggle">
-                            <h2>Select Your EstateIQ Subscription Plan</h2>
+                        <!-- BUSINESS MODEL HEADER BANNER -->
+                        <div class="biz-top-header">
+                            <div class="biz-title-area">
+                                <span class="biz-pill-title"><i class="fa-solid fa-briefcase"></i> BUSINESS MODEL</span>
+                                <h3 class="biz-sub-title">Smart. Sustainable. Scalable.</h3>
+                                <p class="biz-tagline">An AI-powered Facility Intelligence Platform for Modern Institutions</p>
+                            </div>
+                            <div class="biz-hackathon-badge">
+                                <i class="fa-solid fa-trophy text-gold" style="font-size: 20px;"></i>
+                                <div class="bput-text">BPUT<br>HACKATHON 2026</div>
+                            </div>
+                        </div>
+
+                        <!-- STEP 1: ONE-TIME HARDWARE & INSTALLATION -->
+                        <div class="biz-hardware-banner">
+                            <div class="biz-hw-left">
+                                <div class="biz-hw-icon">
+                                    <i class="fa-solid fa-desktop"></i>
+                                </div>
+                                <div class="biz-hw-info">
+                                    <span class="biz-hw-step-pill">STEP 1 - ONE-TIME</span>
+                                    <h3>Hardware & Installation</h3>
+                                    <p>Sensors, deployment & setup</p>
+                                </div>
+                            </div>
+                            <div class="biz-hw-cost-box">
+                                <div class="cost-label">One-Time Hardware Cost (Approx.)</div>
+                                <div class="cost-val">₹1,00,000 - ₹1,50,000</div>
+                            </div>
+                            <div class="biz-hw-note">
+                                Our team inspects the site, and the exact cost is shared after the analysis.
+                            </div>
+                        </div>
+
+                        <!-- STEP 2: SUBSCRIPTION PLANS -->
+                        <div class="pricing-header-toggle" style="margin-top: 4px;">
+                            <div>
+                                <span class="biz-hw-step-pill" style="background: #10B981; color: #FFFFFF;">STEP 2 - SUBSCRIPTIONS</span>
+                                <h2 style="font-size: 19px; font-weight: 800; color: #0E3D32; margin-top: 4px;">Choose Your Facility Subscription Plan</h2>
+                            </div>
                             <div class="billing-toggle-pill">
                                 <span>Monthly</span>
                                 <label class="switch">
                                     <input type="checkbox" id="billingCycleToggle" checked>
                                     <span class="slider round"></span>
                                 </label>
-                                <span class="discount-label">Annual (Save 20%)</span>
+                                <span class="discount-label" style="font-weight: 700; color: #0E3D32;">Annual Plan Selected</span>
                             </div>
                         </div>
 
-                        <div class="pricing-cards-grid">
+                        <!-- 2-TIER PRICING CARDS -->
+                        <div class="biz-plans-grid-2col">
                             
-                            <!-- TIER 1: STARTER -->
-                            <div class="pricing-card" id="planCardStarter">
-                                <div class="p-header">
-                                    <h3>Starter Facility Tier</h3>
-                                    <p>Ideal for single buildings or small college campuses.</p>
+                            <!-- TIER 1: ESTATEIQ BASIC -->
+                            <div class="biz-plan-card" id="planCardStarter">
+                                <div class="biz-plan-header-strip">
+                                    EstateIQ Basic
                                 </div>
-                                <div class="p-price">
-                                    <span class="p-amount" id="priceStarter">₹39,999</span>
-                                    <span class="p-period">/ month</span>
+                                <div class="biz-plan-body">
+                                    <div class="biz-plan-pricing-col">
+                                        <div class="biz-plan-price-row">
+                                            <span class="price-num" id="priceStarter">₹3,499</span>
+                                            <span class="price-sub">/ month</span>
+                                        </div>
+                                        <div class="biz-plan-annual-sub" id="priceStarterAnnual">₹41,988 / year</div>
+                                    </div>
+                                    <ul class="biz-feature-list">
+                                        <li><i class="fa-solid fa-circle-check"></i> All Four Facility Dashboards</li>
+                                        <li><i class="fa-solid fa-circle-check"></i> Basic ELITE Monitoring</li>
+                                        <li><i class="fa-solid fa-circle-check"></i> Monthly Reports & Alerts</li>
+                                    </ul>
                                 </div>
-                                <ul class="p-features">
-                                    <li><i class="fa-solid fa-check text-green"></i> Up to 5 Buildings</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> Basic Energy & Water Monitoring</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> Daily Email Alerts</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> Standard Web Dashboard</li>
-                                </ul>
-                                <button class="btn btn-secondary btn-block upgrade-plan-btn" data-plan="starter">Switch to Starter</button>
+                                <button class="btn btn-secondary btn-block upgrade-plan-btn" data-plan="basic">Switch to Basic</button>
                             </div>
 
-                            <!-- TIER 2: ENTERPRISE PRO (ACTIVE) -->
-                            <div class="pricing-card featured" id="planCardPro">
-                                <div class="p-badge">MOST POPULAR</div>
-                                <div class="p-header">
-                                    <h3>Enterprise Pro Tier</h3>
-                                    <p>Full ML intelligence, IoT streaming, and AI suggestions.</p>
+                            <!-- TIER 2: ESTATEIQ PROFESSIONAL (FEATURED / ACTIVE) -->
+                            <div class="biz-plan-card featured" id="planCardPro">
+                                <div class="p-badge" style="background: #F59E0B; color: #0E3D32; font-weight: 800;">ACTIVE PLAN • RECOMMENDED</div>
+                                <div class="biz-plan-header-strip">
+                                    EstateIQ Professional
                                 </div>
-                                <div class="p-price">
-                                    <span class="p-amount" id="pricePro">₹1,19,999</span>
-                                    <span class="p-period">/ month</span>
+                                <div class="biz-plan-body">
+                                    <div class="biz-plan-pricing-col">
+                                        <div class="biz-plan-price-row">
+                                            <span class="price-num" id="pricePro">₹5,999</span>
+                                            <span class="price-sub">/ month</span>
+                                        </div>
+                                        <div class="biz-plan-annual-sub" id="priceProAnnual">₹71,988 / year</div>
+                                    </div>
+                                    <ul class="biz-feature-list">
+                                        <li><i class="fa-solid fa-circle-check"></i> Advanced ELITE Analytics</li>
+                                        <li><i class="fa-solid fa-circle-check"></i> AI-Powered Decision Support</li>
+                                        <li><i class="fa-solid fa-circle-check"></i> Forecasting & Insights</li>
+                                    </ul>
                                 </div>
-                                <ul class="p-features">
-                                    <li><i class="fa-solid fa-check text-green"></i> Up to 15 Buildings</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> All 9 Domain ML Models</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> 24/7 AI Co-Pilot & What-If Simulator</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> Real-time Telemetry & SHAP Explainability</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> Automated Action Rules Engine</li>
-                                </ul>
-                                <button class="btn btn-primary btn-block upgrade-plan-btn" data-plan="enterprise_pro" disabled>Current Active Plan</button>
+                                <button class="btn btn-primary btn-block upgrade-plan-btn" data-plan="professional" disabled>Current Active Plan</button>
                             </div>
 
-                            <!-- TIER 3: SOVEREIGN CUSTOM -->
-                            <div class="pricing-card" id="planCardSovereign">
-                                <div class="p-header">
-                                    <h3>Sovereign / ESG Enterprise</h3>
-                                    <p>For government campuses and multi-city estates.</p>
-                                </div>
-                                <div class="p-price">
-                                    <span class="p-amount">Custom</span>
-                                </div>
-                                <ul class="p-features">
-                                    <li><i class="fa-solid fa-check text-green"></i> Unlimited Buildings & Campuses</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> On-Premise ML Model Deployment</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> ISO 14064 ESG Audit Exporter</li>
-                                    <li><i class="fa-solid fa-check text-green"></i> SLA 99.99% & Dedicated AI Engineer</li>
-                                </ul>
-                                <button class="btn btn-secondary btn-block upgrade-plan-btn" data-plan="sovereign_custom">Contact Enterprise Sales</button>
+                        </div>
+
+                        <!-- MIDDLE SECTION: CAPABILITIES MATRIX & FLEXIBLE REVENUE OPTIONS -->
+                        <div class="biz-split-grid">
+                            
+                            <!-- LEFT: ESTATEIQ CAPABILITIES TABLE -->
+                            <div class="biz-table-card">
+                                <table class="biz-table">
+                                    <thead>
+                                        <tr>
+                                            <th>EstateIQ Capabilities</th>
+                                            <th style="width: 140px;">EstateIQ Basic</th>
+                                            <th style="width: 160px;">EstateIQ Professional</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><i class="fa-solid fa-chart-simple text-mint" style="margin-right: 8px;"></i> SHAP Explainability & Transparent Insights</td>
+                                            <td><i class="fa-solid fa-check"></i></td>
+                                            <td><i class="fa-solid fa-check"></i></td>
+                                        </tr>
+                                        <tr>
+                                            <td><i class="fa-solid fa-sliders text-teal" style="margin-right: 8px;"></i> What-if Scenario Simulation</td>
+                                            <td class="dash">—</td>
+                                            <td><i class="fa-solid fa-check"></i></td>
+                                        </tr>
+                                        <tr>
+                                            <td><i class="fa-solid fa-shield-halved text-green" style="margin-right: 8px;"></i> Post-Action Verification</td>
+                                            <td class="dash">—</td>
+                                            <td><i class="fa-solid fa-check"></i></td>
+                                        </tr>
+                                        <tr>
+                                            <td><i class="fa-solid fa-robot text-gold" style="margin-right: 8px;"></i> AI Decision Support & Recommendations</td>
+                                            <td><i class="fa-solid fa-check"></i></td>
+                                            <td><i class="fa-solid fa-check"></i></td>
+                                        </tr>
+                                        <tr>
+                                            <td><i class="fa-solid fa-chart-line text-blue" style="margin-right: 8px;"></i> Predictive Analytics & Forecasting</td>
+                                            <td><i class="fa-solid fa-check"></i></td>
+                                            <td><i class="fa-solid fa-check"></i></td>
+                                        </tr>
+                                        <tr>
+                                            <td><i class="fa-solid fa-cloud-arrow-down text-purple" style="margin-right: 8px;"></i> Offline Deployment Support</td>
+                                            <td class="dash">—</td>
+                                            <td><i class="fa-solid fa-check"></i></td>
+                                        </tr>
+                                        <tr>
+                                            <td><i class="fa-solid fa-file-invoice text-amber" style="margin-right: 8px;"></i> Advanced Reports & Insights</td>
+                                            <td style="color: #0E3D32; font-weight: 700;">Monthly</td>
+                                            <td style="color: #0E3D32; font-weight: 700;">Up to 10× Advanced</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
 
+                            <!-- RIGHT: FLEXIBLE REVENUE OPTIONS -->
+                            <div class="biz-rev-options-card">
+                                <div class="biz-card-header-bar">
+                                    Flexible Revenue Options
+                                </div>
+                                <div class="biz-rev-list">
+                                    <div class="biz-rev-item">
+                                        <div class="biz-rev-icon"><i class="fa-solid fa-laptop-code text-teal"></i></div>
+                                        <div class="biz-rev-info">
+                                            <h4>Hardware & Installation (One-Time)</h4>
+                                            <p>Sensors, deployment & setup</p>
+                                        </div>
+                                    </div>
+                                    <div class="biz-rev-item">
+                                        <div class="biz-rev-icon"><i class="fa-solid fa-crown text-gold"></i></div>
+                                        <div class="biz-rev-info">
+                                            <h4>Subscription Plans (Monthly / Yearly)</h4>
+                                            <p>Basic to Pro</p>
+                                        </div>
+                                    </div>
+                                    <div class="biz-rev-item">
+                                        <div class="biz-rev-icon"><i class="fa-solid fa-code text-mint"></i></div>
+                                        <div class="biz-rev-info">
+                                            <h4>Self-Hosted License</h4>
+                                            <p>(On-Premise Deployment)</p>
+                                        </div>
+                                    </div>
+                                    <div class="biz-rev-item">
+                                        <div class="biz-rev-icon"><i class="fa-solid fa-gem text-blue"></i></div>
+                                        <div class="biz-rev-info">
+                                            <h4>Source Code Access</h4>
+                                            <p>(with License)</p>
+                                        </div>
+                                    </div>
+                                    <div class="biz-rev-item">
+                                        <div class="biz-rev-icon"><i class="fa-solid fa-handshake text-amber"></i></div>
+                                        <div class="biz-rev-info">
+                                            <h4>Custom Solutions</h4>
+                                            <p>(For Large Campuses)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- BOTTOM: WHY WE'RE DIFFERENT? -->
+                        <div class="biz-why-section">
+                            <div class="biz-why-pill">
+                                Why We're Different?
+                            </div>
+                            <div class="biz-why-grid">
+                                <div class="biz-why-card">
+                                    <div class="biz-why-icon">🤖</div>
+                                    <div class="biz-why-text">
+                                        <h4>AI-Powered Insights</h4>
+                                        <p>Smarter decisions, not just data</p>
+                                    </div>
+                                </div>
+                                <div class="biz-why-card">
+                                    <div class="biz-why-icon">🌿</div>
+                                    <div class="biz-why-text">
+                                        <h4>Four-in-One Monitoring</h4>
+                                        <p>Energy + Water + Air + Waste in one platform</p>
+                                    </div>
+                                </div>
+                                <div class="biz-why-card">
+                                    <div class="biz-why-icon">📈</div>
+                                    <div class="biz-why-text">
+                                        <h4>Cost-Effective & Scalable</h4>
+                                        <p>Built for Tier 2-3 Institutions</p>
+                                    </div>
+                                </div>
+                                <div class="biz-why-card">
+                                    <div class="biz-why-icon">🛡️</div>
+                                    <div class="biz-why-text">
+                                        <h4>Trusted & Future-Ready</h4>
+                                        <p>Sustainable campuses, better tomorrow</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="biz-footer-tagline">
+                            ESTATEIQ • AI-DRIVEN SUSTAINABLE FACILITY & ESTATE INTELLIGENCE
                         </div>
 
                     </div>

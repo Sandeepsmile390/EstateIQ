@@ -5061,3 +5061,495 @@ button:active, .btn:active, .tab-btn:active, .quick-chip:active {
     overflow-y: auto !important;
     white-space: pre-wrap !important;
 }
+
+/* ==========================================================================
+   BUSINESS MODEL & SUBSCRIPTION SLIDE STYLES (BPUT HACKATHON 2026)
+   ========================================================================== */
+.biz-model-container {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.biz-top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #FFFFFF;
+    border-radius: 18px;
+    padding: 16px 24px;
+    border: 1px solid rgba(14, 61, 50, 0.12);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+}
+
+.biz-title-area {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.biz-pill-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #0E3D32;
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 4px 14px;
+    border-radius: 20px;
+    width: fit-content;
+    letter-spacing: 0.5px;
+}
+
+.biz-sub-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0E3D32;
+    margin: 4px 0 0 0;
+}
+
+.biz-tagline {
+    font-size: 12.5px;
+    color: #64748B;
+    margin: 0;
+}
+
+.biz-hackathon-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.04) 100%);
+    border: 1.5px solid #F59E0B;
+    border-radius: 14px;
+    padding: 8px 16px;
+    text-align: right;
+}
+
+.biz-hackathon-badge .bput-text {
+    font-size: 12px;
+    font-weight: 800;
+    color: #D97706;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+}
+
+.biz-hardware-banner {
+    background: linear-gradient(135deg, rgba(14, 61, 50, 0.96) 0%, rgba(23, 92, 75, 0.92) 100%);
+    border: 1px solid rgba(0, 240, 181, 0.35);
+    border-radius: 18px;
+    padding: 20px 26px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    box-shadow: 0 10px 28px rgba(14, 61, 50, 0.2);
+    color: #FFFFFF;
+}
+
+.biz-hw-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+}
+
+.biz-hw-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    background: rgba(0, 240, 181, 0.15);
+    border: 1px solid rgba(0, 240, 181, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #00F0B5;
+}
+
+.biz-hw-step-pill {
+    display: inline-block;
+    background: #F59E0B;
+    color: #0E3D32;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.biz-hw-info h3 {
+    font-size: 18px;
+    font-weight: 800;
+    margin: 0;
+    color: #FFFFFF;
+}
+
+.biz-hw-info p {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 2px 0 0 0;
+}
+
+.biz-hw-cost-box {
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 14px;
+    padding: 10px 22px;
+    text-align: center;
+    min-width: 200px;
+}
+
+.biz-hw-cost-box .cost-label {
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.biz-hw-cost-box .cost-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: #00F0B5;
+    font-family: var(--font-heading);
+}
+
+.biz-hw-note {
+    font-size: 12px;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.8);
+    max-width: 250px;
+    border-left: 2px solid rgba(0, 240, 181, 0.4);
+    padding-left: 14px;
+    line-height: 1.35;
+}
+
+.biz-plans-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+}
+
+.biz-plan-card {
+    background: #FFFFFF;
+    border-radius: 18px;
+    padding: 24px;
+    border: 1px solid rgba(14, 61, 50, 0.12);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.biz-plan-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(14, 61, 50, 0.1);
+}
+
+.biz-plan-card.featured {
+    border: 2px solid #0E3D32;
+    box-shadow: 0 10px 32px rgba(14, 61, 50, 0.15);
+}
+
+.biz-plan-header-strip {
+    background: #0E3D32;
+    color: #FFFFFF;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 16px;
+    text-align: center;
+    margin-bottom: 16px;
+    letter-spacing: 0.3px;
+}
+
+.biz-plan-card.featured .biz-plan-header-strip {
+    background: linear-gradient(135deg, #0E3D32 0%, #175C4B 100%);
+    border: 1px solid rgba(0, 240, 181, 0.3);
+}
+
+.biz-plan-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 18px;
+    flex: 1;
+}
+
+.biz-plan-pricing-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+}
+
+.biz-plan-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.biz-plan-price-row .price-num {
+    font-size: 34px;
+    font-weight: 800;
+    color: #0E3D32;
+    font-family: var(--font-heading);
+}
+
+.biz-plan-price-row .price-sub {
+    font-size: 13px;
+    color: #64748B;
+}
+
+.biz-plan-annual-sub {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0E3D32;
+    margin-top: 2px;
+}
+
+.biz-feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+}
+
+.biz-feature-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    color: #1E293B;
+}
+
+.biz-feature-list li i.fa-circle-check {
+    color: #10B981;
+    font-size: 15px;
+}
+
+/* MIDDLE SPLIT: CAPABILITIES TABLE & REVENUE OPTIONS */
+.biz-split-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 22px;
+}
+
+.biz-table-card {
+    background: #FFFFFF;
+    border-radius: 18px;
+    border: 1px solid rgba(14, 61, 50, 0.12);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.biz-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+
+.biz-table thead tr {
+    background: #0E3D32;
+    color: #FFFFFF;
+    text-align: left;
+}
+
+.biz-table th {
+    padding: 12px 16px;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.3px;
+}
+
+.biz-table th:nth-child(2),
+.biz-table th:nth-child(3) {
+    text-align: center;
+}
+
+.biz-table tbody tr {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.biz-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.biz-table tbody tr:nth-child(even) {
+    background: rgba(14, 61, 50, 0.02);
+}
+
+.biz-table td {
+    padding: 10px 16px;
+    color: #1E293B;
+}
+
+.biz-table td:nth-child(2),
+.biz-table td:nth-child(3) {
+    text-align: center;
+    font-weight: 600;
+}
+
+.biz-table td i.fa-check {
+    color: #10B981;
+    font-size: 14px;
+}
+
+.biz-table td.dash {
+    color: #94A3B8;
+    font-size: 16px;
+}
+
+.biz-rev-options-card {
+    background: #FFFFFF;
+    border-radius: 18px;
+    border: 1px solid rgba(14, 61, 50, 0.12);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.biz-card-header-bar {
+    background: #0E3D32;
+    color: #FFFFFF;
+    padding: 12px 18px;
+    font-weight: 700;
+    font-size: 13.5px;
+    text-align: center;
+    letter-spacing: 0.3px;
+}
+
+.biz-rev-list {
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    flex: 1;
+}
+
+.biz-rev-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.biz-rev-icon {
+    font-size: 18px;
+    width: 28px;
+    text-align: center;
+    margin-top: 2px;
+}
+
+.biz-rev-info h4 {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0;
+    color: #0E3D32;
+}
+
+.biz-rev-info p {
+    font-size: 11.5px;
+    color: #64748B;
+    margin: 2px 0 0 0;
+}
+
+/* WHY WE'RE DIFFERENT */
+.biz-why-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    margin-top: 4px;
+}
+
+.biz-why-pill {
+    background: #0E3D32;
+    color: #FFFFFF;
+    padding: 6px 22px;
+    border-radius: 20px;
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.biz-why-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    width: 100%;
+}
+
+.biz-why-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(14, 61, 50, 0.1);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+}
+
+.biz-why-icon {
+    font-size: 26px;
+}
+
+.biz-why-text h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0E3D32;
+    margin: 0;
+}
+
+.biz-why-text p {
+    font-size: 11.5px;
+    color: #64748B;
+    margin: 2px 0 0 0;
+    line-height: 1.3;
+}
+
+.biz-footer-tagline {
+    text-align: center;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #0E3D32;
+    padding: 12px 0 4px 0;
+    border-top: 1px solid rgba(14, 61, 50, 0.1);
+}
+
+@media (max-width: 992px) {
+    .biz-hardware-banner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .biz-hw-note {
+        border-left: none;
+        border-top: 2px solid rgba(0, 240, 181, 0.4);
+        padding-left: 0;
+        padding-top: 10px;
+        max-width: 100%;
+    }
+    .biz-plans-grid-2col,
+    .biz-split-grid {
+        grid-template-columns: 1fr;
+    }
+    .biz-why-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .biz-why-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1948,24 +1948,48 @@ def list_registered_models(user: Dict[str, Any] = Depends(require_permission("mo
         results.append(meta)
     return {"registered_models_count": len(results), "models": results}
 
+class SubscriptionUpgradeRequest(BaseModel):
+    target_plan: str
+    billing_cycle: Optional[str] = "annual"
+
 @app.get("/api/v1/subscription")
 def get_subscription_details(user: Dict[str, Any] = Depends(require_permission("facility.read"))):
     return {
         "current_plan": {
-            "id": "enterprise_pro",
-            "name": "Enterprise Pro Plan",
+            "id": "estateiq_pro",
+            "name": "EstateIQ Professional",
             "badge": "PRO ACTIVE",
-            "price_monthly_usd": 1499,
-            "price_monthly_inr": 119999,
+            "price_monthly_inr": 5999,
+            "price_annual_inr": 71988,
             "billing_cycle": "annual",
             "renewal_date": "2027-10-01",
             "status": "ACTIVE"
+        },
+        "hardware_installation": {
+            "title": "Hardware & Installation",
+            "status": "COMPLETED",
+            "cost_range": "₹1,00,000 - ₹1,50,000",
+            "scope": "Sensors, deployment & setup"
         },
         "usage_limits": {
             "monitored_buildings": {"used": 8, "total": 15, "unit": "Buildings"},
             "api_requests": {"used": 14200, "total": 50000, "unit": "Calls/mo"},
             "ml_predictions": {"used": 8500, "total": 25000, "unit": "Inferences/mo"}
         }
+    }
+
+@app.post("/api/v1/subscription/upgrade")
+def upgrade_subscription(req: SubscriptionUpgradeRequest, user: Dict[str, Any] = Depends(require_permission("facility.read"))):
+    plan_names = {
+        "basic": "EstateIQ Basic (₹3,499/mo)",
+        "professional": "EstateIQ Professional (₹5,999/mo)"
+    }
+    plan_name = plan_names.get(req.target_plan, req.target_plan.title())
+    return {
+        "status": "SUCCESS",
+        "message": f"Successfully activated {plan_name} on {req.billing_cycle} billing cycle.",
+        "plan_id": req.target_plan,
+        "billing_cycle": req.billing_cycle
     }
 
 # --- Groq AI Copilot & IoT Ingestion Service Endpoints ---

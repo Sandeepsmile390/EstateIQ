@@ -678,19 +678,43 @@ function initSubscriptionUpgradeListeners() {
                     })
                 });
 
-                if (res.ok) {
-                    const data = await res.json();
-                    showToast(`Subscription Upgrade: ${data.message}`);
-                    
-                    upgradeBtns.forEach(b => {
-                        b.disabled = false;
-                        b.textContent = "Switch to " + b.getAttribute("data-plan").replace("_", " ").toUpperCase();
-                    });
-                    btn.disabled = true;
-                    btn.textContent = "Current Active Plan";
+                const planDisplayName = (planId === "basic") ? "EstateIQ Basic" : "EstateIQ Professional";
+                const planPriceText = (planId === "basic") 
+                    ? "₹3,499 / month (₹41,988 / year) • Active Institutional License"
+                    : "₹5,999 / month (₹71,988 / year) • Active Institutional License";
 
-                    const headerPlanLabel = document.getElementById("headerPlanLabel");
-                    if (headerPlanLabel) headerPlanLabel.textContent = planId.replace("_", " ").toUpperCase();
+                showToast(`Subscription Updated: Activated ${planDisplayName}`);
+                
+                upgradeBtns.forEach(b => {
+                    const p = b.getAttribute("data-plan");
+                    b.disabled = false;
+                    b.className = "btn btn-secondary btn-block upgrade-plan-btn";
+                    b.textContent = (p === "basic") ? "Switch to Basic" : "Switch to Pro";
+                });
+                btn.disabled = true;
+                btn.className = "btn btn-primary btn-block upgrade-plan-btn";
+                btn.textContent = "Current Active Plan";
+
+                const planTitle = document.getElementById("billingCurrentPlanTitle");
+                if (planTitle) planTitle.textContent = planDisplayName;
+
+                const planPriceEl = document.querySelector(".sub-plan-price");
+                if (planPriceEl) planPriceEl.innerHTML = (planId === "basic")
+                    ? '₹3,499 / month <span class="inr-sub">(₹41,988 / year)</span> • Active Institutional License'
+                    : '₹5,999 / month <span class="inr-sub">(₹71,988 / year)</span> • Active Institutional License';
+
+                const headerPlanLabel = document.getElementById("headerPlanLabel");
+                if (headerPlanLabel) headerPlanLabel.textContent = (planId === "basic") ? "EstateIQ Basic" : "EstateIQ Pro";
+
+                // Update featured card border styling
+                const cardBasic = document.getElementById("planCardStarter");
+                const cardPro = document.getElementById("planCardPro");
+                if (planId === "basic") {
+                    cardBasic?.classList.add("featured");
+                    cardPro?.classList.remove("featured");
+                } else {
+                    cardPro?.classList.add("featured");
+                    cardBasic?.classList.remove("featured");
                 }
             } catch (err) {
                 showToast(`Switched plan to ${planId.toUpperCase()}`);
@@ -700,11 +724,13 @@ function initSubscriptionUpgradeListeners() {
 
     cycleToggle?.addEventListener("change", () => {
         const isAnnual = cycleToggle.checked;
-        const pStarter = document.getElementById("priceStarter");
-        const pPro = document.getElementById("pricePro");
+        const pStarterAnnual = document.getElementById("priceStarterAnnual");
+        const pProAnnual = document.getElementById("priceProAnnual");
+        const discountLabel = document.querySelector(".billing-toggle-pill .discount-label");
 
-        if (pStarter) pStarter.textContent = isAnnual ? "$399" : "$499";
-        if (pPro) pPro.textContent = isAnnual ? "$1,199" : "$1,499";
+        if (pStarterAnnual) pStarterAnnual.textContent = isAnnual ? "₹41,988 / year" : "Billed monthly";
+        if (pProAnnual) pProAnnual.textContent = isAnnual ? "₹71,988 / year" : "Billed monthly";
+        if (discountLabel) discountLabel.textContent = isAnnual ? "Annual Plan Selected" : "Monthly Billing";
     });
 }
 

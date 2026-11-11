@@ -572,13 +572,15 @@ static void oledUpdateDashboard() {
     }
     oledDrawLineClamped(5, lineBuf);
 
-    // Line 6: MQ-135 Air Pollutants PPM Measurement (or PZEM Power if enabled)
+    // Line 6: Peer PZEM-004T Metrology from ESP32 Node #2
     if (g_lastElec.valid) {
-        snprintf(lineBuf, sizeof(lineBuf), "Power: %.2f kW", g_lastElec.active_power_kw);
-    } else if (g_lastEnv.gas_valid) {
-        snprintf(lineBuf, sizeof(lineBuf), "Air PPM: %.0f ppm", g_lastEnv.estimated_ppm);
+        if (g_lastElec.active_power_kw >= 1.0f) {
+            snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.2fkW %.0fV", g_lastElec.active_power_kw, g_lastElec.voltage_v);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.0fW %.0fV", g_lastElec.active_power_kw * 1000.0f, g_lastElec.voltage_v);
+        }
     } else {
-        snprintf(lineBuf, sizeof(lineBuf), "Air PPM: Standby");
+        snprintf(lineBuf, sizeof(lineBuf), "PZEM: Standby");
     }
     oledDrawLineClamped(6, lineBuf);
 
@@ -684,6 +686,67 @@ void enqueueTelemetry(const char* topic, const char* payload) {
     Serial.printf("[QUEUE] Stored packet offline (queue depth: %d/%d)\n", queueCount, OFFLINE_QUEUE_SIZE);
 }
 
+// ---------------- Peer PZEM-004T Synchronization (Node #2) ----------------
+static unsigned long g_lastPeerPzemSyncMillis = 0;
+
+static void syncPeerPzemFromNetwork() {
+    if (WiFi.status() != WL_CONNECTED) return;
+    unsigned long now = millis();
+    if (now - g_lastPeerPzemSyncMillis < PEER_PZEM_SYNC_INTERVAL_MS) return;
+    g_lastPeerPzemSyncMillis = now;
+
+    HTTPClient http;
+    bool syncSuccess = false;
+
+    // Option A: Direct LAN Peer Query if Node #2 IP is configured
+    if (strlen(PEER_PZEM_ESP32_IP) > 0) {
+        char peerUrl[96];
+        snprintf(peerUrl, sizeof(peerUrl), "http://%s/api/data", PEER_PZEM_ESP32_IP);
+        http.begin(peerUrl);
+        http.setTimeout(1200);
+        int code = http.GET();
+        if (code == 200) {
+            String payload = http.getString();
+            StaticJsonDocument<512> pDoc;
+            DeserializationError err = deserializeJson(pDoc, payload);
+            if (!err) {
+                g_lastElec.valid = pDoc["connected"].as<bool>();
+                g_lastElec.voltage_v = pDoc["voltage"].as<float>();
+                g_lastElec.current_a = pDoc["current"].as<float>();
+                float pW = pDoc["power"].as<float>();
+                g_lastElec.active_power_kw = isnan(pW) ? 0.0f : (pW / 1000.0f);
+                g_lastElec.cumulative_energy_kwh = pDoc["energy"].as<float>();
+                syncSuccess = true;
+            }
+        }
+        http.end();
+    }
+
+    // Option B: Shared EstateIQ Backend Relay (automatic zero-config sync)
+    if (!syncSuccess) {
+        http.begin(PEER_METER_ENDPOINT);
+        http.setTimeout(1500);
+        int code = http.GET();
+        if (code == 200) {
+            String payload = http.getString();
+            StaticJsonDocument<768> bDoc;
+            DeserializationError err = deserializeJson(bDoc, payload);
+            if (!err && bDoc.containsKey("telemetry")) {
+                JsonObject tel = bDoc["telemetry"];
+                if (tel.containsKey("active_power_kw") || tel.containsKey("voltage_v")) {
+                    g_lastElec.valid = true;
+                    g_lastElec.active_power_kw = tel["active_power_kw"] | (tel["power_kw"] | 0.0f);
+                    g_lastElec.voltage_v = tel["voltage_v"] | (tel["voltage"] | 0.0f);
+                    g_lastElec.current_a = tel["current_a"] | (tel["current"] | 0.0f);
+                    g_lastElec.cumulative_energy_kwh = tel["cumulative_energy_kwh"] | 0.0f;
+                    syncSuccess = true;
+                }
+            }
+        }
+        http.end();
+    }
+}
+
 bool sendHttpTelemetry(const char* payload) {
     if (WiFi.status() != WL_CONNECTED) return false;
     HTTPClient http;
@@ -698,6 +761,23 @@ bool sendHttpTelemetry(const char* payload) {
         Serial.printf("[HTTP] Telemetry POST accepted (HTTP %d)\n", httpResponseCode);
         g_lastIngestionStatus = "200 OK";
         success = true;
+
+        // Auto-extract peer PZEM-004T metrology readings piggybacked in backend response
+        String resp = http.getString();
+        if (resp.length() > 0) {
+            StaticJsonDocument<512> doc;
+            DeserializationError err = deserializeJson(doc, resp);
+            if (!err && doc.containsKey("peer_meter")) {
+                JsonObject pm = doc["peer_meter"];
+                if (pm["valid"].as<bool>()) {
+                    g_lastElec.valid = true;
+                    g_lastElec.active_power_kw = pm["power_kw"].as<float>();
+                    g_lastElec.voltage_v = pm["voltage_v"].as<float>();
+                    g_lastElec.current_a = pm["current_a"].as<float>();
+                    g_lastElec.cumulative_energy_kwh = pm["energy_kwh"].as<float>();
+                }
+            }
+        }
     } else {
         Serial.printf("[HTTP] Telemetry POST failed (HTTP %d: %s)\n",
                       httpResponseCode, http.errorToString(httpResponseCode).c_str());
@@ -1287,7 +1367,10 @@ void loop() {
 
     unsigned long now = millis();
 
-    // Fast periodic OLED update for smooth 4-second page carousel & prompt response
+    // Synchronize peer PZEM-004T metrology from Node #2 (direct LAN or backend relay)
+    syncPeerPzemFromNetwork();
+
+    // Fast periodic OLED update for smooth prompt response
     static unsigned long lastOledRefreshMillis = 0;
     if (now - lastOledRefreshMillis >= 1000UL) {
         lastOledRefreshMillis = now;
@@ -1303,8 +1386,7 @@ void loop() {
         lastAcquisitionMillis = now;
 
         // A. Sample physical hardware sensors at continuous high-frequency rate
-        ElectricityReadings elec; // Dedicated to Node #2 (PZEM-004T)
-        g_lastElec = elec;
+        ElectricityReadings elec = g_lastElec; // Dedicated to Node #2 (PZEM-004T)
 
         WaterReadings water;
         readWaterFlowSensor(water);

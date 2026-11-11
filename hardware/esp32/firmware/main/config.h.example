@@ -123,4 +123,9 @@
 
 #define OFFLINE_QUEUE_SIZE             30
 
+// Peer PZEM-004T Node #2 Sync (LAN or Backend Relayed)
+#define PEER_PZEM_ESP32_IP          ""
+#define PEER_METER_ENDPOINT         "http://10.144.97.191:8000/api/v1/iot/devices/METER-BLOCK-B-001/telemetry/latest"
+#define PEER_PZEM_SYNC_INTERVAL_MS  3000
+
 #endif // ESTATEIQ_CONFIG_H

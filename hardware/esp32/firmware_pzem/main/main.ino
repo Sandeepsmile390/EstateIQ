@@ -521,6 +521,7 @@ void setup() {
     // Start Local Web Server
     server.on("/", HTTP_GET, handleRoot);
     server.on("/data", HTTP_GET, handleData);
+    server.on("/api/data", HTTP_GET, handleData);
     server.begin();
     Serial.println("[HTTP-SERVER] Local Web Dashboard active on port 80");
 

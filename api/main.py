@@ -2354,6 +2354,36 @@ def ingest_iot_telemetry(payload: Dict[str, Any]):
     print(f"[LIVE-TELEMETRY] Dev: {dev_id} | Src: {src} | Status: {res.get('status')} | Metrics: {raw_m}", flush=True)
     if not (res.get("success") or res.get("accepted")):
         raise HTTPException(status_code=400, detail=res.get("error") or res.get("reason", "INGESTION_FAILED"))
+
+    # Enrich response with latest peer PZEM-004T metrology snapshot (from Node #2)
+    # for display on ESP32 #1 gateway OLED screen across the shared local network
+    pzem_snap = GLOBAL_DEVICE_REGISTRY.get_latest_telemetry("METER-BLOCK-B-001")
+    if pzem_snap and pzem_snap.get("telemetry") and len(pzem_snap["telemetry"]) > 0:
+        m = pzem_snap["telemetry"]
+        p_kw = m.get("active_power_kw") or m.get("power_kw") or 0.0
+        v_v = m.get("voltage_v") or m.get("voltage") or 0.0
+        c_a = m.get("current_a") or m.get("current") or 0.0
+        e_kwh = m.get("cumulative_energy_kwh") or m.get("energy_kwh") or 0.0
+        res["peer_meter"] = {
+            "valid": True,
+            "device_id": "METER-BLOCK-B-001",
+            "power_kw": round(float(p_kw), 3),
+            "power_w": round(float(p_kw) * 1000.0, 1),
+            "voltage_v": round(float(v_v), 1),
+            "current_a": round(float(c_a), 2),
+            "energy_kwh": round(float(e_kwh), 3),
+            "last_sample_at": pzem_snap.get("last_sample_at")
+        }
+    else:
+        res["peer_meter"] = {
+            "valid": False,
+            "device_id": "METER-BLOCK-B-001",
+            "power_kw": 0.0,
+            "power_w": 0.0,
+            "voltage_v": 0.0,
+            "current_a": 0.0,
+            "energy_kwh": 0.0
+        }
     return res
 
 @app.post("/api/v1/iot/telemetry/batch")

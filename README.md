@@ -50,62 +50,89 @@ Load or generate data ➔ inspect data quality ➔ view facility trends ➔ dete
 
 ---
 
-## 🛠️ Quick Start & Execution Guide
+## 🚀 How to Start the Whole Project (Step-by-Step)
 
-### Step 1: Environment Setup
-```bash
+EstateIQ is designed to run end-to-end with or without physical hardware. Follow these steps to start all services:
+
+### 1. Prerequisites & Virtual Environment
+```powershell
+# Windows (PowerShell)
 git clone https://github.com/Sandeepsmile390/EstateIQ.git
 cd EstateIQ
+python -m venv .venv
+.\.venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env
 ```
+*(On Linux/macOS: `source .venv/bin/activate`)*
 
-### Step 2: Seed Deterministic Campus Dataset
-```bash
-python scripts/seed_demo_data.py
+---
+
+### 2. Start the Backend API & Live Web Dashboard (Primary Application)
+The primary backend is a FastAPI application that serves the core REST API, ingestion pipeline, anomaly detection engine, AI copilot, and the rich live dashboard.
+
+```powershell
+# Set environment variables for demo / hardware telemetry
+$env:GATEWAY_API_KEY="gw_secret_estateiq_hw_2026"
+$env:ALLOW_UNVERIFIED_DEMO_INGESTION="true"
+
+# Launch FastAPI server on Port 8000
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+*(On CMD: `set GATEWAY_API_KEY=gw_secret_estateiq_hw_2026 && set ALLOW_UNVERIFIED_DEMO_INGESTION=true && python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`)*  
+*(On Linux/macOS: `export GATEWAY_API_KEY="gw_secret_estateiq_hw_2026" && export ALLOW_UNVERIFIED_DEMO_INGESTION="true" && python -m uvicorn api.main:app --host 0.0.0.0 --port 8000`)*
 
-### Step 3: Launch FastAPI Backend Server (Port 8000)
-```bash
-# Terminal 1: API
-uvicorn api.main:app --host 127.0.0.1 --port 8000
-# or on Windows:
-run_api.bat
-# or on Linux/macOS:
-./run_api.sh
-```
-- Health Check: `curl http://127.0.0.1:8000/health` (responds with `{"status":"HEALTHY","version":"2.0.0","database":"CONNECTED"}`)
-- Interactive Swagger OpenAPI Docs: **`http://127.0.0.1:8000/docs`**
-- Polling Telemetry Snapshot: **`http://127.0.0.1:8000/api/v1/iot/telemetry/stream`** (JSON snapshot polled every 3–5 seconds by client; not SSE/WebSocket)
+#### 🌐 Accessing the Live Dashboards:
+* **Live IoT Telemetry & Sensor Gateway Monitor:** [http://localhost:8000/#iot-monitor](http://localhost:8000/#iot-monitor)
+* **Campus Main Decision Platform:** [http://localhost:8000](http://localhost:8000)
+* **Node #2 PZEM Metrology Dashboard:** [http://localhost:8000/pzem](http://localhost:8000/pzem)
+* **Interactive Swagger REST API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### Step 4: Launch Streamlit Command Center Dashboard (Port 8501)
-```bash
-# Terminal 2: Dashboard
+---
+
+### 3. (Optional) Ingesting Physical ESP32 Hardware
+EstateIQ supports two independent physical ESP32 nodes:
+
+* **Node #1: Multi-Sensor Edge Gateway (Sonar, Water Flow, DHT11, MQ-135, OLED)**
+  * Firmware sketch: [`hardware/esp32/firmware/main/main.ino`](hardware/esp32/firmware/main/main.ino)
+  * Upload via Arduino IDE or PlatformIO.
+  * Over Wi-Fi: automatically transmits telemetry to `http://<your-pc-ip>:8000/api/v1/iot/telemetry`.
+  * Over USB Serial Bridge (e.g. COM7):
+    ```powershell
+    python tools/esp32_serial_bridge.py --port COM7
+    ```
+* **Node #2: Dedicated PZEM-004T AC Metrology Gateway**
+  * Firmware sketch: [`hardware/esp32/firmware_pzem/main/main.ino`](hardware/esp32/firmware_pzem/main/main.ino)
+  * Features an embedded real-time web server on Port 80 and direct HTTP ingestion to the backend.
+
+---
+
+### 4. (Optional) Start the Multi-Page Streamlit Analytics Cockpit (Port 8501)
+For executive analytics, campus topological maps, and advanced What-If scenario simulations:
+```powershell
+# Open a new terminal:
 streamlit run app.py --server.port 8501
-# or on Windows:
-run_dashboard.bat
-# or on Linux/macOS:
-./run_dashboard.sh
 ```
-Open **`http://localhost:8501/`** for the Streamlit Multipage Command Center.
+Open **[http://localhost:8501](http://localhost:8501)** in your browser.
 
-### Step 5: (Optional) Launch Standalone Resource Simulator (Port 8502)
-```bash
-# Terminal 3: Resource Simulator
+---
+
+### 5. (Optional) Start the Standalone Multi-Utility Resource Simulator (Port 8502)
+To stress-test facility scenarios (HVAC surge, pipe bursts, bin overflows, power sags) through synthetic simulation:
+```powershell
+# Open a new terminal:
 cd resource-simulator-app
 python server.py
 ```
-Open **`http://localhost:8502`** for the multi-utility Electricity, Water, Air Quality, and Waste controller (in addition to the built-in simulator on the web client at `http://localhost:8000`).
+Open **[http://localhost:8502](http://localhost:8502)** in your browser.
 
-### Step 6: Hardware Edge Gateway (ESP32)
-Flash `hardware/esp32/firmware/main.ino` with Arduino IDE onto an ESP32 NodeMCU. It samples PZEM-004T (Modbus), ZJ-S201 (Flow pulse), AJ-SR04M (Water tank sonar), HC-SR04 (Smart waste bin sonar), DHT11, and MQ-135, transmitting canonical JSON payloads to `POST /api/v1/iot/telemetry`. Includes a volatile 30-packet DRAM offline queue for Wi-Fi drop resilience and dynamic bench sonar routing.
+---
 
-### Step 7: Demo Credentials & Role Access
-| Username | Password | Role | Permitted Actions |
+### 6. Demo Credentials & User Roles
+| Username / Email | Password | Role | Access Level |
 |---|---|---|---|
-| `admin` / `admin@estateiq.in` | `password123` | `administrator` | Full campus config, demo seed/reset, thresholds, user roles, batch rollback |
-| `tech` / `tech@estateiq.in` | `password123` | `operations` | Acknowledge/assign alerts, update action status, record completion notes |
-| `sustainability` / `esg@estateiq.in` | `password123` | `sustainability` | What-if scenarios, sustainability metrics, scoped CSV and printable reports |
+| `admin` / `admin@estateiq.in` | `password123` | `FACILITY_ADMIN` | Full campus management, live gateway approvals, system settings |
+| `tech` / `tech@estateiq.in` | `password123` | `OPERATIONS_TECH` | Acknowledge & resolve alerts, work order execution |
+| `sustainability` / `esg@estateiq.in` | `password123` | `ESG_AUDITOR` | ESG carbon footprint, compliance audits, CSV exports |
 
 ---
 

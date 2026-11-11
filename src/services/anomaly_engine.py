@@ -470,6 +470,29 @@ class EstateIQAdaptiveAnomalyEngine:
             physical_reason = f"Ambient enclosure temperature reached {value:.1f}°C (exceeds 45°C limit)."
             action_text = "Inspect server/electrical room ventilation and auxiliary exhaust fan operation."
 
+        # Waste Bin Overflow / Critical Fill Level (HC-SR04 Sonar)
+        elif metric in ("fill_level_percent", "bin_fill_level_percent", "fill_level") and value >= 80.0:
+            is_extreme = True
+            physical_reason = f"Smart waste bin fill level ({value:.1f}%) reached critical capacity threshold (>= 80.0%)."
+            action_text = "Dispatch custodial / waste collection crew to empty bin immediately."
+
+        elif metric in ("bin_distance_cm", "bin_clearance_cm", "bin_distance") and 0.0 < value <= 10.0:
+            is_extreme = True
+            physical_reason = f"Ultrasonic bin clearance ({value:.1f} cm) below 10.0 cm safety buffer. Bin overflow imminent."
+            action_text = "Dispatch sanitation personnel for immediate bin clearance."
+
+        # Power Factor Penalty / Inductive Inefficiency
+        elif metric in ("power_factor", "pf") and 0.0 < value < 0.80:
+            is_extreme = True
+            physical_reason = f"Poor power factor ({value:.2f} < 0.80) indicates reactive power inefficiency and penalty risk."
+            action_text = "Inspect power factor correction capacitor bank and large motor drives."
+
+        # Active Power in Watts (PZEM-004T bench limit 3500 W)
+        elif metric in ("power_w", "active_power_w") and value > 3500.0:
+            is_extreme = True
+            physical_reason = f"Active power load ({value:.1f} W) surged past safety trip capacity (3500 W)."
+            action_text = "Audit electrical circuit breaker and stage-shed non-critical loads immediately."
+
         # ---------------------------------------------------------------------
         # 4. PERSISTENCE EVALUATION (Noise Immunity for Moderate Spikes)
         # ---------------------------------------------------------------------

@@ -499,10 +499,11 @@ Table XI and Figure 7 report runtime benchmarks conducted on a single CPU core (
 
 ## VIII. Threats to Validity, Hardware Safety, and Practical Limitations
 
-1. *High-Voltage Mains AC Safety:* Electrical energy monitoring involves high-voltage mains AC ($80\text{--}260\text{ V}$). The PZEM-004T module must be installed inside an electrically isolated enclosure behind dedicated circuit protection, with opto-isolated TTL lines separating high-voltage AC from the low-voltage ESP32 microcontroller.
-2. *Analog ADC Metrology Limitations:* The ESP32 internal SAR ADC exhibits known non-linearities below $0.15\text{ V}$ and above $3.1\text{ V}$. While the $2.2\text{ k}\Omega / 3.3\text{ k}\Omega$ resistive voltage divider bounds the maximum voltage to $3.00\text{ V}$, MQ-135 readings are recorded as indicative raw ADC counts rather than certified laboratory gas concentrations.
-3. *Acoustic Ultrasonic Deadband:* The AJ-SR04M waterproof transducer exhibits a physical ringing blind zone of $20\text{--}25\text{ cm}$. Transducers must be mounted with sufficient standoff clearance above maximum tank fill levels.
-4. *Simulated Telemetry Provenance:* Longitudinal energy benchmarks utilize synthetic telemetry. Physical phenomena such as seasonal weather extremes, sensor degradation, and non-linear building dynamics require further physical validation.
+1. *Validation Scope:* Forecast and anomaly metrics come from synthetic 15-minute energy traces and injected/replay faults. Water, waste, air-quality, and AI explanation paths are implemented but have not been validated against labeled field data; thresholds require site commissioning.
+2. *Hardware Coverage and Calibration:* The current ESP32 sensor setup does not include a PZEM meter, so it cannot provide live electricity measurements. Water totals depend on a calibrated flow-sensor pulse factor; ultrasonic mounting and blind-zone limits, and DHT11 accuracy, constrain field readings. Any mains meter requires a protected, isolated installation by a qualified person.
+3. *Gas Sensor Limits:* MQ-135 ADC counts and voltage are raw responses affected by warm-up, humidity, cross-sensitivity, and drift. They are not calibrated ppm, CO$_2$, or AQI measurements and are not suitable for compliance claims.
+4. *Cadence and Delivery:* The hackathon firmware profile reports every 5 seconds normally and 3 seconds during anomalies, while the evaluated cadence design uses 15 and 5 minutes. These demo timings are not production performance evidence. The ESP32 queue is bounded volatile memory, so outages or resets can lose queued telemetry.
+5. *Operational Claims:* EstateIQ provides decision support and does not actuate equipment. Alerts require on-site verification; feature attribution does not establish physical cause, and scenario savings are estimates rather than measured outcomes.
 
 ## IX. Reproducibility, Artifacts, and Ethical Deployment
 

@@ -57,21 +57,25 @@ The physical hardware integration follows a strict, authenticated edge-to-cloud 
 | Subsystem | Sensor / Meter Model | ESP32 GPIO | Electrical Logic Level | Signal Conditioning / Protection | Canonical Metric Name |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Electricity Metrology** | Eastron SDM630-Modbus (MID Certified 3-Phase Meter) | **GPIO16 (RX2)**<br/>**GPIO17 (TX2)**<br/>**GPIO4 (DE/RE)** | 3.3V TTL | Mornsun TD301D485H optically isolated RS-485 transceiver with 2500 VDC galvanic isolation barrier. | `voltage_v` (V)<br/>`current_a` (A)<br/>`active_power_kw` (kW)<br/>`cumulative_energy_kwh` (kWh)<br/>`power_factor`<br/>`frequency_hz` (Hz) |
-| **Water Flow** | YF-S201 Turbine Hall Sensor (1.0 to 30.0 L/min) | **GPIO5** | 3.3V TTL (Pulsed) | **Mandatory 10k/20k voltage divider** steps 5.0V pulses down to 3.33V safely. ISR interrupt counter on rising edge (~450 pulses/L). | `water_flow_lmin` (L/min)<br/>`cumulative_water_m3` (m³) |
-| **Water Pressure (Opt)** | 4–20 mA Industrial Pressure Transmitter | **GPIO34 (ADC1)** | 0.60V to 3.00V DC | **150 Ω precision shunt (0.1%)**. ⚠️ Standard 250 Ω shunts produce 5.0V and permanently destroy ESP32 ADC! (Disabled by default: Pin -1). | `water_pressure_bar` (bar) |
-| **Tank Level (Opt)** | Ultrasonic / Hydrostatic Sensor | **GPIO12/13** | 3.3V TTL | Disabled by default (Pin -1) until commissioned with physical tank geometry calibration. | `tank_level_pct` (%) |
+| **Water Flow** | ZJ-S201 / YF-S201 Hall turbine sensor | **GPIO26** (supplied profile) | ESP32-safe pulse input | Confirm the signal stays within 0–3.3V; use level conditioning for a 5V pulse. Calibrate the pulse factor with a measured volume (~450 pulses/L is an initial estimate). | `water_flow_lmin` (L/min)<br/>`water_cumulative_liters` (L)<br/>`water_pulse_count_total` (count)<br/>`cumulative_water_m3` (m³) |
+| **Waste Bin Level** | HC-SR04 ultrasonic sonar | **GPIO14 (Trig), GPIO27 (Echo)** | Echo must be ESP32-safe | If powered at 5V, protect Echo with a divider before GPIO27. Configure `BIN_TOTAL_DEPTH_CM` to the measured bin depth. Supplied single sonar is mapped to the Waste node. | `bin_distance_cm` (cm)<br/>`fill_level_percent` (%) |
+| **DHT11** | Digital temperature / humidity module | **GPIO4** (supplied profile) | 3.3V data logic | Use a data pull-up if the module does not include one; keep the ESP32 data line at 3.3V. | `temperature_c`, `humidity_pct`, `heat_index_c` |
+| **MQ-135** | Analog gas-response module | **GPIO34 (ADC1)** | ADC input must stay ≤3.3V | Use a divider for 5V analog output and set `MQ135_VOLTAGE_DIVIDER_RATIO` to its actual resistor ratio. Raw ADC/voltage do not become ppm/AQI without calibration. | `mq135_raw_adc`, `mq135_voltage_v`, `mq135_warmup_status` |
+| **OLED** | SSD1306 128×64 I²C display | **GPIO21 (SDA), GPIO22 (SCL)** | 3.3V I²C | Verify the module I²C address (`0x3C` default). | Local status only |
+| **Water Pressure (Opt)** | 4–20 mA Industrial Pressure Transmitter | **Disabled by default** | ADC1 only with conditioning | A current loop requires a correctly sized shunt and overvoltage protection; do not connect the loop directly to an ESP32 pin. | `water_pressure_bar` (bar) |
+| **Water Tank Level (Opt)** | Separate ultrasonic / hydrostatic sensor | **Disabled by default** | Configure dedicated pins before enabling | The supplied sketch has one ultrasonic sensor, assigned to bin fill. Install and calibrate a second sensor before enabling a tank-level node. | `tank_level_pct` (%) |
 
 ### Critical Electrical Safety & Compliance Rules
 1. **Never connect AC mains (230V/415V) or raw current transformers (CT) directly to ESP32 pins.** High-voltage metrology is enclosed entirely within the certified DIN-rail energy meter.
-2. **Never connect 5V signals directly to ESP32 GPIOs.** The YF-S201 yellow pulse wire MUST pass through the 10k/20k voltage divider to GND before touching GPIO5.
+2. **Never connect 5V signals directly to ESP32 GPIOs.** Protect the HC-SR04 Echo and any 5V flow pulse output with appropriate level conditioning before connecting them to the ESP32.
 3. **Read-Only / Decision-Support Only:** The firmware performs non-intrusive edge observation only. It contains no relay switching, circuit breaker tripping, or valve shutoff routines.
 
 ---
 
 ## 3. Firmware Configuration (`config.h`)
 
-1. Navigate to `hardware/esp32/firmware/`.
-2. Copy `config.h.example` to `config.h`:
+1. Navigate to `hardware/esp32/firmware/` (or open its `main/` subfolder in Arduino IDE; both firmware copies use the same pin profile).
+2. Copy `config.h.example` to `config.h` and set the Wi-Fi, backend LAN address, and gateway key:
    ```bash
    cp config.h.example config.h
    ```
@@ -105,6 +109,12 @@ The physical hardware integration follows a strict, authenticated edge-to-cloud 
 ```
 
 > **Security Notice:** `config.h` is excluded from Git tracking via `.gitignore`. Never commit physical gateway credentials or Wi-Fi passwords to public version control.
+
+### Supplied ESP32 Sensor Profile
+
+The firmware retains authenticated HTTP ingestion and the existing JSON envelope while matching the tested pins from the supplied sketch: ZJ-S201 GPIO26, HC-SR04 Trig/Echo GPIO14/27, DHT11 GPIO4, MQ-135 analog GPIO34, and SSD1306 I²C GPIO21/22. The single HC-SR04 is reported as waste-bin distance and estimated fill. This sketch has no PZEM meter or separate water-tank sonar, so those are disabled by default in `config.h.example`; the dashboard electricity card will remain in standby until a PZEM-004T is connected and enabled.
+
+The example configuration enables fast hackathon updates (5-second normal and 3-second anomaly reports). Set `DEMO_FAST_CADENCE_ENABLED` to `0` for the 15-minute normal / 5-minute anomaly schedule. MQ-135 uploads raw ADC, divider-corrected voltage, and heater warm-up status; the firmware does not claim ppm or AQI without gas-specific calibration.
 
 ---
 
@@ -143,7 +153,8 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
    - Install Libraries via Library Manager:
      - `ArduinoJson` by Benoit Blanchon (version 6.21.x)
      - `PubSubClient` by Nick O'Leary (version 2.8+)
-   - Open `hardware/esp32/firmware/main.ino`.
+     - `DHT sensor library` by Adafruit
+   - Open `hardware/esp32/firmware/main/main.ino`.
    - Compile and Upload to the ESP32.
 
 ### Step 3: Monitor Serial Diagnostics

@@ -67,14 +67,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-@app.middleware("http")
-async def log_bad_requests(request: Request, call_next):
-    body_bytes = await request.body()
-    response = await call_next(request)
-    if response.status_code == 400:
-        print(f"[HTTP-400-DEBUG] URL: {request.url.path} | Body: {body_bytes.decode('utf-8', errors='replace')}", flush=True)
-    return response
-
 
 @app.exception_handler(AIServiceError)
 def ai_service_exception_handler(request: Request, exc: AIServiceError):
@@ -240,6 +232,12 @@ def serve_dashboard_route():
     if os.path.exists("web/index.html"):
         return FileResponse("web/index.html")
     return {"message": "EstateIQ Web Dashboard"}
+
+@app.get("/pzem")
+def serve_pzem_dashboard():
+    if os.path.exists("web/pzem.html"):
+        return FileResponse("web/pzem.html")
+    return {"message": "PZEM Dashboard"}
 
 # --- Health & Readiness Endpoints ---
 @app.get("/health")
@@ -1398,32 +1396,141 @@ def parking_summary(user: Dict[str, Any] = Depends(require_permission("mobility.
 def equipment_summary(user: Dict[str, Any] = Depends(require_permission("assets.read"))):
     return repo.get_latest_equipment()
 
+# --- Alert Action Request Models ---
+class AlertActionRequest(BaseModel):
+    notes: Optional[str] = None
+    actor: Optional[str] = "Operator"
+
+class AlertAssignRequest(BaseModel):
+    assignee: str
+    actor: Optional[str] = "Supervisor"
+    notes: Optional[str] = None
+
+class AlertDismissRequest(BaseModel):
+    dismissal_reason: str = "Operator dismissed"
+    actor: Optional[str] = "Operator"
+
+class AlertResolveRequest(BaseModel):
+    resolution_notes: str = "Resolved by facility technician"
+    actor: Optional[str] = "Operator"
+
 @app.get("/api/v1/alerts")
-def get_alerts(user: Dict[str, Any] = Depends(require_permission("alerts.read"))):
+def get_alerts(
+    source_type: Optional[str] = None,
+    state: Optional[str] = None,
+    severity: Optional[str] = None,
+    device_id: Optional[str] = None,
+    limit: int = 100,
+    user: Dict[str, Any] = Depends(require_permission("alerts.read"))
+):
+    from src.services.alert_service import GLOBAL_ALERT_SERVICE
+    alerts = GLOBAL_ALERT_SERVICE.list_alerts(
+        source_type=source_type,
+        state=state,
+        severity=severity,
+        device_id=device_id,
+        limit=limit
+    )
     return {
-        "total_active_alerts": 2,
-        "provenance": ProvenanceType.DERIVED,
-        "provenance_badge": "[DECISION ENGINE]",
-        "alerts": [
-            {
-                "id": "ALT_01",
-                "priority": "Priority 1 (URGENT)",
-                "module": "Energy",
-                "location": "Block B Hostel",
-                "message": "Unusual HVAC load surge during peak temperature hours.",
-                "observed_kwh": 145.2,
-                "expected_kwh": 78.0,
-                "deviation": "+86.1%"
-            },
-            {
-                "id": "ALT_02",
-                "priority": "Priority 2 (MODERATE)",
-                "module": "Waste",
-                "location": "Central Cafeteria",
-                "message": "Bin 01 fill level projected >90% within 2 hours.",
-                "fill_level_pct": 78.5,
-                "fill_rate_phr": 4.2
-            }
+        "total_alerts": len(alerts),
+        "total_active_alerts": GLOBAL_ALERT_SERVICE.get_active_count(),
+        "alerts": [a.model_dump() if hasattr(a, "model_dump") else a.dict() for a in alerts]
+    }
+
+@app.get("/api/v1/alerts/{alert_id}")
+def get_alert_by_id(alert_id: str, user: Dict[str, Any] = Depends(require_permission("alerts.read"))):
+    from src.services.alert_service import GLOBAL_ALERT_SERVICE
+    alert = GLOBAL_ALERT_SERVICE.get_alert(alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail=f"Alert '{alert_id}' not found.")
+    return alert.model_dump() if hasattr(alert, "model_dump") else alert.dict()
+
+@app.post("/api/v1/alerts/{alert_id}/acknowledge")
+def acknowledge_alert(
+    alert_id: str,
+    req: AlertActionRequest = AlertActionRequest(),
+    user: Dict[str, Any] = Depends(require_permission("recommendations.execute"))
+):
+    from src.services.alert_service import GLOBAL_ALERT_SERVICE
+    try:
+        actor = req.actor or user.get("name", user.get("email", "Operator"))
+        alert = GLOBAL_ALERT_SERVICE.acknowledge_alert(alert_id, actor=actor, notes=req.notes)
+        return alert.model_dump() if hasattr(alert, "model_dump") else alert.dict()
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Alert '{alert_id}' not found.")
+
+@app.post("/api/v1/alerts/{alert_id}/assign")
+def assign_alert(
+    alert_id: str,
+    req: AlertAssignRequest,
+    user: Dict[str, Any] = Depends(require_permission("recommendations.execute"))
+):
+    from src.services.alert_service import GLOBAL_ALERT_SERVICE
+    try:
+        actor = req.actor or user.get("name", user.get("email", "Supervisor"))
+        alert = GLOBAL_ALERT_SERVICE.assign_alert(alert_id, assignee=req.assignee, actor=actor, notes=req.notes)
+        return alert.model_dump() if hasattr(alert, "model_dump") else alert.dict()
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Alert '{alert_id}' not found.")
+
+@app.post("/api/v1/alerts/{alert_id}/resolve")
+def resolve_alert(
+    alert_id: str,
+    req: AlertResolveRequest = AlertResolveRequest(),
+    user: Dict[str, Any] = Depends(require_permission("recommendations.execute"))
+):
+    from src.services.alert_service import GLOBAL_ALERT_SERVICE
+    try:
+        actor = req.actor or user.get("name", user.get("email", "Operator"))
+        alert = GLOBAL_ALERT_SERVICE.resolve_alert(alert_id, actor=actor, resolution_notes=req.resolution_notes)
+        return alert.model_dump() if hasattr(alert, "model_dump") else alert.dict()
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Alert '{alert_id}' not found.")
+
+@app.post("/api/v1/alerts/{alert_id}/dismiss")
+def dismiss_alert(
+    alert_id: str,
+    req: AlertDismissRequest = AlertDismissRequest(),
+    user: Dict[str, Any] = Depends(require_permission("recommendations.execute"))
+):
+    from src.services.alert_service import GLOBAL_ALERT_SERVICE
+    try:
+        actor = req.actor or user.get("name", user.get("email", "Operator"))
+        alert = GLOBAL_ALERT_SERVICE.dismiss_alert(alert_id, actor=actor, dismissal_reason=req.dismissal_reason)
+        return alert.model_dump() if hasattr(alert, "model_dump") else alert.dict()
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Alert '{alert_id}' not found.")
+
+@app.get("/api/v1/iot/gateways")
+def get_gateways_status():
+    """Returns connectivity, latency, packet count, and sensor states for both physical ESP32 gateways."""
+    from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+    return {
+        "gateways": GLOBAL_DEVICE_REGISTRY.get_gateways_status(),
+        "summary": {
+            "node_1_edge_gateway": "ESP32_EDGE_GATEWAY_01 (HC-SR04 Sonar, ZJ-S201 Water Flow, DHT11, MQ-135)",
+            "node_2_pzem_gateway": "ESP32_PZEM_GATEWAY_01 (PZEM-004T Metrology Monitor)",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+        }
+    }
+
+@app.get("/api/v1/weather/current")
+def get_current_weather(lat: float = 28.6139, lon: float = 77.2090):
+    from src.services.weather_service import GLOBAL_WEATHER_SERVICE
+    data = GLOBAL_WEATHER_SERVICE.get_current_weather(lat=lat, lon=lon)
+    return data.model_dump() if hasattr(data, "model_dump") else data.dict()
+
+@app.get("/api/v1/weather/forecast")
+def get_weather_forecast(lat: float = 28.6139, lon: float = 77.2090):
+    from src.services.weather_service import GLOBAL_WEATHER_SERVICE
+    current = GLOBAL_WEATHER_SERVICE.get_current_weather(lat=lat, lon=lon)
+    curr_dict = current.model_dump() if hasattr(current, "model_dump") else current.dict()
+    return {
+        "current": curr_dict,
+        "forecast": [
+            {"hour": "+1h", "temperature_c": current.temperature_c + 0.5, "weather": current.weather_condition},
+            {"hour": "+3h", "temperature_c": current.temperature_c + 1.2, "weather": current.weather_condition},
+            {"hour": "+6h", "temperature_c": current.temperature_c - 1.0, "weather": current.weather_condition}
         ]
     }
 

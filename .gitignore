@@ -48,6 +48,7 @@ venv.bak/
 !.env.example
 hardware/esp32/firmware/config.h
 hardware/esp32/firmware/main/config.h
+hardware/esp32/firmware_pzem/main/config.h
 
 # IDEs and Editors
 .vscode/

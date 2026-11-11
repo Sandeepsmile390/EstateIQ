@@ -107,6 +107,25 @@ class AIContextBuilder:
             "iot_registry": iot_registry_summary
         }
 
+        # Add Gateway Health, Outdoor Weather Context, and Active Facility Alerts
+        try:
+            from src.services.weather_service import GLOBAL_WEATHER_SERVICE
+            query_meta["outdoor_weather_context"] = GLOBAL_WEATHER_SERVICE.get_current_weather().model_dump()
+        except Exception:
+            pass
+
+        try:
+            from src.services.alert_service import GLOBAL_ALERT_SERVICE
+            query_meta["active_facility_alerts"] = [a.model_dump() for a in GLOBAL_ALERT_SERVICE.list_alerts(limit=5)]
+        except Exception:
+            pass
+
+        try:
+            from src.registry.device_registry import GLOBAL_DEVICE_REGISTRY
+            query_meta["gateways_health"] = GLOBAL_DEVICE_REGISTRY.get_gateways_status()
+        except Exception:
+            pass
+
         # 4b. Ingest Live IoT Telemetry from Physical Registry or Active Simulator
         try:
             from src.services.iot_simulator import GLOBAL_IOT_SIMULATOR
@@ -146,8 +165,10 @@ class AIContextBuilder:
         hvac_p_val, _, _ = _fetch_live_metric(["DEV_HVAC_01"], ["hvac_load_kw", "load_kw"], "hvac_load_kw")
         hvac_stat_val, _, _ = _fetch_live_metric(["DEV_HVAC_01"], ["hvac_status", "status"], "hvac_status")
 
-        wf_val, wf_badge, wf_hw = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["flow_rate_lmin", "flow_rate", "water_flow"], "water_flow_lmin")
-        cum_w_val, _, _ = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["cumulative_volume_m3", "cumulative_m3"], "cumulative_water_m3")
+        wf_val, wf_badge, wf_hw = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["water_flow_lmin", "flow_rate_lmin", "flow_rate", "water_flow"], "water_flow_lmin")
+        cum_w_val, _, _ = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["cumulative_water_m3", "cumulative_volume_m3", "cumulative_m3"], "cumulative_water_m3")
+        cum_liters_val, _, _ = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["water_cumulative_liters", "cumulative_liters"], "water_cumulative_liters")
+        water_pulses_val, _, _ = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["water_pulse_count_total", "pulse_count_total"], "water_pulse_count_total")
         tank_p_val, _, _ = _fetch_live_metric(["WATER-BLOCK-B-001", "DEV_WATER_01"], ["tank_level_pct", "level_pct", "water_level_pct"], "tank_level_pct")
         tank_dist_val, _, _ = _fetch_live_metric(["WATER-BLOCK-B-001"], ["tank_distance_cm", "distance_cm"], None)
 
@@ -156,9 +177,13 @@ class AIContextBuilder:
 
         temp_val, env_badge, env_hw = _fetch_live_metric(["ENV-BLOCK-B-001", "DEV_ENV_01"], ["temperature_c", "room_temperature_c", "temperature"], "temperature_c")
         hum_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001", "DEV_ENV_01"], ["humidity_pct", "humidity"], "humidity_pct")
+        heat_index_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001", "DEV_ENV_01"], ["heat_index_c", "heat_index"], "heat_index_c")
+        mq_warmup_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001"], ["mq135_warmup_status"], None)
         occ_val, _, _ = _fetch_live_metric(["DEV_ENV_01"], ["occupancy_count", "occupancy"], "occupancy_count")
-        aqi_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001", "DEV_ENV_01"], ["indoor_aqi", "air_quality_aqi", "mq135_adc_ppm"], "air_quality_aqi")
-        raw_adc_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001"], ["air_quality_raw_adc", "mq135_adc_raw", "mq135_adc_ppm"], None)
+        aqi_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001", "DEV_ENV_01"], ["indoor_aqi", "air_quality_aqi"], "air_quality_aqi")
+        raw_adc_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001"], ["mq135_raw_adc", "air_quality_raw_adc", "mq135_adc_raw"], None)
+        raw_voltage_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001"], ["mq135_voltage_v", "sensor_voltage_v"], None)
+        raw_adc_pin_voltage_val, _, _ = _fetch_live_metric(["ENV-BLOCK-B-001"], ["mq135_adc_pin_voltage_v", "adc_pin_voltage_v"], None)
 
         live_device_readings = {
             "DEV_ELEC_01": {
@@ -182,6 +207,8 @@ class AIContextBuilder:
                 "device_name": "Water Riser Flow & Tank Node (WATER-BLOCK-B-001 / DEV_WATER_01)",
                 "water_flow_lmin": round(float(wf_val), 1) if wf_val is not None else None,
                 "cumulative_water_m3": round(float(cum_w_val), 1) if cum_w_val is not None else None,
+                "water_cumulative_liters": round(float(cum_liters_val), 2) if cum_liters_val is not None else None,
+                "water_pulse_count_total": int(water_pulses_val) if water_pulses_val is not None else None,
                 "tank_level_pct": round(float(tank_p_val), 1) if tank_p_val is not None else None,
                 "tank_distance_cm": round(float(tank_dist_val), 1) if tank_dist_val is not None else None,
                 "is_available": wf_val is not None or tank_p_val is not None,
@@ -191,11 +218,15 @@ class AIContextBuilder:
                 "device_name": "Environmental & Occupancy Node (ENV-BLOCK-B-001 / DEV_ENV_01)",
                 "room_temperature_c": round(float(temp_val), 1) if temp_val is not None else None,
                 "humidity_pct": round(float(hum_val), 1) if hum_val is not None else None,
+                "heat_index_c": round(float(heat_index_val), 1) if heat_index_val is not None else None,
+                "mq135_is_warming_up": bool(float(mq_warmup_val) == 0.0) if mq_warmup_val is not None else None,
                 "occupancy_count": int(occ_val) if occ_val is not None else None,
                 "indoor_aqi": round(float(aqi_val), 1) if aqi_val is not None else None,
                 "raw_gas_adc": int(raw_adc_val) if raw_adc_val is not None else None,
-                "sensor_disclaimer": "MQ-135 sensor provides indicative uncalibrated ADC/ppm estimates; not certified EPA/CPCB AQI.",
-                "is_available": temp_val is not None or aqi_val is not None,
+                "raw_gas_voltage_v": round(float(raw_voltage_val), 3) if raw_voltage_val is not None else None,
+                "mq135_adc_pin_voltage_v": round(float(raw_adc_pin_voltage_val), 3) if raw_adc_pin_voltage_val is not None else None,
+                "sensor_disclaimer": "MQ-135 ADC and voltage are uncalibrated indicative sensor response. No ppm or AQI value is available without gas-specific calibration.",
+                "is_available": temp_val is not None or aqi_val is not None or raw_adc_val is not None,
                 "data_source_badge": env_badge
             },
             "WASTE-BLOCK-B-001": {
@@ -328,7 +359,7 @@ class AIContextBuilder:
                     "confidence_percent": iot_registry_summary.get("sensor_reliability_pct", 90.0) if iot_registry_summary.get("online_devices", 0) > 0 else 75.0,
                     "confidence_level": "HIGH" if iot_registry_summary.get("online_devices", 0) > 0 else "MEDIUM"
                 },
-                "sensor_disclaimer": "MQ-135 sensor readings provide uncalibrated indicative gas estimates only; not certified EPA AQI.",
+                "sensor_disclaimer": "MQ-135 ADC and voltage are uncalibrated indicative sensor response. No ppm or AQI value is available without gas-specific calibration.",
                 "recommended_actions": [
                     {"title": "Open Live IoT Monitor tab for real-time streaming telemetry", "expected_cost_saving_inr": 0},
                     {"title": "Verify gateway connection for physical ESP32 nodes", "expected_cost_saving_inr": 0}
@@ -396,7 +427,7 @@ class AIContextBuilder:
                 "data_quality": {"quality_score": quality_score, "sensor_reliability": iot_registry_summary.get("sensor_reliability_pct", 0.0)},
                 "business_impact": {"hourly_cost_inr": 0.0, "annual_cost_of_inaction_inr": 0.0},
                 "confidence": {"confidence_percent": conf_pct, "confidence_level": "HIGH" if conf_pct >= 85 else "MEDIUM"},
-                "sensor_disclaimer": "MQ-135 semiconductor sensor output is raw uncalibrated ADC/ppm estimate for indicative indoor air quality trends only; not certified by EPA/CPCB for compliance.",
+                "sensor_disclaimer": "MQ-135 ADC and voltage are uncalibrated indicative sensor response. No ppm or AQI value is available without gas-specific calibration.",
                 "recommended_actions": [
                     {"title": "Increase AHU Fresh Air Intake Rate in Block A", "expected_cost_saving_inr": 800.0}
                 ]
@@ -481,7 +512,7 @@ class AIContextBuilder:
                 "live_waste_fill_pct": live_device_readings["WASTE-BLOCK-B-001"]["fill_level_pct"]
             },
             "live_device_readings": live_device_readings,
-            "sensor_disclaimer": "MQ-135 semiconductor sensor output is raw uncalibrated ADC/ppm estimate for indicative indoor air quality trends only; not certified by EPA/CPCB for compliance.",
+            "sensor_disclaimer": "MQ-135 ADC and voltage are uncalibrated indicative sensor response. No ppm or AQI value is available without gas-specific calibration.",
             "contextual_baseline": {
                 "expected_kwh": round(decision.contextual.expected_kwh, 2),
                 "residual_kwh": round(decision.contextual.residual_kwh, 2),

@@ -1884,6 +1884,89 @@
                                 </div>
                             </div>
 
+                            <!-- 4-WAY TELEMETRY SOURCE SELECTOR & PROVENANCE BAR -->
+                            <div style="margin-top: 18px; padding: 12px 16px; background: #061813; border: 1.5px solid #00F0B5; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                    <span style="font-size: 11px; font-weight: 800; color: #A7F3D0; text-transform: uppercase; letter-spacing: 0.6px;"><i class="fa-solid fa-database"></i> Telemetry Source Mode:</span>
+                                    <div class="btn-group" role="group" id="sourceSelectorGroup" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                        <button class="btn btn-sm active" id="btnSourceAuto" style="font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 8px; background: #00F0B5; color: #04120E; border: none; cursor: pointer;">
+                                            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto (Physical First)
+                                        </button>
+                                        <button class="btn btn-sm" id="btnSourceReal" style="font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 8px; background: rgba(0, 240, 181, 0.15); color: #00F0B5; border: 1px solid #00F0B5; cursor: pointer;">
+                                            <i class="fa-solid fa-microchip"></i> Live Hardware Only
+                                        </button>
+                                        <button class="btn btn-sm" id="btnSourceSim" style="font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 8px; background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid #F59E0B; cursor: pointer;">
+                                            <i class="fa-solid fa-sliders"></i> Simulator Only
+                                        </button>
+                                        <button class="btn btn-sm" id="btnSourceSynth" style="font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 8px; background: rgba(96, 165, 250, 0.15); color: #60A5FA; border: 1px solid #60A5FA; cursor: pointer;">
+                                            <i class="fa-solid fa-chart-line"></i> Synthetic Benchmark
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="activeProvenanceBanner" style="font-size: 11px; font-weight: 800; color: #00F0B5; padding: 4px 10px; background: rgba(0,240,181,0.1); border-radius: 8px; border: 1px solid rgba(0,240,181,0.3);">
+                                    Active Pipeline: <span id="activePipelineLabel">PRIORITIZING VERIFIED PHYSICAL ESP32 GATEWAYS</span>
+                                </div>
+                            </div>
+
+                            <!-- DUAL ESP32 GATEWAY CONNECTIVITY STATUS -->
+                            <div style="margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+                                <!-- GATEWAY 1: EDGE GATEWAY -->
+                                <div class="gateway-box" id="gwNode1Box" style="background: #081F19; border: 1.5px solid #00F0B5; border-radius: 12px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span class="pulse-dot" id="gwNode1Dot" style="width: 10px; height: 10px; background: #00F0B5; border-radius: 50%;"></span>
+                                            <strong style="color: #FFFFFF; font-size: 13px;">ESP32 Edge Gateway #1</strong>
+                                            <span style="font-size: 10px; background: rgba(0,240,181,0.2); color: #00F0B5; padding: 2px 6px; border-radius: 6px; font-weight: 800;" id="gwNode1Status">ONLINE</span>
+                                        </div>
+                                        <div style="font-size: 11px; color: #CBD5E1; margin-top: 4px;">Hostel Block B · Sensors: Sonar / Flow / DHT11 / MQ-135</div>
+                                        <div style="font-size: 10px; color: #94E4D0; margin-top: 2px;" id="gwNode1Metrics">Packets: -- | Age: --</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <span style="font-size: 10px; color: #38BDF8; font-family: monospace;">10.144.97.9</span>
+                                    </div>
+                                </div>
+
+                                <!-- GATEWAY 2: PZEM METROLOGY GATEWAY -->
+                                <div class="gateway-box" id="gwNode2Box" style="background: #081F19; border: 1.5px solid #F59E0B; border-radius: 12px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span class="pulse-dot" id="gwNode2Dot" style="width: 10px; height: 10px; background: #F59E0B; border-radius: 50%;"></span>
+                                            <strong style="color: #FFFFFF; font-size: 13px;">ESP32 PZEM Gateway #2</strong>
+                                            <span style="font-size: 10px; background: rgba(245,158,11,0.2); color: #F59E0B; padding: 2px 6px; border-radius: 6px; font-weight: 800;" id="gwNode2Status">STANDBY / READY</span>
+                                        </div>
+                                        <div style="font-size: 11px; color: #CBD5E1; margin-top: 4px;">Main Electrical Submeter · PZEM-004T Metrology</div>
+                                        <div style="font-size: 10px; color: #FCD34D; margin-top: 2px;" id="gwNode2Metrics">UART2 Metrology · Port 80 Web Server</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <a href="/pzem" target="_blank" class="btn btn-sm" style="font-size: 11px; font-weight: 800; background: #F59E0B; color: #17251D; border: none; border-radius: 6px; padding: 4px 10px; text-decoration: none;">
+                                            <i class="fa-solid fa-gauge"></i> Node #2 Web View ↗
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- OUTDOOR AMBIENT WEATHER CONTEXT (NON-BLOCKING) -->
+                            <div id="outdoorWeatherStrip" style="margin-top: 14px; background: #0A241C; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 10px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); display: flex; align-items: center; justify-content: center; color: #38BDF8;">
+                                        <i class="fa-solid fa-cloud-sun"></i>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <strong style="color: #FFFFFF; font-size: 12px;">Outdoor Ambient Weather Context:</strong>
+                                            <span style="font-size: 11px; color: #38BDF8; font-weight: 700;" id="weatherOutdoorCondition">Clear Sky</span>
+                                            <span style="font-size: 10px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; padding: 2px 6px; border-radius: 4px;">NOT INDOOR HVAC</span>
+                                        </div>
+                                        <div style="font-size: 11px; color: #94A3B8;">Delhi NCR Campus Ambient &bull; Open-Meteo Server Cache</div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 18px; font-size: 12px; font-weight: 700;">
+                                    <span style="color: #FBBF24;"><i class="fa-solid fa-temperature-half"></i> <span id="weatherOutdoorTemp">28.5 °C</span></span>
+                                    <span style="color: #60A5FA;"><i class="fa-solid fa-droplet"></i> <span id="weatherOutdoorHum">58 % RH</span></span>
+                                    <span style="color: #CBD5E1;"><i class="fa-solid fa-wind"></i> <span id="weatherOutdoorWind">12 km/h</span></span>
+                                </div>
+                            </div>
+
                             <!-- GATEWAY KPI STRIP -->
                             <div class="forecast-cards-grid" style="margin-top: 20px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
                                 <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
@@ -2464,6 +2547,31 @@
                                 <div style="grid-column: 1 / -1; padding: 24px; text-align: center; color: #E2E8F0; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px dashed rgba(0, 240, 181, 0.3);">
                                     <i class="fa-solid fa-circle-notch fa-spin text-mint" style="font-size: 20px; margin-right: 8px;"></i> Discovering active sensor nodes and edge gateways...
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- LIVE ALERT FEED & ANOMALY ACTION CENTER WIDGET -->
+                        <div class="iot-dark-card" style="margin-top: 24px; background: #081D17 !important; border: 1.5px solid #EF4444 !important; border-radius: 16px; padding: 22px; box-shadow: 0 14px 40px rgba(0,0,0,0.85); color: #FFFFFF !important;">
+                            <div class="card-header-styled" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.15); border: 1px solid #EF4444; display: flex; align-items: center; justify-content: center; color: #EF4444; font-size: 20px;">
+                                        <i class="fa-solid fa-bell"></i>
+                                    </div>
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.2rem; font-weight: 800; color: #FFFFFF;">Live Facility Alert Lifecycle & Action Center</h3>
+                                        <p style="margin: 3px 0 0; font-size: 0.8rem; color: #CBD5E1;">Real-time actionable alerts with source provenance, deduplication cooldown & 1-click execution</p>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span class="badge" id="liveAlertsCountBadge" style="background: rgba(239, 68, 68, 0.2); color: #EF4444; border: 1px solid #EF4444; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 12px;">
+                                        2 Active Alerts
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div id="liveAlertsListContainer" style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+                                <!-- Dynamic alerts rendered here -->
+                                <div style="padding: 16px; text-align: center; color: #94A3B8;">Loading active alerts...</div>
                             </div>
                         </div>
 

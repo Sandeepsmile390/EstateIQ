@@ -2149,7 +2149,7 @@ function initIotSimulator() {
                             return Number(t.active_power_kw ?? 0) > 0 || Number(t.voltage_v ?? 0) > 0;
                         }
                         if (d.device_id === 'WATER-BLOCK-B-001') {
-                            return Number(t.tank_distance_cm ?? 0) > 0 || Number(t.water_flow_lmin ?? 0) > 0 || t.tank_status === 'ECHO_TIMEOUT';
+                            return Number(t.tank_distance_cm ?? 0) > 0 || t.water_flow_lmin !== undefined || t.tank_status === 'ECHO_TIMEOUT';
                         }
                         if (d.device_id === 'WASTE-BLOCK-B-001') {
                             return Number(t.bin_distance_cm ?? 0) > 0 || Number(t.fill_level_percent ?? t.fill_level_pct ?? 0) > 0 || d.status === 'ONLINE';
@@ -2213,7 +2213,8 @@ function initIotSimulator() {
                     const barLabel = document.getElementById("liveTankBarLabel");
 
                     if (wFlow && wt.water_flow_lmin !== undefined && wt.water_flow_lmin !== null) wFlow.textContent = `${wt.water_flow_lmin} L/min`;
-                    if (cWater && wt.cumulative_water_m3 !== undefined && wt.cumulative_water_m3 !== null) cWater.textContent = `${wt.cumulative_water_m3} m³`;
+                    if (cWater && wt.water_cumulative_liters !== undefined && wt.water_cumulative_liters !== null) cWater.textContent = `${Number(wt.water_cumulative_liters).toFixed(2)} L`;
+                    else if (cWater && wt.cumulative_water_m3 !== undefined && wt.cumulative_water_m3 !== null) cWater.textContent = `${wt.cumulative_water_m3} m³`;
                     if (wPress && wt.water_pressure_bar !== undefined && wt.water_pressure_bar !== null) wPress.textContent = `${wt.water_pressure_bar} bar`;
 
                     if (elT && wt.tank_level_pct !== undefined && Number(wt.tank_level_pct) > 0) {
@@ -2302,12 +2303,253 @@ function initIotSimulator() {
                     }
                 }
             }
+
+            // 3. Fetch Dual Gateway Status, Outdoor Weather & Live Alert Feed
+            await Promise.allSettled([
+                fetchGatewaysStatus(),
+                fetchOutdoorWeather(),
+                fetchFacilityAlerts()
+            ]);
         } catch (e) {
             const conn = document.getElementById("simConnStatusText");
             if (conn) {
                 conn.textContent = "DISCONNECTED";
                 conn.className = "text-red";
             }
+        }
+    };
+
+    // --------------------------------------------------------------------------
+    // 4-WAY TELEMETRY SOURCE SELECTOR
+    // --------------------------------------------------------------------------
+    window.telemetrySourceMode = "auto";
+
+    const initTelemetrySourceSelector = () => {
+        const btnAuto = document.getElementById("btnSourceAuto");
+        const btnReal = document.getElementById("btnSourceReal");
+        const btnSim = document.getElementById("btnSourceSim");
+        const btnSynth = document.getElementById("btnSourceSynth");
+        const pipeLabel = document.getElementById("activePipelineLabel");
+
+        const setSourceMode = (mode) => {
+            window.telemetrySourceMode = mode;
+            [btnAuto, btnReal, btnSim, btnSynth].forEach(b => {
+                if (!b) return;
+                b.style.background = "transparent";
+                b.style.color = b === btnReal ? "#00F0B5" : (b === btnSim ? "#F59E0B" : (b === btnSynth ? "#60A5FA" : "#00F0B5"));
+                b.style.border = "1px solid " + (b === btnReal ? "#00F0B5" : (b === btnSim ? "#F59E0B" : (b === btnSynth ? "#60A5FA" : "#00F0B5")));
+                b.classList.remove("active");
+            });
+
+            if (mode === "auto") {
+                if (btnAuto) {
+                    btnAuto.style.background = "#00F0B5";
+                    btnAuto.style.color = "#04120E";
+                    btnAuto.style.border = "none";
+                    btnAuto.classList.add("active");
+                }
+                if (pipeLabel) pipeLabel.textContent = "AUTO: PRIORITIZING VERIFIED PHYSICAL ESP32 GATEWAYS";
+            } else if (mode === "real_sensor") {
+                if (btnReal) {
+                    btnReal.style.background = "#00F0B5";
+                    btnReal.style.color = "#04120E";
+                    btnReal.style.border = "none";
+                    btnReal.classList.add("active");
+                }
+                if (pipeLabel) pipeLabel.textContent = "FILTERED: PHYSICAL ESP32 HARDWARE ONLY";
+            } else if (mode === "simulated_iot") {
+                if (btnSim) {
+                    btnSim.style.background = "#F59E0B";
+                    btnSim.style.color = "#04120E";
+                    btnSim.style.border = "none";
+                    btnSim.classList.add("active");
+                }
+                if (pipeLabel) pipeLabel.textContent = "FILTERED: IOT SIMULATOR ENGINE ONLY";
+            } else if (mode === "synthetic") {
+                if (btnSynth) {
+                    btnSynth.style.background = "#60A5FA";
+                    btnSynth.style.color = "#04120E";
+                    btnSynth.style.border = "none";
+                    btnSynth.classList.add("active");
+                }
+                if (pipeLabel) pipeLabel.textContent = "FILTERED: HISTORICAL SYNTHETIC BENCHMARK";
+            }
+            fetchStatus();
+            fetchStreamLog();
+        };
+
+        if (btnAuto) btnAuto.onclick = () => setSourceMode("auto");
+        if (btnReal) btnReal.onclick = () => setSourceMode("real_sensor");
+        if (btnSim) btnSim.onclick = () => setSourceMode("simulated_iot");
+        if (btnSynth) btnSynth.onclick = () => setSourceMode("synthetic");
+    };
+
+    // --------------------------------------------------------------------------
+    // DUAL ESP32 GATEWAY CONNECTIVITY STATUS
+    // --------------------------------------------------------------------------
+    const fetchGatewaysStatus = async () => {
+        try {
+            const res = await fetch("/api/v1/iot/gateways");
+            if (!res.ok) return;
+            const data = await res.json();
+            const gws = data.gateways || [];
+
+            // Node 1: Edge Gateway
+            const node1 = gws.find(g => g.gateway_id === "ESP32_EDGE_GATEWAY_01");
+            if (node1) {
+                const elStatus = document.getElementById("gwNode1Status");
+                const elDot = document.getElementById("gwNode1Dot");
+                const elMetrics = document.getElementById("gwNode1Metrics");
+                if (node1.connection_status === "ONLINE") {
+                    if (elStatus) { elStatus.textContent = "ONLINE"; elStatus.style.background = "rgba(0,240,181,0.2)"; elStatus.style.color = "#00F0B5"; }
+                    if (elDot) elDot.style.background = "#00F0B5";
+                } else if (node1.connection_status === "STALE") {
+                    if (elStatus) { elStatus.textContent = "STALE (>45s)"; elStatus.style.background = "rgba(245,158,11,0.2)"; elStatus.style.color = "#F59E0B"; }
+                    if (elDot) elDot.style.background = "#F59E0B";
+                } else {
+                    if (elStatus) { elStatus.textContent = "OFFLINE"; elStatus.style.background = "rgba(239,68,68,0.2)"; elStatus.style.color = "#EF4444"; }
+                    if (elDot) elDot.style.background = "#EF4444";
+                }
+                if (elMetrics) {
+                    const ageStr = node1.seconds_since_last_seen !== null ? `${node1.seconds_since_last_seen}s ago` : "Waiting";
+                    elMetrics.textContent = `Packets: ${node1.packet_count} | Last seen: ${ageStr}`;
+                }
+            }
+
+            // Node 2: PZEM Gateway
+            const node2 = gws.find(g => g.gateway_id === "ESP32_PZEM_GATEWAY_01");
+            if (node2) {
+                const elStatus = document.getElementById("gwNode2Status");
+                const elDot = document.getElementById("gwNode2Dot");
+                const elMetrics = document.getElementById("gwNode2Metrics");
+                if (node2.connection_status === "ONLINE") {
+                    if (elStatus) { elStatus.textContent = "ONLINE"; elStatus.style.background = "rgba(0,240,181,0.2)"; elStatus.style.color = "#00F0B5"; }
+                    if (elDot) elDot.style.background = "#00F0B5";
+                } else if (node2.connection_status === "STALE") {
+                    if (elStatus) { elStatus.textContent = "STALE"; elStatus.style.background = "rgba(245,158,11,0.2)"; elStatus.style.color = "#F59E0B"; }
+                    if (elDot) elDot.style.background = "#F59E0B";
+                } else {
+                    if (elStatus) { elStatus.textContent = "STANDBY / READY"; elStatus.style.background = "rgba(245,158,11,0.2)"; elStatus.style.color = "#F59E0B"; }
+                    if (elDot) elDot.style.background = "#F59E0B";
+                }
+                if (elMetrics) {
+                    const ageStr = node2.seconds_since_last_seen !== null ? `${node2.seconds_since_last_seen}s ago` : "Bench Standby";
+                    elMetrics.textContent = `PZEM-004T AC Metrology | ${ageStr}`;
+                }
+            }
+        } catch (e) {
+            console.error("Gateways fetch error:", e);
+        }
+    };
+
+    // --------------------------------------------------------------------------
+    // OUTDOOR AMBIENT WEATHER FETCH
+    // --------------------------------------------------------------------------
+    const fetchOutdoorWeather = async () => {
+        try {
+            const res = await fetch("/api/v1/weather/current");
+            if (!res.ok) return;
+            const w = await res.json();
+            const elCond = document.getElementById("weatherOutdoorCondition");
+            const elTemp = document.getElementById("weatherOutdoorTemp");
+            const elHum = document.getElementById("weatherOutdoorHum");
+            const elWind = document.getElementById("weatherOutdoorWind");
+
+            if (elCond && w.weather_condition) elCond.textContent = w.weather_condition;
+            if (elTemp && w.temperature_c !== undefined) elTemp.textContent = `${Number(w.temperature_c).toFixed(1)} °C`;
+            if (elHum && w.humidity_pct !== undefined) elHum.textContent = `${Number(w.humidity_pct).toFixed(0)} % RH`;
+            if (elWind && w.wind_speed_kmh !== undefined) elWind.textContent = `${Number(w.wind_speed_kmh).toFixed(0)} km/h`;
+        } catch (e) {
+            console.error("Weather fetch error:", e);
+        }
+    };
+
+    // --------------------------------------------------------------------------
+    // LIVE ALERTS LIFECYCLE WIDGET
+    // --------------------------------------------------------------------------
+    const fetchFacilityAlerts = async () => {
+        try {
+            const res = await fetch("/api/v1/alerts");
+            if (!res.ok) return;
+            const data = await res.json();
+            const alerts = data.alerts || [];
+            const badge = document.getElementById("liveAlertsCountBadge");
+            const container = document.getElementById("liveAlertsListContainer");
+
+            if (badge) {
+                const activeCount = alerts.filter(a => a.state === "OPEN" || a.state === "ACKNOWLEDGED" || a.state === "ASSIGNED").length;
+                badge.textContent = `${activeCount} Active Alert${activeCount === 1 ? '' : 's'}`;
+                badge.style.background = activeCount > 0 ? "rgba(239, 68, 68, 0.2)" : "rgba(0, 240, 181, 0.2)";
+                badge.style.color = activeCount > 0 ? "#EF4444" : "#00F0B5";
+                badge.style.borderColor = activeCount > 0 ? "#EF4444" : "#00F0B5";
+            }
+
+            if (!container) return;
+            if (alerts.length === 0) {
+                container.innerHTML = '<div style="padding: 16px; text-align: center; color: #34D399;"><i class="fa-solid fa-circle-check" style="margin-right: 6px;"></i> All facility telemetry nominal. Zero open alerts.</div>';
+                return;
+            }
+
+            container.innerHTML = alerts.map(a => {
+                const isCrit = a.severity === "CRITICAL";
+                const borderCol = isCrit ? "#EF4444" : (a.severity === "HIGH" ? "#F59E0B" : "#38BDF8");
+                const bgCol = isCrit ? "rgba(239, 68, 68, 0.12)" : "rgba(245, 158, 11, 0.12)";
+                const badgeText = a.source_type === "real_sensor" ? "[REAL SENSOR]" : (a.source_type === "simulated_iot" ? "[SIMULATED IoT]" : "[SYNTHETIC BENCHMARK]");
+                const badgeColor = a.source_type === "real_sensor" ? "#00F0B5" : (a.source_type === "simulated_iot" ? "#F59E0B" : "#60A5FA");
+
+                const isOpen = a.state === "OPEN";
+                const isAck = a.state === "ACKNOWLEDGED";
+                const isResolved = a.state === "RESOLVED";
+
+                return `
+                <div style="background: ${bgCol}; border: 1.5px solid ${borderCol}; border-radius: 12px; padding: 14px 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.1); color: ${badgeColor}; border: 1px solid ${badgeColor};">
+                                    ${badgeText}
+                                </span>
+                                <strong style="color: #FFFFFF; font-size: 13px;">${a.device_id} &bull; ${a.metric}</strong>
+                                <span style="font-size: 10px; font-weight: 800; color: ${borderCol}; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">
+                                    ${a.severity} &bull; ${a.state}
+                                </span>
+                            </div>
+                            <div style="font-size: 12px; color: #FFFFFF; margin-top: 6px; font-weight: 600;">
+                                ${a.reason}
+                            </div>
+                            <div style="font-size: 11px; color: #CBD5E1; margin-top: 4px;">
+                                <strong>Observed:</strong> ${a.last_observed_value} ${a.unit || ''} (vs Expected: ${a.expected_value} ${a.unit || ''}) &bull; Count: #${a.occurrence_count}
+                            </div>
+                            <div style="font-size: 11px; color: #94E4D0; margin-top: 4px;">
+                                <i class="fa-solid fa-screwdriver-wrench"></i> <strong>Action:</strong> ${a.recommended_action}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            ${isOpen ? `<button class="btn btn-sm" onclick="window.handleAlertAction('${a.id}', 'acknowledge')" style="font-size: 11px; font-weight: 700; background: #F59E0B; color: #04120E; border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer;"><i class="fa-solid fa-check"></i> Ack</button>` : ''}
+                            ${!isResolved ? `<button class="btn btn-sm" onclick="window.handleAlertAction('${a.id}', 'resolve')" style="font-size: 11px; font-weight: 700; background: #00F0B5; color: #04120E; border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer;"><i class="fa-solid fa-check-double"></i> Resolve</button>` : ''}
+                            ${!isResolved ? `<button class="btn btn-sm" onclick="window.handleAlertAction('${a.id}', 'dismiss')" style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.15); color: #CBD5E1; border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; padding: 4px 8px; cursor: pointer;">Dismiss</button>` : `<span style="font-size: 11px; color: #34D399; font-weight: 700;"><i class="fa-solid fa-circle-check"></i> RESOLVED</span>`}
+                        </div>
+                    </div>
+                </div>`;
+            }).join("");
+        } catch (e) {
+            console.error("Alerts fetch error:", e);
+        }
+    };
+
+    window.handleAlertAction = async (alertId, action) => {
+        try {
+            const res = await fetch(`/api/v1/alerts/${alertId}/${action}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ actor: "Facility Operator", notes: `Action executed from Live IoT Dashboard (${action})` })
+            });
+            if (res.ok) {
+                showToast(`Alert ${alertId} updated (${action})`);
+                fetchFacilityAlerts();
+            }
+        } catch (e) {
+            console.error("Alert action error:", e);
         }
     };
 
@@ -2562,6 +2804,189 @@ function initIotSimulator() {
         chart.update('none');
     };
 
+    // =========================================================================
+    // WIRE PAYLOAD VIEWER & AI SUGGESTIONS HELPERS (GLOBAL)
+    // =========================================================================
+    window.togglePayloadViewer = function(boxId, btnTextId) {
+        const box = document.getElementById(boxId);
+        const btn = btnTextId ? document.getElementById(btnTextId) : null;
+        if (!box) return;
+        const isHidden = (box.style.display === 'none' || !box.style.display);
+        box.style.display = isHidden ? 'block' : 'none';
+        if (btn) {
+            btn.textContent = isHidden ? 'Hide Payload' : (boxId === 'elecPayloadBox' ? 'View Format' : (boxId === 'gatewayPayloadBox' ? 'View Gateway Info' : 'View Live Payload'));
+        }
+    };
+
+    window.openWirePayloadModal = function(messageId) {
+        const modal = document.getElementById('wirePayloadModal');
+        const code = document.getElementById('wireModalJsonCode');
+        const title = document.getElementById('wireModalTitle');
+        const subtitle = document.getElementById('wireModalSubtitle');
+        const meta = document.getElementById('wireModalFooterMeta');
+        if (!modal || !code) return;
+
+        let item = null;
+        if (window.cachedStreamList && window.cachedStreamList.length > 0) {
+            item = window.cachedStreamList.find(i => i.message_id === messageId);
+        }
+        if (!item && messageId) {
+            item = { message_id: messageId, status: "Awaiting stream lookup" };
+        }
+
+        if (item) {
+            code.textContent = JSON.stringify(item, null, 2);
+            if (title) title.textContent = `Telemetry Packet: ${item.device_id || 'ESP32'}`;
+            if (subtitle) subtitle.textContent = `Message ID: ${item.message_id || '--'} • Ingested: ${item.event_timestamp || item.sent_timestamp || item.ingested_at || 'Just now'}`;
+            if (meta) meta.textContent = `Source: ${item.source_type || 'real_sensor'} • Transport: HTTP Ingest • State: ${item.reporting_state || 'NORMAL_15M'}`;
+        } else {
+            code.textContent = "// Packet not found in memory buffer";
+        }
+        modal.style.display = 'flex';
+    };
+
+    window.closeWirePayloadModal = function() {
+        const modal = document.getElementById('wirePayloadModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window.copyModalWirePayload = function() {
+        const code = document.getElementById('wireModalJsonCode');
+        const btn = document.getElementById('btnCopyWireModal');
+        if (!code) return;
+        navigator.clipboard.writeText(code.textContent).then(() => {
+            if (btn) {
+                const oldHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                btn.style.color = '#34D399';
+                setTimeout(() => {
+                    btn.innerHTML = oldHtml;
+                    btn.style.color = '#00F0B5';
+                }, 1800);
+            }
+        });
+    };
+
+    const getPacketSecondsAgo = (ts) => {
+        if (!ts) return 9999;
+        try {
+            const d = new Date(ts);
+            const diff = (Date.now() - d.getTime()) / 1000;
+            return isNaN(diff) ? 5 : Math.max(0, diff);
+        } catch (e) {
+            return 5;
+        }
+    };
+
+    const updateCardLiveBadge = (badgeEl, lastSeenEl, secAgo, activeLabel, activeColor) => {
+        if (!badgeEl) return;
+        const isOnline = (secAgo < 45);
+        if (isOnline) {
+            badgeEl.className = 'live-pulse-badge online';
+            badgeEl.innerHTML = '<span class="pulse-beacon-dot online"></span> LIVE CONNECTED · RECEIVING DATA';
+            if (lastSeenEl) {
+                lastSeenEl.textContent = `${activeLabel} (${Math.round(secAgo)}s ago)`;
+                lastSeenEl.style.color = activeColor || '#00F0B5';
+            }
+        } else {
+            badgeEl.className = 'live-pulse-badge standby';
+            badgeEl.innerHTML = '<span class="pulse-beacon-dot standby"></span> INACTIVE / STANDBY';
+            if (lastSeenEl) {
+                lastSeenEl.textContent = secAgo > 3600 ? 'Inactive (Standby)' : `Last seen ${Math.round(secAgo)}s ago`;
+                lastSeenEl.style.color = '#94A3B8';
+            }
+        }
+    };
+
+    const updateAiFacilitySuggestions = (data) => {
+        // 1. Waste Bin Evaluation
+        const sugWasteTitle = document.getElementById('sugWasteTitle');
+        const sugWasteDesc = document.getElementById('sugWasteDesc');
+        const sugWasteBox = document.getElementById('sugWasteBox');
+        if (data.waste) {
+            const f = data.waste.fillPct;
+            const d = data.waste.distCm;
+            if (f >= 80.0) {
+                if (sugWasteTitle) sugWasteTitle.textContent = `Smart Waste Bin Overflowing (${f.toFixed(1)}% Full)`;
+                if (sugWasteDesc) sugWasteDesc.innerHTML = `Ultrasonic clearance is <strong>${d.toFixed(1)} cm</strong> (depth baseline: 80 cm). Critical threshold of 80% is exceeded. Edge anomaly triggered immediate 5s telemetry cadence.`;
+                if (sugWasteBox) {
+                    sugWasteBox.style.background = 'rgba(239, 68, 68, 0.1)';
+                    sugWasteBox.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                    sugWasteBox.style.borderLeft = '4px solid #EF4444';
+                }
+            } else {
+                if (sugWasteTitle) sugWasteTitle.textContent = `Smart Waste Bin Normal (${f.toFixed(1)}% Full)`;
+                if (sugWasteDesc) sugWasteDesc.innerHTML = `Ultrasonic clearance is <strong>${d.toFixed(1)} cm</strong> (fill: ${f.toFixed(1)}%). Bin capacity optimal; no immediate collection dispatch required.`;
+                if (sugWasteBox) {
+                    sugWasteBox.style.background = 'rgba(0, 240, 181, 0.08)';
+                    sugWasteBox.style.borderColor = 'rgba(0, 240, 181, 0.35)';
+                    sugWasteBox.style.borderLeft = '4px solid #00F0B5';
+                }
+            }
+        }
+
+        // 2. Climate Evaluation
+        const sugClimateTitle = document.getElementById('sugClimateTitle');
+        const sugClimateDesc = document.getElementById('sugClimateDesc');
+        const sugClimateBox = document.getElementById('sugClimateBox');
+        if (data.dht) {
+            const t = data.dht.temp;
+            const h = data.dht.hum;
+            const hi = data.dht.hi;
+            if (h >= 65.0) {
+                if (sugClimateTitle) sugClimateTitle.textContent = `Zone B Relative Humidity Elevated (${h}% RH)`;
+                if (sugClimateDesc) sugClimateDesc.innerHTML = `Temp: <strong>${t}°C</strong>, Heat Index: <strong>${hi}°C</strong>. Humidity exceeds ASHRAE 60% comfort guideline. Mild mold hazard risk if prolonged.`;
+                if (sugClimateBox) {
+                    sugClimateBox.style.background = 'rgba(245, 158, 11, 0.08)';
+                    sugClimateBox.style.borderColor = 'rgba(245, 158, 11, 0.35)';
+                    sugClimateBox.style.borderLeft = '4px solid #F59E0B';
+                }
+            } else {
+                if (sugClimateTitle) sugClimateTitle.textContent = `Zone B Thermal Comfort Optimal (${t}°C / ${h}%)`;
+                if (sugClimateDesc) sugClimateDesc.innerHTML = `Temp: <strong>${t}°C</strong>, Humidity: <strong>${h}% RH</strong>. Both within ASHRAE 55 comfort standard. Baseline HVAC operation maintained.`;
+                if (sugClimateBox) {
+                    sugClimateBox.style.background = 'rgba(0, 240, 181, 0.08)';
+                    sugClimateBox.style.borderColor = 'rgba(0, 240, 181, 0.35)';
+                    sugClimateBox.style.borderLeft = '4px solid #00F0B5';
+                }
+            }
+        }
+
+        // 3. Water Leakage Evaluation
+        const sugWaterTitle = document.getElementById('sugWaterTitle');
+        const sugWaterDesc = document.getElementById('sugWaterDesc');
+        if (data.water) {
+            const flow = data.water.flow;
+            const pulses = data.water.pulses;
+            if (flow > 0.0) {
+                if (sugWaterTitle) sugWaterTitle.textContent = `Active Water Flow Detected (${flow.toFixed(1)} L/min)`;
+                if (sugWaterDesc) sugWaterDesc.innerHTML = `ZJ-S201 turbine reading <strong>${flow.toFixed(1)} L/min</strong> (${pulses} pulses). Water draw active in Block B riser line.`;
+            } else {
+                if (sugWaterTitle) sugWaterTitle.textContent = `Plumbing Riser Integrity Confirmed`;
+                if (sugWaterDesc) sugWaterDesc.innerHTML = `Hardware flow turbine reads <strong>0.0 L/min</strong> (0 pulses). Zero unmetered seepage or concealed valve leakage across Block B riser line.`;
+            }
+        }
+
+        // 4. Air Quality Evaluation
+        const sugAirTitle = document.getElementById('sugAirTitle');
+        const sugAirDesc = document.getElementById('sugAirDesc');
+        if (data.air) {
+            const adc = data.air.adc;
+            const v = data.air.volt;
+            if (adc > 800) {
+                if (sugAirTitle) sugAirTitle.textContent = `Elevated Gas / VOC Activity (${adc} ADC)`;
+                if (sugAirDesc) sugAirDesc.innerHTML = `Raw ADC reads <strong>${adc} counts</strong> (${v}V). Air quality response indicates volatile compounds or smoke. Recommend 100% fresh air damper purge.`;
+            } else {
+                if (sugAirTitle) sugAirTitle.textContent = `Ambient Air Quality Within Clean Baseline`;
+                if (sugAirDesc) sugAirDesc.innerHTML = `Raw ADC reads <strong>${adc} counts</strong> (${v}V). Sensor indicates clean ambient air with no volatile gas spikes detected.`;
+            }
+        }
+    };
+    window.updateAiFacilitySuggestions = updateAiFacilitySuggestions;
+    window.refreshAiFacilitySuggestions = () => {
+        if (window.cachedStreamList) updateLiveTelemetryFromStream(window.cachedStreamList);
+    };
+
     const updateLiveTelemetryFromStream = (streamItems) => {
         if (!streamItems || streamItems.length === 0) return;
         initLiveSparklines();
@@ -2570,16 +2995,22 @@ function initIotSimulator() {
         let waterUpdated = false;
         let elecUpdated = false;
         let airUpdated = false;
-        let hvacUpdated = false;
         let dhtUpdated = false;
         let wasteUpdated = false;
+
+        let latestWasteData = null;
+        let latestDhtData = null;
+        let latestAirData = null;
+        let latestWaterData = null;
 
         // Loop through items (streamItems is newest first)
         for (const item of streamItems) {
             const m = item.metrics || item.telemetry || {};
             const isVerifiedHw = item.is_verified_hardware === true || item.source_type === 'real_sensor';
             if (isVerifiedHw) hasHw = true;
-            const timeStr = (item.event_timestamp || item.sent_timestamp || item.ingested_at || '').slice(11, 19);
+            const rawTs = item.event_timestamp || item.sent_timestamp || item.ingested_at || '';
+            const timeStr = rawTs.slice(11, 19);
+            const secAgo = getPacketSecondsAgo(rawTs);
 
             // Update smart waste bin card with NEWEST waste packet
             if (!wasteUpdated && (m.fill_level_percent !== undefined || m.fill_level_pct !== undefined || m.bin_distance_cm !== undefined || item.device_id === 'WASTE-BLOCK-B-001')) {
@@ -2590,9 +3021,11 @@ function initIotSimulator() {
                 const bar = document.getElementById('liveBinBar');
                 const barLabel = document.getElementById('liveBinBarLabel');
                 const badge = document.getElementById('liveWasteCardBadge');
+                const lastSeen = document.getElementById('liveWasteLastSeen');
 
                 const fillPct = Number(m.fill_level_percent ?? m.fill_level_pct ?? 0);
                 const distCm = Number(m.bin_distance_cm ?? 0);
+                latestWasteData = { fillPct, distCm };
 
                 if (elFill) elFill.textContent = `${fillPct.toFixed(1)} %`;
                 if (elDist) elDist.textContent = `${distCm.toFixed(1)} cm`;
@@ -2609,12 +3042,11 @@ function initIotSimulator() {
                 if (bar) bar.style.width = `${Math.min(Math.max(fillPct, 0), 100)}%`;
                 if (barLabel) barLabel.textContent = `${fillPct.toFixed(1)}% Fill (${distCm.toFixed(1)} cm clearance)`;
 
-                if (badge) {
-                    badge.innerHTML = isVerifiedHw 
-                        ? '<span class="pulse-dot"></span> ONLINE [REAL SENSOR] - VERIFIED HARDWARE' 
-                        : '<span class="pulse-dot"></span> STREAMING [SIMULATOR]';
-                    badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-teal';
-                }
+                updateCardLiveBadge(badge, lastSeen, secAgo, 'Active Sonar Stream', '#00F0B5');
+
+                // Populate Wire JSON Payload
+                const wasteCode = document.getElementById('wasteWirePayloadCode');
+                if (wasteCode) wasteCode.textContent = JSON.stringify(item, null, 2);
 
                 // Update Waste Tab (#contentWaste) live values
                 const wasteFillInput = document.getElementById('wasteFill');
@@ -2646,52 +3078,45 @@ function initIotSimulator() {
             }
 
             // Update water card with NEWEST water packet
-            if (!waterUpdated && (m.water_flow_lmin !== undefined || m.tank_level_pct !== undefined || m.tank_distance_cm !== undefined || m.tank_status !== undefined)) {
+            if (!waterUpdated && (m.water_flow_lmin !== undefined || m.water_pulse_count_total !== undefined || m.tank_level_pct !== undefined || m.tank_distance_cm !== undefined || item.device_id === 'WATER-BLOCK-B-001')) {
                 waterUpdated = true;
                 const elF = document.getElementById('liveMetricWaterFlow');
                 const elC = document.getElementById('liveMetricCumWater');
-                const elP = document.getElementById('liveMetricWaterPressure');
+                const elPulses = document.getElementById('liveMetricWaterPulses');
                 const elT = document.getElementById('liveMetricTankLevel');
-                const elD = document.getElementById('liveMetricTankDistance');
-                const bar = document.getElementById('liveTankBar');
-                const barLabel = document.getElementById('liveTankBarLabel');
                 const badge = document.getElementById('liveWaterCardBadge');
+                const lastSeen = document.getElementById('liveWaterLastSeen');
 
-                if (elF) elF.textContent = m.water_flow_lmin !== undefined ? `${Number(m.water_flow_lmin).toFixed(1)} L/min` : '-- L/min';
-                if (elC && m.cumulative_water_m3 !== undefined) elC.textContent = `${Number(m.cumulative_water_m3).toFixed(3)} m³`;
-                if (elP) elP.textContent = m.water_pressure_bar !== undefined ? `${Number(m.water_pressure_bar).toFixed(2)} bar` : '-- bar (Disabled)';
+                const flow = Number(m.water_flow_lmin ?? 0);
+                const pulses = Number(m.water_pulse_count_total ?? m.pulses ?? 0);
+                latestWaterData = { flow, pulses };
+
+                if (elF) elF.textContent = `${flow.toFixed(1)} L/min`;
+                if (elC) {
+                    if (m.water_cumulative_liters !== undefined) elC.textContent = `${Number(m.water_cumulative_liters).toFixed(2)} L`;
+                    else if (m.cumulative_water_m3 !== undefined) elC.textContent = `${Number(m.cumulative_water_m3).toFixed(3)} m³`;
+                }
+                if (elPulses) elPulses.textContent = `${pulses.toLocaleString()} pulses`;
                 
                 if (elT) {
                     if (m.tank_level_pct !== undefined && Number(m.tank_level_pct) > 0) {
                         elT.textContent = `${Number(m.tank_level_pct).toFixed(1)} %`;
-                    } else if (m.tank_status === 'ECHO_TIMEOUT') {
-                        elT.textContent = '-- %';
+                    } else {
+                        elT.textContent = 'STANDBY';
                     }
-                }
-                if (elD) {
-                    if (m.tank_distance_cm !== undefined && Number(m.tank_distance_cm) > 0) {
-                        elD.textContent = `${Number(m.tank_distance_cm).toFixed(1)} cm`;
-                    } else if (m.tank_status === 'ECHO_TIMEOUT') {
-                        elD.textContent = 'Awaiting Echo (20-450cm)';
-                    }
-                }
-                if (bar && m.tank_level_pct !== undefined) {
-                    const pct = Math.min(100, Math.max(0, Number(m.tank_level_pct)));
-                    bar.style.width = `${pct}%`;
-                    if (barLabel) barLabel.textContent = `${pct.toFixed(1)}% Fill`;
                 }
 
-                if (badge) {
-                    badge.innerHTML = isVerifiedHw 
-                        ? '<span class="pulse-dot"></span> ONLINE [REAL SENSOR] - VERIFIED HARDWARE' 
-                        : '<span class="pulse-dot"></span> STREAMING [SIMULATOR]';
-                    badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-teal';
-                }
-                pushSparklinePoint(liveWaterChart, m.tank_level_pct ?? m.water_flow_lmin, timeStr);
+                updateCardLiveBadge(badge, lastSeen, secAgo, 'Active Interrupt Stream', '#38BDF8');
+
+                // Populate Wire JSON Payload
+                const waterCode = document.getElementById('waterWirePayloadCode');
+                if (waterCode) waterCode.textContent = JSON.stringify(item, null, 2);
+
+                pushSparklinePoint(liveWaterChart, flow, timeStr);
             }
 
             // Update electricity card with NEWEST electricity packet
-            if (!elecUpdated && (m.active_power_kw !== undefined || m.voltage_v !== undefined || m.meter_status !== undefined)) {
+            if (!elecUpdated && (m.active_power_kw !== undefined || m.voltage_v !== undefined || item.device_id === 'METER-BLOCK-B-001')) {
                 elecUpdated = true;
                 const elP = document.getElementById('liveMetricPowerKW');
                 const elE = document.getElementById('liveMetricEnergyKWH');
@@ -2699,26 +3124,25 @@ function initIotSimulator() {
                 const elPF = document.getElementById('liveMetricCurrentPF');
                 const elSub = document.getElementById('liveMetricPowerSub');
                 const badge = document.getElementById('liveElecCardBadge');
+                const lastSeen = document.getElementById('liveElecLastSeen');
 
-                const hasRealPower = (m.active_power_kw !== undefined && m.active_power_kw > 0);
-                if (hasRealPower) {
-                    if (elP) elP.textContent = `${Number(m.active_power_kw).toFixed(1)} kW`;
-                    if (elSub) elSub.textContent = 'Peak Demand Load';
-                    if (badge) {
-                        badge.innerHTML = isVerifiedHw 
-                            ? '<span class="pulse-dot"></span> ONLINE [REAL SENSOR] - VERIFIED HARDWARE' 
-                            : '<span class="pulse-dot"></span> ONLINE [SIMULATOR]';
-                        badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-teal';
-                    }
-                    pushSparklinePoint(livePowerChart, m.active_power_kw, timeStr);
+                const hasPzemOnline = (m.voltage_v !== undefined && Number(m.voltage_v) > 50.0) || (m.active_power_kw !== undefined && Number(m.active_power_kw) > 0);
+                if (hasPzemOnline) {
+                    const kw = Number(m.active_power_kw ?? 0);
+                    if (elP) elP.textContent = kw > 0 ? `${kw.toFixed(2)} kW` : `0.00 kW (Idle)`;
+                    if (elSub) elSub.textContent = kw > 0 ? 'Peak Demand Load' : 'Line Active (Zero Load)';
+                    updateCardLiveBadge(badge, lastSeen, secAgo, 'PZEM-004T Live Stream', '#00D09C');
+                    pushSparklinePoint(livePowerChart, kw, timeStr);
                 } else {
                     if (elP) elP.textContent = '-- kW';
-                    if (elSub) elSub.textContent = 'Awaiting RS-485 Meter Hardware';
+                    if (elSub) elSub.textContent = 'PZEM not connected';
                     if (badge) {
-                        badge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY (Awaiting Meter Hardware)';
-                        badge.style.background = 'rgba(255,255,255,0.08)';
-                        badge.style.color = '#CBD5E1';
-                        badge.style.border = '1px solid rgba(255,255,255,0.2)';
+                        badge.className = 'live-pulse-badge standby';
+                        badge.innerHTML = '<span class="pulse-beacon-dot standby"></span> STANDBY (No PZEM)';
+                    }
+                    if (lastSeen) {
+                        lastSeen.textContent = 'Waiting for PZEM Node telemetry';
+                        lastSeen.style.color = '#94A3B8';
                     }
                 }
                 if (elE && (m.cumulative_energy_kwh !== undefined || m.energy_kwh !== undefined)) {
@@ -2726,77 +3150,60 @@ function initIotSimulator() {
                 }
                 if (elV && m.voltage_v !== undefined) elV.textContent = `${Number(m.voltage_v).toFixed(1)} V`;
                 if (elPF && m.current_a !== undefined) elPF.textContent = `${Number(m.current_a).toFixed(1)} A (PF: ${m.power_factor ?? '0.95'})`;
-            }
 
-            // Update HVAC chiller card with NEWEST HVAC packet
-            if (!hvacUpdated && (m.hvac_load_kw !== undefined || item.device_id === 'DEV_HVAC_01')) {
-                hvacUpdated = true;
-                const elKw = document.getElementById('liveMetricHvacKW');
-                const elTemp = document.getElementById('liveMetricChillerTemp');
-                const elRpm = document.getElementById('liveMetricFanSpeed');
-                const elStat = document.getElementById('liveMetricHvacStatus');
-                const badge = document.getElementById('liveHvacCardBadge');
-
-                if (elKw && m.hvac_load_kw !== undefined) elKw.textContent = `${Number(m.hvac_load_kw).toFixed(1)} kW`;
-                if (elTemp && (m.chiller_temp_c !== undefined || m.temperature_c !== undefined)) elTemp.textContent = `${Number(m.chiller_temp_c ?? m.temperature_c).toFixed(1)} °C`;
-                if (elRpm && m.fan_speed_rpm !== undefined) elRpm.textContent = `${Number(m.fan_speed_rpm).toFixed(0)} RPM`;
-                if (elStat) {
-                    elStat.textContent = 'RUNNING';
-                    elStat.style.color = '#00D09C';
-                }
-                if (badge) {
-                    badge.innerHTML = '<span class="pulse-dot"></span> LIVE [SIMULATOR]';
-                    badge.style.background = 'rgba(56, 189, 248, 0.2)';
-                    badge.style.color = '#38BDF8';
-                    badge.style.border = '1px solid #38BDF8';
-                }
+                const elecCode = document.getElementById('elecWirePayloadCode');
+                if (elecCode) elecCode.textContent = JSON.stringify(item, null, 2);
             }
 
             // Update MQ-135 air quality card with NEWEST air packet
-            if (!airUpdated && (m.mq135_raw_adc !== undefined || m.raw_adc !== undefined || m.mq135_voltage_v !== undefined)) {
+            if (!airUpdated && (m.mq135_raw_adc !== undefined || m.raw_adc !== undefined || m.mq135_voltage_v !== undefined || m.mq135_adc_pin_voltage_v !== undefined)) {
                 airUpdated = true;
                 const elAdc = document.getElementById('liveMetricMq135Adc');
                 const elVolt = document.getElementById('liveMetricMq135Voltage');
-                const elCo2 = document.getElementById('liveMetricMq135Co2');
+                const elPinVoltage = document.getElementById('liveMetricMq135PinVoltage');
                 const elStat = document.getElementById('liveMetricMq135Status');
                 const badge = document.getElementById('liveAirCardBadge');
+                const lastSeen = document.getElementById('liveAirLastSeen');
 
                 const rawVal = m.mq135_raw_adc ?? m.raw_adc;
                 const voltVal = m.mq135_voltage_v ?? m.sensor_voltage_v;
-                const co2Val = m.mq135_co2_estimate_ppm ?? m.co2_estimate_ppm;
+                const pinVoltageVal = m.mq135_adc_pin_voltage_v ?? m.adc_pin_voltage_v;
                 const isActuallyConnected = (rawVal !== undefined && Number(rawVal) >= 80 && Number(voltVal) >= 0.08);
+
+                latestAirData = { adc: Math.round(rawVal || 0), volt: Number(voltVal || 0).toFixed(2) };
 
                 if (isActuallyConnected) {
                     if (elAdc) elAdc.textContent = `${Math.round(rawVal)} count`;
                     if (elVolt) elVolt.textContent = `${Number(voltVal).toFixed(2)} V`;
-                    if (elCo2 && co2Val !== undefined) elCo2.textContent = `${Math.round(co2Val)} ppm (estimate)`;
+                    if (elPinVoltage) elPinVoltage.textContent = pinVoltageVal !== undefined ? `${Number(pinVoltageVal).toFixed(3)} V` : '-- V';
                     if (elStat) {
                         const isWarm = m.mq135_warmup_status === 0 || m.mq135_warmup_status === 0.0;
                         elStat.textContent = isWarm ? 'WARMING UP (180s)' : 'STABILIZED (Indicative)';
                         elStat.style.color = isWarm ? '#F59E0B' : '#00D09C';
                     }
-                    if (badge) {
-                        badge.innerHTML = isVerifiedHw 
-                            ? '<span class="pulse-dot"></span> SENSORS ON [REAL SENSOR] - VERIFIED HARDWARE' 
-                            : '<span class="pulse-dot"></span> SENSORS ON [SIMULATOR]';
-                        badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-amber';
-                    }
+                    updateCardLiveBadge(badge, lastSeen, secAgo, 'Active ADC Stream', '#F59E0B');
                     pushSparklinePoint(liveMq135Chart, rawVal ?? voltVal, timeStr);
                 } else {
                     if (elAdc) elAdc.textContent = '-- count';
                     if (elVolt) elVolt.textContent = '-- V';
-                    if (elCo2) elCo2.textContent = '-- ppm';
+                    if (elPinVoltage) elPinVoltage.textContent = '-- V';
                     if (elStat) {
                         elStat.textContent = 'DISCONNECTED';
                         elStat.style.color = '#94A3B8';
                     }
                     if (badge) {
-                        badge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY (Sensor Disconnected)';
-                        badge.style.background = 'rgba(255,255,255,0.08)';
-                        badge.style.color = '#CBD5E1';
-                        badge.style.border = '1px solid rgba(255,255,255,0.2)';
+                        badge.className = 'live-pulse-badge standby';
+                        badge.innerHTML = '<span class="pulse-beacon-dot standby"></span> INACTIVE / STANDBY';
+                    }
+                    if (lastSeen) {
+                        lastSeen.textContent = 'Sensor Disconnected';
+                        lastSeen.style.color = '#94A3B8';
                     }
                 }
+
+                // Populate Wire JSON Payload
+                const airCode = document.getElementById('airWirePayloadCode');
+                if (airCode) airCode.textContent = JSON.stringify(item, null, 2);
             }
 
             // Update DHT11 climate card with NEWEST environmental packet
@@ -2807,10 +3214,13 @@ function initIotSimulator() {
                 const elHi = document.getElementById('liveMetricDhtHeatIndex');
                 const elStat = document.getElementById('liveMetricDhtStatus');
                 const badge = document.getElementById('liveDhtCardBadge');
+                const lastSeen = document.getElementById('liveDhtLastSeen');
 
                 const temp = Number(m.temperature_c ?? 0).toFixed(1);
                 const hum = Number(m.humidity_pct ?? 0).toFixed(0);
                 const hi = m.heat_index_c !== undefined ? Number(m.heat_index_c).toFixed(1) : temp;
+
+                latestDhtData = { temp, hum, hi };
 
                 if (elTemp) elTemp.textContent = `${temp} °C`;
                 if (elHum) elHum.textContent = `${hum} % RH`;
@@ -2827,12 +3237,11 @@ function initIotSimulator() {
                         elStat.style.color = '#00D09C';
                     }
                 }
-                if (badge) {
-                    badge.innerHTML = isVerifiedHw 
-                        ? '<span class="pulse-dot"></span> ONLINE [REAL SENSOR] - DHT11' 
-                        : '<span class="pulse-dot"></span> ONLINE [SIMULATOR]';
-                    badge.className = isVerifiedHw ? 'pill-badge badge-mint' : 'pill-badge badge-teal';
-                }
+                updateCardLiveBadge(badge, lastSeen, secAgo, 'Active Climate Stream', '#2DD4BF');
+
+                // Populate Wire JSON Payload
+                const dhtCode = document.getElementById('dhtWirePayloadCode');
+                if (dhtCode) dhtCode.textContent = JSON.stringify(item, null, 2);
             }
         }
 
@@ -2842,6 +3251,7 @@ function initIotSimulator() {
             const elHi = document.getElementById('liveMetricDhtHeatIndex');
             const elStat = document.getElementById('liveMetricDhtStatus');
             const badge = document.getElementById('liveDhtCardBadge');
+            const lastSeen = document.getElementById('liveDhtLastSeen');
             if (elTemp) elTemp.textContent = '-- °C';
             if (elHum) elHum.textContent = '-- % RH';
             if (elHi) elHi.textContent = '-- °C';
@@ -2850,10 +3260,12 @@ function initIotSimulator() {
                 elStat.style.color = '#94A3B8';
             }
             if (badge) {
-                badge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY (Awaiting 1-Wire Frame)';
-                badge.style.background = 'rgba(255,255,255,0.08)';
-                badge.style.color = '#CBD5E1';
-                badge.style.border = '1px solid rgba(255,255,255,0.2)';
+                badge.className = 'live-pulse-badge standby';
+                badge.innerHTML = '<span class="pulse-beacon-dot standby"></span> INACTIVE / STANDBY';
+            }
+            if (lastSeen) {
+                lastSeen.textContent = 'Awaiting 1-Wire Frame';
+                lastSeen.style.color = '#94A3B8';
             }
         }
 
@@ -2862,44 +3274,60 @@ function initIotSimulator() {
         const elModbusStat = document.getElementById('liveMetricModbusStatus');
         const elFlowStat = document.getElementById('liveMetricFlowStatus');
         const oledBadge = document.getElementById('liveOledCardBadge');
+        const oledLastSeen = document.getElementById('liveOledLastSeen');
         if (hasHw) {
             if (elOledStat) elOledStat.textContent = 'SSD1306 ACTIVE';
-            if (elModbusStat) elModbusStat.textContent = '9600 BAUD (PZEM-004T)';
-            if (elFlowStat) elFlowStat.textContent = 'GPIO4 ARMED (ZJ-S201)';
+            if (elModbusStat) elModbusStat.textContent = '9600 BAUD (PZEM UART)';
+            if (elFlowStat) elFlowStat.textContent = 'GPIO26 ARMED (ZJ-S201)';
             if (oledBadge) {
-                oledBadge.innerHTML = '<span class="pulse-dot"></span> DISPLAY ACTIVE';
-                oledBadge.className = 'pill-badge badge-mint';
+                oledBadge.className = 'live-pulse-badge online';
+                oledBadge.innerHTML = '<span class="pulse-beacon-dot online"></span> GATEWAY ONLINE';
+            }
+            if (oledLastSeen) {
+                oledLastSeen.textContent = 'ESP32_EDGE_GATEWAY_01';
+                oledLastSeen.style.color = '#00F0B5';
             }
         } else {
             if (elOledStat) elOledStat.textContent = 'STANDBY (Awaiting ESP32)';
             if (elModbusStat) elModbusStat.textContent = 'STANDBY (GPIO16/17)';
-            if (elFlowStat) elFlowStat.textContent = 'STANDBY (GPIO4)';
+            if (elFlowStat) elFlowStat.textContent = 'STANDBY (GPIO26)';
             if (oledBadge) {
-                oledBadge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY';
-                oledBadge.className = 'pill-badge badge-teal';
+                oledBadge.className = 'live-pulse-badge standby';
+                oledBadge.innerHTML = '<span class="pulse-beacon-dot standby"></span> GATEWAY STANDBY';
+            }
+            if (oledLastSeen) {
+                oledLastSeen.textContent = 'Offline / Standby';
+                oledLastSeen.style.color = '#94A3B8';
             }
         }
 
-        if (!hvacUpdated) {
-            const elKw = document.getElementById('liveMetricHvacKW');
-            const elTemp = document.getElementById('liveMetricChillerTemp');
-            const elRpm = document.getElementById('liveMetricFanSpeed');
-            const elStat = document.getElementById('liveMetricHvacStatus');
-            const badge = document.getElementById('liveHvacCardBadge');
-            if (elKw) elKw.textContent = '-- kW';
-            if (elTemp) elTemp.textContent = '-- °C';
-            if (elRpm) elRpm.textContent = '-- RPM';
-            if (elStat) {
-                elStat.textContent = 'STANDBY';
-                elStat.style.color = '#94A3B8';
-            }
-            if (badge) {
-                badge.innerHTML = '<i class="fa-solid fa-pause"></i> STANDBY (Simulator Inactive)';
-                badge.style.background = 'rgba(255,255,255,0.08)';
-                badge.style.color = '#CBD5E1';
-                badge.style.border = '1px solid rgba(255,255,255,0.2)';
-            }
+        // Populate Gateway Wire Diagnostics JSON
+        const gwCode = document.getElementById('gatewayWirePayloadCode');
+        if (gwCode) {
+            gwCode.textContent = JSON.stringify({
+                "gateway_id": "ESP32_EDGE_GATEWAY_01",
+                "firmware_version": "v3.0-ProdIoT (FreeRTOS Dual-Core)",
+                "ingestion_endpoint": "http://127.0.0.1:8000/api/v1/iot/telemetry",
+                "transport_modes": ["HTTP REST Direct", "USB Serial Bridge (COM7)"],
+                "attached_sensors": {
+                    "HC-SR04": { "role": "Waste Bin Sonar", "pins": "Trig:GPIO14, Echo:GPIO27 (Level-Shifted)", "status": wasteUpdated ? "ACTIVE_STREAMING" : "STANDBY" },
+                    "DHT11": { "role": "Climate Environment", "pin": "GPIO4 1-Wire", "status": dhtUpdated ? "ACTIVE_STREAMING" : "STANDBY" },
+                    "MQ-135": { "role": "Gas / Air Quality", "pin": "GPIO34 ADC1 (1.45x divider)", "status": airUpdated ? "ACTIVE_STREAMING" : "STANDBY" },
+                    "ZJ-S201": { "role": "Water Turbine Pulse", "pin": "GPIO26 Interrupt (450 p/L)", "status": waterUpdated ? "ACTIVE_STREAMING" : "STANDBY" },
+                    "SSD1306": { "role": "OLED Edge Display", "pins": "I2C SDA:GPIO21, SCL:GPIO22 (0x3C)", "status": "ACTIVE" },
+                    "PZEM-004T": { "role": "AC Electricity Meter", "pins": "UART2 RX:GPIO16, TX:GPIO17", "status": "STANDBY_UNFITTED" }
+                },
+                "system_status": hasHw ? "ONLINE_STREAMING" : "STANDBY"
+            }, null, 2);
         }
+
+        // Update AI Facility Prescriptive Suggestions
+        updateAiFacilitySuggestions({
+            waste: latestWasteData,
+            dht: latestDhtData,
+            air: latestAirData,
+            water: latestWaterData
+        });
 
         if (hasHw) {
             window.hasLiveHardwareTelemetry = true;
@@ -2916,10 +3344,10 @@ function initIotSimulator() {
         // Update Matrix Header Badges
         const mBadge = document.getElementById('matrixMeterBadge');
         if (mBadge) {
-            const hasLiveElec = streamItems.some(s => s.device_id === 'METER-BLOCK-B-001' && (s.metrics?.active_power_kw > 0 || s.telemetry?.active_power_kw > 0));
+            const hasLiveElec = streamItems.some(s => s.device_id === 'METER-BLOCK-B-001' && (Number(s.metrics?.active_power_kw ?? s.telemetry?.active_power_kw ?? 0) > 0 || Number(s.metrics?.voltage_v ?? s.telemetry?.voltage_v ?? 0) > 50.0));
             mBadge.innerHTML = hasLiveElec 
-                ? '<i class="fa-solid fa-bolt"></i> Meter: Modbus RTU (LIVE)'
-                : '<i class="fa-solid fa-bolt"></i> Meter: Modbus RTU (Standby)';
+                ? '<i class="fa-solid fa-bolt"></i> Meter: PZEM-004T (LIVE)'
+                : '<i class="fa-solid fa-bolt"></i> Meter: PZEM-004T (Standby)';
             mBadge.style.color = hasLiveElec ? '#00F0B5' : '#CBD5E1';
             mBadge.style.border = hasLiveElec ? '1px solid #00F0B5' : '1px solid rgba(255,255,255,0.25)';
         }
@@ -3066,7 +3494,7 @@ function initIotSimulator() {
                 <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
                     <td class="subsystem-col"><i class="fa-solid fa-trash-can text-amber"></i> Waste Management</td>
                     <td style="color:#FFFFFF; font-weight:800; font-size:13px;">HC-SR04 Ultrasonic Sonar</td>
-                    <td class="interface-col">Trig:GPIO14 / Echo:GPIO27 (or GPIO5/18)</td>
+                    <td class="interface-col">Trig:GPIO14 / Echo:GPIO27</td>
                     <td class="range-col">4 - 400 cm (0 - 100% Bin Fill)</td>
                     <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [REAL HARDWARE]</span></td>
                     <td class="cal-col">Current Distance: <strong style="color:#00F0B5; font-size:14px;">${wDist} cm</strong> | Fill Level: <strong style="color:#F59E0B; font-size:14px;">${wFill}%</strong> (Sonar echo flight time)</td>
@@ -3077,28 +3505,30 @@ function initIotSimulator() {
                 <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #0A241D;">
                     <td class="subsystem-col"><i class="fa-solid fa-trash-can" style="color:#94A3B8;"></i> Waste Management</td>
                     <td style="color:#CBD5E1; font-weight:700;">HC-SR04 Ultrasonic Sonar</td>
-                    <td class="interface-col">Trig:GPIO14 / Echo:GPIO27 (or GPIO5/18)</td>
+                    <td class="interface-col">Trig:GPIO14 / Echo:GPIO27</td>
                     <td class="range-col">4 - 400 cm (0 - 100% Bin Fill)</td>
                     <td><span style="background:rgba(255,255,255,0.08); color:#CBD5E1; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-size:11px;"><i class="fa-solid fa-pause"></i> STANDBY (Awaiting Sonar Hardware)</span></td>
-                    <td class="cal-col" style="color:#94A3B8;">Connect HC-SR04 Trig to GPIO14 and Echo to GPIO27 (or GPIO5/18) via 1k/2.2k divider</td>
+                    <td class="cal-col" style="color:#94A3B8;">Connect HC-SR04 Trig to GPIO14 and Echo to GPIO27 through a 5V-to-3.3V level divider</td>
                 </tr>
             `;
         }
 
         // 3. Water Flow Sensor (ZJ-S201 Hall Turbine Pulse Meter)
-        const hasFlow = (waterM.water_flow_lmin !== undefined && Number(waterM.water_flow_lmin) > 0.0);
-        const flowVal = waterM.water_flow_lmin !== undefined ? `${Number(waterM.water_flow_lmin).toFixed(1)} L/min` : '0.0 L/min';
+        const hasFlow = (waterM.water_flow_lmin !== undefined && waterM.water_flow_lmin !== null);
+        const flowVal = waterM.water_flow_lmin !== undefined && waterM.water_flow_lmin !== null ? `${Number(waterM.water_flow_lmin).toFixed(1)} L/min` : '-- L/min';
         const cumM3 = waterM.cumulative_water_m3 !== undefined ? `${Number(waterM.cumulative_water_m3).toFixed(3)} m³` : '0.000 m³';
+        const cumLiters = waterM.water_cumulative_liters !== undefined ? `${Number(waterM.water_cumulative_liters).toFixed(2)} L` : cumM3;
+        const pulseCount = waterM.water_pulse_count_total !== undefined ? Number(waterM.water_pulse_count_total).toLocaleString() : '--';
 
         if (hasFlow) {
             rowsHtml += `
                 <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
                     <td class="subsystem-col"><i class="fa-solid fa-droplet text-blue"></i> Water Flow Sensor</td>
                     <td style="color:#FFFFFF; font-weight:800; font-size:13px;">ZJ-S201 Hall Turbine</td>
-                    <td class="interface-col">Interrupt Pulse (GPIO4)</td>
+                    <td class="interface-col">Interrupt Pulse (GPIO26)</td>
                     <td class="range-col">1.0 - 30.0 L/min (~450 pulses/L)</td>
                     <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [REAL HARDWARE]</span></td>
-                    <td class="cal-col">Current Flow: <strong style="color:#60A5FA; font-size:13px;">${flowVal}</strong> | Cumulative Volume: <strong style="color:#34D399;">${cumM3}</strong></td>
+                    <td class="cal-col">Current Flow: <strong style="color:#60A5FA; font-size:13px;">${flowVal}</strong> | Total: <strong style="color:#34D399;">${cumLiters}</strong> | Pulses: <strong>${pulseCount}</strong></td>
                 </tr>
             `;
         } else {
@@ -3106,10 +3536,10 @@ function initIotSimulator() {
                 <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
                     <td class="subsystem-col"><i class="fa-solid fa-droplet" style="color:#94A3B8;"></i> Water Flow Sensor</td>
                     <td style="color:#CBD5E1; font-weight:700;">ZJ-S201 Hall Turbine</td>
-                    <td class="interface-col">Interrupt Pulse (GPIO4)</td>
+                    <td class="interface-col">Interrupt Pulse (GPIO26)</td>
                     <td class="range-col">1.0 - 30.0 L/min</td>
                     <td><span style="background:rgba(255,255,255,0.08); color:#CBD5E1; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-size:11px;"><i class="fa-solid fa-pause"></i> STANDBY (Sensor Disconnected / Zero Flow)</span></td>
-                    <td class="cal-col" style="color:#94A3B8;">Hardware pulse counter armed on GPIO4 &bull; Awaiting water flow rotation</td>
+                    <td class="cal-col" style="color:#94A3B8;">Hardware pulse counter armed on GPIO26 &bull; Awaiting water flow rotation</td>
                 </tr>
             `;
         }
@@ -3132,7 +3562,7 @@ function initIotSimulator() {
                     <td class="interface-col">GPIO34 (ADC1 with Divider)</td>
                     <td class="range-col">0 - 4095 ADC (0.0 - 5.0 V)</td>
                     <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [REAL HARDWARE]</span></td>
-                    <td class="cal-col">Current ADC: <strong style="color:#F59E0B; font-size:13px;">${rawAdc} count</strong> (${volt.toFixed(2)}V) | ${warmupText} (Indicative sensor estimate)</td>
+                    <td class="cal-col">Current ADC: <strong style="color:#F59E0B; font-size:13px;">${rawAdc} count</strong> (${volt.toFixed(2)}V) | ${warmupText} | Gas concentration not calibrated</td>
                 </tr>
             `;
         } else {
@@ -3158,7 +3588,7 @@ function initIotSimulator() {
                 <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
                     <td class="subsystem-col"><i class="fa-solid fa-temperature-half text-teal"></i> Climate & Environment</td>
                     <td style="color:#FFFFFF; font-weight:800; font-size:13px;">DHT11 Digital Sensor Module</td>
-                    <td class="interface-col">1-Wire Digital (GPIO23)</td>
+                    <td class="interface-col">1-Wire Digital (GPIO4)</td>
                     <td class="range-col">0 - 50 °C / 20 - 90 % RH</td>
                     <td><span style="background:#00F0B5; color:#04120F; font-weight:900; padding:4px 10px; border-radius:12px; font-size:11px; display:inline-flex; align-items:center; gap:5px;"><span class="pulse-dot"></span> LIVE MEASURED [DHT11]</span></td>
                     <td class="cal-col">Temperature: <strong style="color:#2DD4BF; font-size:13px;">${t} °C</strong> | Humidity: <strong style="color:#38BDF8;">${h}% RH</strong> | Heat Index: <strong style="color:#F59E0B;">${hi} °C</strong></td>
@@ -3169,10 +3599,10 @@ function initIotSimulator() {
                 <tr style="border-bottom: 1px solid rgba(0,240,181,0.25); background: #061813;">
                     <td class="subsystem-col"><i class="fa-solid fa-temperature-half" style="color:#94A3B8;"></i> Climate & Environment</td>
                     <td style="color:#CBD5E1; font-weight:700;">DHT11 Digital Sensor Module</td>
-                    <td class="interface-col">1-Wire Digital (GPIO23)</td>
+                    <td class="interface-col">1-Wire Digital (GPIO4)</td>
                     <td class="range-col">0 - 50 °C / 20 - 90 % RH</td>
                     <td><span style="background:rgba(255,255,255,0.08); color:#CBD5E1; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-size:11px;"><i class="fa-solid fa-pause"></i> STANDBY (Sensor Disconnected)</span></td>
-                    <td class="cal-col" style="color:#94A3B8;">1-Wire interface listening on GPIO23 &bull; Awaiting DHT11 data frame</td>
+                    <td class="cal-col" style="color:#94A3B8;">1-Wire interface listening on GPIO4 &bull; Awaiting DHT11 data frame</td>
                 </tr>
             `;
         }
@@ -3483,7 +3913,7 @@ window.currentFleetFilter = 'all';
         if (filtered.length === 0) {
             monTbody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="padding: 20px; text-align: center; color: #CBD5E1;">
+                    <td colspan="8" style="padding: 20px; text-align: center; color: #CBD5E1;">
                         No telemetry packets matching "${window.currentStreamFilter}".
                     </td>
                 </tr>
@@ -3494,14 +3924,22 @@ window.currentFleetFilter = 'all';
         monTbody.innerHTML = filtered.map(item => {
             const m = item.metrics || item.telemetry || {};
             let summaryStr = "--";
-            if (m.tank_distance_cm !== undefined || m.tank_level_pct !== undefined) {
+            if (m.bin_distance_cm !== undefined || m.fill_level_percent !== undefined || m.fill_level_pct !== undefined || item.device_id === 'WASTE-BLOCK-B-001') {
+                const f = m.fill_level_percent ?? m.fill_level_pct ?? '--';
+                const d = m.bin_distance_cm ?? '--';
+                summaryStr = `Fill: <strong>${f}%</strong> | Clearance: <strong>${d} cm</strong>`;
+            } else if (m.tank_distance_cm !== undefined || m.tank_level_pct !== undefined) {
                 summaryStr = `Level: <strong>${m.tank_level_pct ?? '--'}%</strong> | Dist: <strong>${m.tank_distance_cm ?? '--'} cm</strong>`;
             } else if (m.active_power_kw !== undefined && m.active_power_kw !== null) {
                 summaryStr = `Power: <strong>${m.active_power_kw} kW</strong>` + (m.voltage_v !== undefined ? ` | ${m.voltage_v} V` : '');
             } else if (m.water_flow_lmin !== undefined && m.water_flow_lmin !== null) {
-                summaryStr = `Flow: <strong>${m.water_flow_lmin} L/min</strong>` + (m.cumulative_water_m3 !== undefined ? ` | ${m.cumulative_water_m3} m³` : '');
+                const total = m.water_cumulative_liters !== undefined ? `${m.water_cumulative_liters} L` : (m.cumulative_water_m3 !== undefined ? `${m.cumulative_water_m3} m³` : '');
+                const pulses = m.water_pulse_count_total !== undefined ? ` | ${Number(m.water_pulse_count_total).toLocaleString()} pulses` : '';
+                summaryStr = `Flow: <strong>${m.water_flow_lmin} L/min</strong>` + (total ? ` | Total: ${total}` : '') + pulses;
             } else if (m.mq135_raw_adc !== undefined || m.raw_adc !== undefined) {
-                summaryStr = `ADC: <strong>${m.mq135_raw_adc ?? m.raw_adc}</strong> | ${m.mq135_voltage_v ?? 0}V (${m.mq135_co2_estimate_ppm ?? 400} ppm est)`;
+                summaryStr = `ADC: <strong>${m.mq135_raw_adc ?? m.raw_adc}</strong> | Pin: ${m.mq135_adc_pin_voltage_v ?? '--'} V | Module: ${m.mq135_voltage_v ?? '--'} V`;
+            } else if (m.temperature_c !== undefined || m.humidity_pct !== undefined) {
+                summaryStr = `Temp: <strong>${m.temperature_c}°C</strong> | Humidity: <strong>${m.humidity_pct}% RH</strong>` + (m.heat_index_c !== undefined ? ` | HI: ${m.heat_index_c}°C` : '');
             } else if (m.hvac_load_kw !== undefined) {
                 summaryStr = `HVAC: <strong>${m.hvac_load_kw} kW</strong> | Temp: ${m.temperature_c ?? '--'}°C`;
             } else if (m.meter_status !== undefined) {
@@ -3523,12 +3961,16 @@ window.currentFleetFilter = 'all';
             const tsStr = rawTs.includes("T") ? rawTs.split("T")[1].slice(0, 8) : (rawTs.slice(11, 19) || "--");
 
             let cadenceTag = "";
+            const cadenceSec = Number(item.reporting_interval_sec);
+            const cadenceText = Number.isFinite(cadenceSec) && cadenceSec > 0
+                ? (cadenceSec < 60 ? `${cadenceSec}s DEMO` : `${Math.round(cadenceSec / 60)}m`)
+                : (item.reporting_state === "ANOMALY_5M" || item.reporting_state === "RECOVERY_5M" ? "5m" : "15m");
             if (item.reporting_state === "ANOMALY_5M") {
-                cadenceTag = `<span style="font-size:10px; color:#EF4444; font-weight:800; background:rgba(239,68,68,0.15); border:1px solid #EF4444; border-radius:6px; padding:1px 5px; margin-left:4px;">5m ANOM</span>`;
+                cadenceTag = `<span style="font-size:10px; color:#EF4444; font-weight:800; background:rgba(239,68,68,0.15); border:1px solid #EF4444; border-radius:6px; padding:1px 5px; margin-left:4px;">${cadenceText} ANOM</span>`;
             } else if (item.reporting_state === "RECOVERY_5M") {
-                cadenceTag = `<span style="font-size:10px; color:#F59E0B; font-weight:800; background:rgba(245,158,11,0.15); border:1px solid #F59E0B; border-radius:6px; padding:1px 5px; margin-left:4px;">5m RECOV</span>`;
+                cadenceTag = `<span style="font-size:10px; color:#F59E0B; font-weight:800; background:rgba(245,158,11,0.15); border:1px solid #F59E0B; border-radius:6px; padding:1px 5px; margin-left:4px;">${cadenceText} RECOV</span>`;
             } else if (item.reporting_state === "NORMAL_15M") {
-                cadenceTag = `<span style="font-size:10px; color:#00F0B5; font-weight:600; background:rgba(0,240,181,0.1); border:1px solid rgba(0,240,181,0.3); border-radius:6px; padding:1px 5px; margin-left:4px;">15m NORM</span>`;
+                cadenceTag = `<span style="font-size:10px; color:#00F0B5; font-weight:600; background:rgba(0,240,181,0.1); border:1px solid rgba(0,240,181,0.3); border-radius:6px; padding:1px 5px; margin-left:4px;">${cadenceText} NORM</span>`;
             }
 
             let anomalyBadge = "";
@@ -3546,6 +3988,11 @@ window.currentFleetFilter = 'all';
                 <td style="padding:11px 10px; font-size:12px; color:#FFFFFF;">${summaryStr} ${cadenceTag}${anomalyBadge}</td>
                 <td style="padding:11px 10px;">${provBadge}</td>
                 <td style="padding:11px 10px;">${statusBadge}</td>
+                <td style="padding:11px 10px; text-align:center;">
+                    <button type="button" class="btn btn-xs" onclick="window.openWirePayloadModal('${item.message_id}')" style="font-size:11px; padding:4px 9px; border-radius:6px; background:rgba(0,240,181,0.12); border:1px solid #00F0B5; color:#00F0B5; cursor:pointer; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                        <i class="fa-solid fa-code"></i> Wire JSON
+                    </button>
+                </td>
             </tr>
             `;
         }).join("");
@@ -3780,6 +4227,7 @@ window.currentFleetFilter = 'all';
 
     // Initial fetch
     initFleetFilterButtons();
+    initTelemetrySourceSelector();
     fetchStatus();
     fetchStreamLog();
     renderDynamicFleet();

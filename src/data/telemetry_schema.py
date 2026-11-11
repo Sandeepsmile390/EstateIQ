@@ -49,6 +49,9 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
     "power_kw": ("active_power_kw", "kW"),
     "active_power": ("active_power_kw", "kW"),
     "power": ("active_power_kw", "kW"),
+    "power_w": ("active_power_kw", "kW"),
+    "active_power_w": ("active_power_kw", "kW"),
+    "pzem_power_w": ("active_power_kw", "kW"),
 
     "voltage_v": ("voltage_v", "V"),
     "voltage": ("voltage_v", "V"),
@@ -89,6 +92,8 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
     "cumulative_water_m3": ("cumulative_water_m3", "m3"),
     "water_total_m3": ("cumulative_water_m3", "m3"),
     "cumulative_m3": ("cumulative_water_m3", "m3"),
+    "water_pulse_count_total": ("water_pulse_count_total", "count"),
+    "pulse_count_total": ("water_pulse_count_total", "count"),
 
     "water_pressure_bar": ("water_pressure_bar", "bar"),
     "pressure_bar": ("water_pressure_bar", "bar"),
@@ -140,6 +145,8 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
     "mq135_raw_adc": ("mq135_raw_adc", "count"),
     "raw_adc": ("mq135_raw_adc", "count"),
     "mq135_voltage_v": ("mq135_voltage_v", "V"),
+    "mq135_adc_pin_voltage_v": ("mq135_adc_pin_voltage_v", "V"),
+    "adc_pin_voltage_v": ("mq135_adc_pin_voltage_v", "V"),
     "sensor_voltage_v": ("mq135_voltage_v", "V"),
     "mq135_co2_estimate_ppm": ("mq135_co2_estimate_ppm", "ppm (sensor estimate)"),
     "mq135_co2_estimate": ("mq135_co2_estimate_ppm", "ppm (sensor estimate)"),
@@ -167,9 +174,13 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
     "water_cumulative_liters": ("water_cumulative_liters", "L"),
     "cumulative_liters": ("water_cumulative_liters", "L"),
 
-    # Hardware Status Indicators
+    # Hardware Status & Board Diagnostics Indicators
     "meter_status": ("meter_status", "status"),
     "tank_status": ("tank_status", "status"),
+    "uptime_sec": ("uptime_sec", "s"),
+    "free_heap_bytes": ("free_heap_bytes", "bytes"),
+    "wifi_rssi_dbm": ("wifi_rssi_dbm", "dBm"),
+    "rssi_dbm": ("wifi_rssi_dbm", "dBm"),
 
     # Adaptive Telemetry Reporting & Anomaly Metrics
     "reporting_interval_sec": ("reporting_interval_sec", "s"),
@@ -183,6 +194,7 @@ CANONICAL_METRIC_MAP: Dict[str, Tuple[str, str]] = {
 METRIC_RANGE_LIMITS: Dict[str, Tuple[float, float]] = {
     "mq135_raw_adc": (0.0, 4095.0),
     "mq135_voltage_v": (0.0, 5.0),
+    "mq135_adc_pin_voltage_v": (0.0, 3.3),
     "mq135_co2_estimate_ppm": (0.0, 10000.0),
     "mq135_warmup_status": (0.0, 1.0),
     "cumulative_energy_kwh": (0.0, 1e9),
@@ -227,6 +239,10 @@ METRIC_RANGE_LIMITS: Dict[str, Tuple[float, float]] = {
     "hvac_load_kw": (0.0, 10000.0),
     "heat_index_c": (-30.0, 100.0),
     "water_cumulative_liters": (0.0, 1e11),
+    "water_pulse_count_total": (0.0, 4294967295.0),
+    "wifi_rssi_dbm": (-130.0, 0.0),
+    "uptime_sec": (0.0, 1e9),
+    "free_heap_bytes": (0.0, 1e9),
     "reporting_interval_sec": (1.0, 86400.0),
     "reporting_state": (0.0, 100.0),
     "is_anomaly": (0.0, 1.0),
@@ -489,7 +505,7 @@ def normalize_telemetry_payload(payload: Dict[str, Any], default_source: Optiona
 
         # Convert explicitly supported source units before range validation.
         source_unit = str(raw_unit or "").strip().lower().replace(" ", "")
-        if not source_unit and raw_lower == "pzem_power_w":
+        if not source_unit and raw_lower in {"pzem_power_w", "power_w", "active_power_w"}:
             source_unit = "w"
         elif not source_unit and raw_lower == "pzem_energy_wh":
             source_unit = "wh"

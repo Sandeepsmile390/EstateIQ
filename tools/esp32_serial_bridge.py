@@ -90,10 +90,16 @@ def run_bridge(port: str, baud: int = 115200):
     re_water_live = re.compile(r"Real Distance Measured:\s*([\d\.]+)\s*cm\s*\|\s*Tank Level:\s*([\d\.]+)%")
     re_flow = re.compile(r"Flow:\s*([\d\.]+)\s*L/min")
     re_pzem = re.compile(r"Power:\s*([\d\.]+)\s*kW.*Energy:\s*([\d\.]+)\s*kWh")
-    re_mq135 = re.compile(r"MQ135.*ADC:\s*(\d+),\s*([\d\.]+)V")
+    re_dht11 = re.compile(r"\[SENSOR-DHT11\]\s*Temp:\s*([\d\.\-]+)\s*C\s*\|\s*Humidity:\s*([\d\.\-]+)\s*%\s*\|\s*Heat Index:\s*([\d\.\-]+)\s*C")
+    re_mq135_live = re.compile(r"\[SENSOR-MQ135\]\s*Raw ADC:\s*(\d+)\s*\|\s*Pin:\s*([\d\.]+)V\s*\|\s*Module output:\s*([\d\.]+)V\s*\|\s*Warmup:\s*(\w+)")
+    re_mq135_legacy = re.compile(r"MQ135.*ADC:\s*(\d+),\s*([\d\.]+)V")
 
     last_waste_sent = 0
     last_water_sent = 0
+    last_env_sent = 0
+    current_temp = None
+    current_hum = None
+    current_heat_index = None
 
     while True:
         try:
@@ -189,6 +195,69 @@ def run_bridge(port: str, baud: int = 115200):
                 ok = post_telemetry(payload)
                 mark = "[OK]" if ok else "[FAIL]"
                 print(f" {mark} [POWER-METER] Power: {power_kw:5.2f} kW | Energy: {energy_kwh:6.2f} kWh -> Ingested")
+                continue
+
+            # 5. Match DHT11 Temperature & Humidity
+            m_dht = re_dht11.search(line)
+            if m_dht:
+                current_temp = float(m_dht.group(1))
+                current_hum = float(m_dht.group(2))
+                current_heat_index = float(m_dht.group(3))
+                if t_now - last_env_sent >= 0.8:
+                    last_env_sent = t_now
+                    metrics = {
+                        "temperature_c": current_temp,
+                        "humidity_pct": current_hum,
+                        "heat_index_c": current_heat_index
+                    }
+                    payload = {
+                        "device_id": "ENV-BLOCK-B-001",
+                        "source_type": "real_sensor",
+                        "is_verified_hardware": True,
+                        "event_timestamp": now_utc,
+                        "metrics": metrics
+                    }
+                    ok = post_telemetry(payload)
+                    mark = "[OK]" if ok else "[FAIL]"
+                    print(f" {mark} [ENV-DHT11] Temp: {current_temp:.1f}C | Hum: {current_hum:.1f}% -> Ingested")
+                continue
+
+            # 6. Match MQ-135 Gas & Air Quality
+            m_mq_live = re_mq135_live.search(line)
+            m_mq_leg = re_mq135_legacy.search(line)
+            if m_mq_live or m_mq_leg:
+                raw_adc = int(m_mq_live.group(1)) if m_mq_live else int(m_mq_leg.group(1))
+                pin_v = float(m_mq_live.group(2)) if m_mq_live else (raw_adc / 4095.0 * 3.3)
+                module_v = float(m_mq_live.group(3)) if m_mq_live else float(m_mq_leg.group(2))
+                warmup_str = m_mq_live.group(4) if m_mq_live else "WARMING_UP"
+                warmup_val = 0 if "WARM" in warmup_str else 1
+
+                if t_now - last_env_sent >= 1.0:
+                    last_env_sent = t_now
+                    metrics = {
+                        "mq135_raw_adc": raw_adc,
+                        "mq135_adc_pin_voltage_v": pin_v,
+                        "mq135_voltage_v": module_v,
+                        "mq135_warmup_status": warmup_val
+                    }
+                    if current_temp is not None:
+                        metrics["temperature_c"] = current_temp
+                    if current_hum is not None:
+                        metrics["humidity_pct"] = current_hum
+                    if current_heat_index is not None:
+                        metrics["heat_index_c"] = current_heat_index
+
+                    payload = {
+                        "device_id": "ENV-BLOCK-B-001",
+                        "source_type": "real_sensor",
+                        "is_verified_hardware": True,
+                        "event_timestamp": now_utc,
+                        "metrics": metrics
+                    }
+                    ok = post_telemetry(payload)
+                    mark = "[OK]" if ok else "[FAIL]"
+                    t_str = f" | Temp: {current_temp:.1f}C" if current_temp is not None else ""
+                    print(f" {mark} [ENV-MQ135] ADC: {raw_adc} ({pin_v:.2f}V pin){t_str} -> Ingested")
                 continue
 
             # Echo unparsed informative serial lines

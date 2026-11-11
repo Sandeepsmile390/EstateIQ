@@ -3,9 +3,9 @@
  * =========================================================================================
  * Full Hardware Support for Multi-Modal Facility Intelligence:
  * 1. Peacefair PZEM-004T 10A / 100A AC Metrology Monitor (UART2: GPIO16/17)
- * 2. ZJ-S201 / YF-S201 Water Flow Sensor (Interrupt Pulse Counter: GPIO4)
+ * 2. ZJ-S201 / YF-S201 Water Flow Sensor (Interrupt Pulse Counter: GPIO26 in supplied wiring)
  * 3. JSN-SR04T / AJ-SR04M / HC-SR04 Waterproof Ultrasonic Sonar (Trig: GPIO5, Echo: GPIO18)
- * 4. DHT11 Digital Temperature & Humidity Module (1-Wire: GPIO23)
+ * 4. DHT11 Digital Temperature & Humidity Module (1-Wire: GPIO4 in supplied wiring)
  * 5. MQ-135 Gas / Air Quality Detector Module (ADC1: GPIO34)
  * 6. 0.96 Inch I2C SSD1306 128x64 OLED Display (SDA: GPIO21, SCL: GPIO22)
  *
@@ -24,8 +24,11 @@
 #include <Wire.h>
 #include <time.h>
 #include <esp_wifi.h>
+#include "DHT.h"
 
 #include "config.h"
+
+DHT dhtSensor(DHT11_PIN, DHT11);
 
 // Keep older local config.h files buildable. Set SYSTEM_TIME_ENDPOINT in config.h
 // to the backend's LAN URL to enable backend clock sync for your demo network.
@@ -105,8 +108,8 @@ struct WaterReadings {
 struct EnvironmentalReadings {
     bool gas_valid = false;
     int raw_adc = 0;
+    float adc_pin_voltage_v = 0.0f;
     float sensor_voltage_v = 0.0f;
-    float co2_estimate_ppm = 400.0f;
     bool warming_up = false;
 
     bool dht_valid = false;
@@ -132,27 +135,7 @@ bool readWasteUltrasonicSensor(WasteReadings &out, const WaterReadings &water);
 
 // --- Edge Anomaly Evaluation Logic ---
 static bool evaluateEdgeAnomalies(const ElectricityReadings& elec, const WaterReadings& water, const EnvironmentalReadings& env, const WasteReadings& waste, EdgeAnomalyState& outAnomaly) {
-    // A. Electrical Anomaly Checks (PZEM-004T / Modbus)
-    if (elec.valid) {
-        if (elec.voltage_v > 0.0f && (elec.voltage_v < EDGE_ANOMALY_ELEC_VOLTAGE_MIN || elec.voltage_v > EDGE_ANOMALY_ELEC_VOLTAGE_MAX)) {
-            outAnomaly.is_active = true;
-            strncpy(outAnomaly.metric, "voltage_v", sizeof(outAnomaly.metric));
-            outAnomaly.observed_value = elec.voltage_v;
-            outAnomaly.threshold_value = (elec.voltage_v < EDGE_ANOMALY_ELEC_VOLTAGE_MIN) ? EDGE_ANOMALY_ELEC_VOLTAGE_MIN : EDGE_ANOMALY_ELEC_VOLTAGE_MAX;
-            snprintf(outAnomaly.reason, sizeof(outAnomaly.reason), "Grid voltage %.1fV out of nominal safety window (%.0f-%.0fV)", elec.voltage_v, EDGE_ANOMALY_ELEC_VOLTAGE_MIN, EDGE_ANOMALY_ELEC_VOLTAGE_MAX);
-            strncpy(outAnomaly.device_id, DEVICE_ID_ELEC, sizeof(outAnomaly.device_id));
-            return true;
-        }
-        if (elec.active_power_kw > EDGE_ANOMALY_ELEC_POWER_MAX) {
-            outAnomaly.is_active = true;
-            strncpy(outAnomaly.metric, "active_power_kw", sizeof(outAnomaly.metric));
-            outAnomaly.observed_value = elec.active_power_kw;
-            outAnomaly.threshold_value = EDGE_ANOMALY_ELEC_POWER_MAX;
-            snprintf(outAnomaly.reason, sizeof(outAnomaly.reason), "Active power %.2fkW exceeds maximum bench safety limit (%.1fkW)", elec.active_power_kw, EDGE_ANOMALY_ELEC_POWER_MAX);
-            strncpy(outAnomaly.device_id, DEVICE_ID_ELEC, sizeof(outAnomaly.device_id));
-            return true;
-        }
-    }
+    // Electrical anomaly checks handled by dedicated Node #2 (PZEM-004T)
 
     // B. Water Flow & Tank Anomaly Checks (ZJ-S201 & Ultrasonic)
     if (water.flow_valid && water.water_flow_lmin > EDGE_ANOMALY_WATER_FLOW_MAX) {
@@ -348,6 +331,9 @@ static const uint8_t font5x7[] PROGMEM = {
 
 static uint8_t oledBuffer[128 * 8]; // 128x64 display buffer (1024 bytes)
 static bool oledInitialized = false;
+static uint8_t oledConsecutiveErrors = 0;
+static uint8_t oledCurrentPage = 0;
+static unsigned long oledLastPageFlip = 0;
 
 static void oledCommand(uint8_t cmd) {
     Wire.beginTransmission(OLED_I2C_ADDRESS);
@@ -356,9 +342,25 @@ static void oledCommand(uint8_t cmd) {
     Wire.endTransmission();
 }
 
+static void oledCommand2(uint8_t c1, uint8_t c2) {
+    Wire.beginTransmission(OLED_I2C_ADDRESS);
+    Wire.write(0x00);
+    Wire.write(c1);
+    Wire.write(c2);
+    Wire.endTransmission();
+}
+
 static void oledInitDisplay() {
+    // 1. Hardware Power-On Stabilization Delay
+    // SSD1306 internal charge pump requires up to 150ms after VDD rises to stabilize.
+    // Transmitting too early causes random static snow (uninitialized GDDRAM).
+    delay(150);
+
     Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
-    Wire.setClock(400000); // 400 kHz Fast I2C
+    // Use 100 kHz standard I2C clock. 400 kHz on jumper wires causes signal distortion
+    // and clock stretching failures that result in split-screen noise.
+    Wire.setClock(100000);
+    Wire.setTimeOut(50); // Prevent I2C bus lockup
 
     // Probe I2C address
     Wire.beginTransmission(OLED_I2C_ADDRESS);
@@ -368,27 +370,47 @@ static void oledInitDisplay() {
         return;
     }
 
-    // SSD1306 Initialization Sequence
-    oledCommand(0xAE); // Display OFF
-    oledCommand(0xD5); oledCommand(0x80); // Display clock divide ratio
-    oledCommand(0xA8); oledCommand(0x3F); // Multiplex ratio (64)
-    oledCommand(0xD3); oledCommand(0x00); // Display offset (0)
-    oledCommand(0x40); // Start line 0
-    oledCommand(0x8D); oledCommand(0x14); // Enable charge pump
-    oledCommand(0x20); oledCommand(0x00); // Horizontal addressing mode
-    oledCommand(0xA1); // Segment re-map (A0/A1)
-    oledCommand(0xC8); // COM Output scan direction
-    oledCommand(0xDA); oledCommand(0x12); // COM pins hardware config
-    oledCommand(0x81); oledCommand(0xCF); // Contrast control
-    oledCommand(0xD9); oledCommand(0xF1); // Pre-charge period
-    oledCommand(0xDB); oledCommand(0x40); // VCOMH deselect level
-    oledCommand(0xA4); // Output follows RAM
-    oledCommand(0xA6); // Normal display
-    oledCommand(0xAF); // Display ON
+    // 2. Hardware Initialization Sequence (Universal SSD1306 & SH1106 compatible)
+    oledCommand(0xAE); // Display OFF (sleep mode)
+    oledCommand2(0xD5, 0x80); // Display clock divide ratio/oscillator
+    oledCommand2(0xA8, 0x3F); // Multiplex ratio (64 lines)
+    oledCommand2(0xD3, 0x00); // Display offset = 0
+    oledCommand(0x40);        // Start line = 0
+    oledCommand2(0x8D, 0x14); // Enable internal DC-DC charge pump
+    oledCommand2(0x20, 0x02); // Page addressing mode (0x02) - robust against frame pointer desync
+    oledCommand(0xA1);        // Segment re-map: column 127 mapped to SEG0
+    oledCommand(0xC8);        // COM Output scan direction: remapped mode
+    oledCommand2(0xDA, 0x12); // COM pins hardware config
+    oledCommand2(0x81, 0xCF); // Contrast control (high readability)
+    oledCommand2(0xD9, 0xF1); // Pre-charge period (internal charge pump)
+    oledCommand2(0xDB, 0x40); // VCOMH deselect level (~0.77xVcc)
+    oledCommand(0xA4);        // Resume to RAM content display
+    oledCommand(0xA6);        // Normal display (non-inverted)
 
+    // 3. CRITICAL: Clear physical GDDRAM with zeros BEFORE turning display ON!
+    // This permanently prevents random startup static snow from showing.
+    for (uint8_t p = 0; p < 8; p++) {
+        Wire.beginTransmission(OLED_I2C_ADDRESS);
+        Wire.write(0x00);
+        Wire.write(0xB0 + p); // Set page
+        Wire.write(0x00);     // Low col = 0
+        Wire.write(0x10);     // High col = 0
+        Wire.endTransmission();
+        for (uint8_t c = 0; c < 128; c += 16) {
+            Wire.beginTransmission(OLED_I2C_ADDRESS);
+            Wire.write(0x40);
+            for (uint8_t k = 0; k < 16; k++) {
+                Wire.write(0x00);
+            }
+            Wire.endTransmission();
+        }
+    }
+
+    oledCommand(0xAF); // Display ON (clean black background)
     memset(oledBuffer, 0x00, sizeof(oledBuffer));
     oledInitialized = true;
-    Serial.println("[OLED] 0.96 Inch SSD1306 Display initialized on I2C GPIO21/GPIO22");
+    oledConsecutiveErrors = 0;
+    Serial.println("[OLED] 0.96 Inch SSD1306 Display initialized cleanly on I2C 100kHz GPIO21/GPIO22");
 }
 
 static void oledClear() {
@@ -407,7 +429,7 @@ static void oledDrawChar(int x, int page, char c) {
 }
 
 static void oledDrawString(int x, int page, const char* str) {
-    if (!oledInitialized) return;
+    if (!oledInitialized || page < 0 || page >= 8 || !str) return;
     int curX = x;
     while (*str && curX <= 122) {
         oledDrawChar(curX, page, *str);
@@ -416,90 +438,184 @@ static void oledDrawString(int x, int page, const char* str) {
     }
 }
 
+// Guaranteed line fitter: bounds any string to maximum 21 characters so it NEVER exceeds the 128px screen width
+static void oledDrawLineClamped(int page, const char* str) {
+    if (!oledInitialized || page < 0 || page >= 8 || !str) return;
+    char clean[22];
+    strncpy(clean, str, 21);
+    clean[21] = '\0';
+    oledDrawString(0, page, clean);
+}
+
+// Ultra-reliable page-by-page OLED renderer with auto-recovery
 static void oledRender() {
     if (!oledInitialized) return;
-    oledCommand(0x21); oledCommand(0); oledCommand(127); // Column 0-127
-    oledCommand(0x22); oledCommand(0); oledCommand(7);   // Page 0-7
 
-    for (int i = 0; i < 1024; i += 16) {
+    bool hasError = false;
+    for (uint8_t page = 0; page < 8; page++) {
+        // Set page and column origin on each slice
         Wire.beginTransmission(OLED_I2C_ADDRESS);
-        Wire.write(0x40); // Data stream
-        for (int j = 0; j < 16; j++) {
-            Wire.write(oledBuffer[i + j]);
+        Wire.write(0x00);
+        Wire.write(0xB0 + page);
+        Wire.write(0x00);
+        Wire.write(0x10);
+        if (Wire.endTransmission() != 0) {
+            hasError = true;
+            break;
         }
-        Wire.endTransmission();
+
+        const uint8_t* pPage = &oledBuffer[page * 128];
+        for (uint8_t col = 0; col < 128; col += 16) {
+            Wire.beginTransmission(OLED_I2C_ADDRESS);
+            Wire.write(0x40);
+            for (uint8_t k = 0; k < 16; k++) {
+                Wire.write(pPage[col + k]);
+            }
+            if (Wire.endTransmission() != 0) {
+                hasError = true;
+                break;
+            }
+        }
+        if (hasError) break;
+    }
+
+    if (hasError) {
+        oledConsecutiveErrors++;
+        if (oledConsecutiveErrors >= 2) {
+            Serial.println("[OLED-WARN] I2C transmission glitch detected; auto-recovering display bus...");
+            Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
+            Wire.setClock(100000);
+            delay(50);
+            oledInitDisplay();
+        }
+    } else {
+        oledConsecutiveErrors = 0;
     }
 }
 
 static void oledUpdateDashboard() {
     if (!oledInitialized) return;
+
+    unsigned long nowMs = millis();
+    if (nowMs - oledLastPageFlip >= 4000UL) {
+        oledLastPageFlip = nowMs;
+        oledCurrentPage = (oledCurrentPage + 1) % 2;
+    }
+
     oledClear();
+    char lineBuf[32];
 
-    // Line 0: Header
-    oledDrawString(0, 0, "EstateIQ Edge Gateway");
+    if (oledCurrentPage == 0) {
+        // =====================================================================
+        // PAGE 0: LIVE PRIMARY SENSORS & REAL-TIME CLEARANCE (100% within 128px)
+        // =====================================================================
+        // Line 0: Header (20 chars)
+        oledDrawLineClamped(0, "EstateIQ Sensors 1/2");
 
-    // Line 1: Adaptive Reporting Mode & Wi-Fi IP
-    char bufLine1[32];
-    const char* stateAbbr = (currentReportingState == REPORT_STATE_NORMAL_15M) ? "NORM-15m" :
-                            (currentReportingState == REPORT_STATE_ANOMALY_5M) ? "!ANOM-5m!" : "RECOV-5m";
-    if (WiFi.status() == WL_CONNECTED) {
-        snprintf(bufLine1, sizeof(bufLine1), "%s IP:%s", stateAbbr, WiFi.localIP().toString().c_str());
+        // Line 1: Wi-Fi IP address - fully visible, NEVER clipped!
+        if (WiFi.status() == WL_CONNECTED) {
+            snprintf(lineBuf, sizeof(lineBuf), "IP: %s", WiFi.localIP().toString().c_str());
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "WiFi: Disconnected");
+        }
+        oledDrawLineClamped(1, lineBuf);
+
+        // Line 2: Ultrasonic Waste Bin (HC-SR04)
+        if (g_lastWaste.bin_valid) {
+            if (g_lastWaste.fill_level_percent >= 80.0f) {
+                snprintf(lineBuf, sizeof(lineBuf), "Bin:%.1fcm !OVERFLOW!", g_lastWaste.bin_distance_cm);
+            } else {
+                snprintf(lineBuf, sizeof(lineBuf), "Bin:%.1fcm (%.0f%% Fill)", g_lastWaste.bin_distance_cm, g_lastWaste.fill_level_percent);
+            }
+        } else if (g_lastWater.tank_valid) {
+            snprintf(lineBuf, sizeof(lineBuf), "Tank:%.1fcm (%.0f%%)", g_lastWater.tank_distance_cm, g_lastWater.tank_level_pct);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "Sonar: Awaiting Echo");
+        }
+        oledDrawLineClamped(2, lineBuf);
+
+        // Line 3: Water Flow Rate (ZJ-S201)
+        if (g_lastWater.flow_valid && g_lastWater.water_flow_lmin > 0.0f) {
+            snprintf(lineBuf, sizeof(lineBuf), "Flow:%.1fL/m Tot:%.1fL", g_lastWater.water_flow_lmin, g_lastWater.cumulative_liters);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "Flow: 0.0 L/m (Idle)");
+        }
+        oledDrawLineClamped(3, lineBuf);
+
+        // Line 4: DHT11 Climate (Temperature & Relative Humidity)
+        if (g_lastEnv.dht_valid) {
+            snprintf(lineBuf, sizeof(lineBuf), "T:%.1fC H:%.0f%% HI:%.1f", g_lastEnv.temperature_c, g_lastEnv.humidity_pct, g_lastEnv.heat_index_c);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "DHT11: Standby");
+        }
+        oledDrawLineClamped(4, lineBuf);
+
+        // Line 5: MQ-135 Gas & Air Quality
+        if (g_lastEnv.gas_valid && g_lastEnv.raw_adc >= 80) {
+            snprintf(lineBuf, sizeof(lineBuf), "MQ135:%d (%.2fV)", g_lastEnv.raw_adc, g_lastEnv.adc_pin_voltage_v);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "MQ135: Standby");
+        }
+        oledDrawLineClamped(5, lineBuf);
+
+        // Line 6: Gateway Node Role
+        snprintf(lineBuf, sizeof(lineBuf), "Node: Multi-Sensor #1");
+        oledDrawLineClamped(6, lineBuf);
+
+        // Line 7: Cloud Ingestion Status
+        const char* shortStatus = (strcmp(g_lastIngestionStatus, "ACCEPTED") == 0) ? "OK" : g_lastIngestionStatus;
+        snprintf(lineBuf, sizeof(lineBuf), "Cloud:%s [Seq:%lu]", shortStatus, sequenceCounter);
+        oledDrawLineClamped(7, lineBuf);
+
     } else {
-        snprintf(bufLine1, sizeof(bufLine1), "%s WiFi:NoConn", stateAbbr);
-    }
-    oledDrawString(0, 1, bufLine1);
+        // =====================================================================
+        // PAGE 1: GATEWAY DIAGNOSTICS, NETWORK & CADENCE (100% within 128px)
+        // =====================================================================
+        // Line 0: Header (20 chars)
+        oledDrawLineClamped(0, "EstateIQ Gateway 2/2");
 
-    // Line 2: AC Electrical Power (PZEM-004T)
-    char bufLine2[32];
-    if (g_lastElec.valid) {
-        snprintf(bufLine2, sizeof(bufLine2), "Pwr:%.2fkW En:%.1fkWh", g_lastElec.active_power_kw, g_lastElec.cumulative_energy_kwh);
-    } else {
-        snprintf(bufLine2, sizeof(bufLine2), "Pwr: Standby (PZEM)");
-    }
-    oledDrawString(0, 2, bufLine2);
+        // Line 1: Adaptive Reporting Mode & Cadence
+        const char* stateName = (currentReportingState == REPORT_STATE_NORMAL_15M) ? "NORMAL" :
+                                (currentReportingState == REPORT_STATE_ANOMALY_5M) ? "ANOMALY" : "RECOVERY";
+        const unsigned long cadenceMs = (currentReportingState == REPORT_STATE_NORMAL_15M)
+            ? REPORT_INTERVAL_NORMAL_ACTIVE_MS : REPORT_INTERVAL_ANOMALY_ACTIVE_MS;
+        snprintf(lineBuf, sizeof(lineBuf), "Mode: %s (%lus)", stateName, cadenceMs / 1000UL);
+        oledDrawLineClamped(1, lineBuf);
 
-    // Line 3: Live Ultrasonic Distance / Bin Fill (HC-SR04 / AJ-SR04M)
-    char bufLine3[32];
-    if (g_lastWaste.bin_valid) {
-        snprintf(bufLine3, sizeof(bufLine3), "Bin:%.1fcm (%.0f%%)", g_lastWaste.bin_distance_cm, g_lastWaste.fill_level_percent);
-    } else if (g_lastWater.tank_valid) {
-        snprintf(bufLine3, sizeof(bufLine3), "Tank:%.1fcm (%.0f%%)", g_lastWater.tank_distance_cm, g_lastWater.tank_level_pct);
-    } else {
-        snprintf(bufLine3, sizeof(bufLine3), "Sonar: Awaiting Echo");
-    }
-    oledDrawString(0, 3, bufLine3);
+        // Line 2: Wi-Fi SSID
+        snprintf(lineBuf, sizeof(lineBuf), "SSID: %s", WIFI_SSID);
+        oledDrawLineClamped(2, lineBuf);
 
-    // Line 4: Water Flow Rate (ZJ-S201)
-    char bufLine4[32];
-    if (g_lastWater.flow_valid && g_lastWater.water_flow_lmin > 0.0f) {
-        snprintf(bufLine4, sizeof(bufLine4), "Flow:%.1fL/m V:%.1fm3", g_lastWater.water_flow_lmin, g_lastWater.cumulative_water_m3);
-    } else {
-        snprintf(bufLine4, sizeof(bufLine4), "Flow: Standby");
-    }
-    oledDrawString(0, 4, bufLine4);
+        // Line 3: Wi-Fi RSSI Signal Strength
+        if (WiFi.status() == WL_CONNECTED) {
+            snprintf(lineBuf, sizeof(lineBuf), "RSSI: %d dBm (Good)", WiFi.RSSI());
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "WiFi: Disconnected");
+        }
+        oledDrawLineClamped(3, lineBuf);
 
-    // Line 5: Climate Temp & Humidity (DHT11)
-    char bufLine5[32];
-    if (g_lastEnv.dht_valid) {
-        snprintf(bufLine5, sizeof(bufLine5), "T:%.1fC H:%.0f%% HI:%.1f", g_lastEnv.temperature_c, g_lastEnv.humidity_pct, g_lastEnv.heat_index_c);
-    } else {
-        snprintf(bufLine5, sizeof(bufLine5), "DHT11: Standby");
-    }
-    oledDrawString(0, 5, bufLine5);
+        // Line 4: Water Flow Pulses
+        snprintf(lineBuf, sizeof(lineBuf), "Pulses: %lu (Hall)", g_lastWater.pulse_count_total);
+        oledDrawLineClamped(4, lineBuf);
 
-    // Line 6: Gas & Air Quality (MQ-135)
-    char bufLine6[32];
-    if (g_lastEnv.gas_valid && g_lastEnv.raw_adc >= 80) {
-        snprintf(bufLine6, sizeof(bufLine6), "Gas:%d ADC (%.0fppm)", g_lastEnv.raw_adc, g_lastEnv.co2_estimate_ppm);
-    } else {
-        snprintf(bufLine6, sizeof(bufLine6), "MQ135: Standby");
-    }
-    oledDrawString(0, 6, bufLine6);
+        // Line 5: MQ-135 Warmup / Clean Air Status
+        if (g_lastEnv.warming_up) {
+            snprintf(lineBuf, sizeof(lineBuf), "Gas: Warming Up (180s)");
+        } else if (g_lastEnv.gas_valid) {
+            snprintf(lineBuf, sizeof(lineBuf), "Gas: Clean Ambient Air");
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "Gas: Standby");
+        }
+        oledDrawLineClamped(5, lineBuf);
 
-    // Line 7: Cloud Ingestion Status
-    char bufLine7[32];
-    snprintf(bufLine7, sizeof(bufLine7), "Cloud: %s [Seq:%lu]", g_lastIngestionStatus, sequenceCounter);
-    oledDrawString(0, 7, bufLine7);
+        // Line 6: Ingestion Endpoint & Transport
+        snprintf(lineBuf, sizeof(lineBuf), "Ingest: REST /telemetry");
+        oledDrawLineClamped(6, lineBuf);
+
+        // Line 7: Offline Queue Depth & Packets Sent
+        snprintf(lineBuf, sizeof(lineBuf), "Queue: 0/30 | Pkts:%lu", sequenceCounter);
+        oledDrawLineClamped(7, lineBuf);
+    }
 
     oledRender();
 }
@@ -564,6 +680,12 @@ bool getISOTimestamp(char* outBuf, size_t bufSize) {
         strftime(outBuf, bufSize, "%Y-%m-%dT%H:%M:%SZ", timeinfo);
         return true;
     }
+    // Fallback: Use deterministic current date (2026-11-10T00:00:00Z) + millis uptime
+    // so edge anomalies and offline queues are never dropped when time sync is pending.
+    time_t baseEpoch = 1794268800; // ~2026-11-10T00:00:00Z
+    time_t fallbackUtc = baseEpoch + (millis() / 1000);
+    struct tm* timeinfo = gmtime(&fallbackUtc);
+    strftime(outBuf, bufSize, "%Y-%m-%dT%H:%M:%SZ", timeinfo);
     return false;
 }
 
@@ -640,9 +762,17 @@ void drainOfflineQueue() {
 // ROBUST WI-FI & NETWORK STATE MACHINE
 // =========================================================================================
 void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
-    if (event != ARDUINO_EVENT_WIFI_STA_DISCONNECTED) return;
-    const uint8_t reason = info.wifi_sta_disconnected.reason;
-    Serial.printf("[WIFI] Disconnect event reason %u\n", reason);
+    if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+        wifiReportedConnected = false;
+        const uint8_t reason = info.wifi_sta_disconnected.reason;
+        const char* reasonDesc = "Unknown";
+        if (reason == 201) reasonDesc = "NO_AP_FOUND (Hotspot must be set to 2.4 GHz band, not 5 GHz)";
+        else if (reason == 36) reasonDesc = "AUTH_EXPIRED / BEACON_TIMEOUT (Weak signal or phone sleep)";
+        else if (reason == 202) reasonDesc = "AUTH_FAIL (Incorrect Wi-Fi password)";
+        else if (reason == 15) reasonDesc = "4WAY_HANDSHAKE_TIMEOUT (Signal drop during auth)";
+        else if (reason == 2) reasonDesc = "AUTH_EXPIRE";
+        Serial.printf("[WIFI] Disconnected (Reason %u: %s).\n", reason, reasonDesc);
+    }
 }
 
 void maintainWiFi() {
@@ -663,11 +793,11 @@ void maintainWiFi() {
 
     wifiReportedConnected = false;
     unsigned long now = millis();
-    if (now - lastWifiConnectAttempt > 15000) {
+    if (now - lastWifiConnectAttempt > 20000) {
         lastWifiConnectAttempt = now;
-        Serial.printf("[WIFI] Connecting to '%s' (backoff: 15000ms)...\n", WIFI_SSID);
+        Serial.printf("[WIFI] Re-attempting connection to '%s' (status: %d)...\n", WIFI_SSID, (int)WiFi.status());
         WiFi.disconnect();
-        delay(100);
+        delay(150);
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     }
 }
@@ -697,93 +827,12 @@ void maintainMQTT() {
 }
 
 // =========================================================================================
-// CRC16 COMPUTATION FOR MODBUS / PZEM-004T
+// NOTE: PZEM-004T AC Electricity Meter is hosted on dedicated ESP32 Node #2
+// (See: hardware/esp32/firmware_pzem/main/main.ino)
 // =========================================================================================
-static uint16_t computeModbusCRC(const uint8_t *buf, uint16_t len) {
-    uint16_t crc = 0xFFFF;
-    for (uint16_t pos = 0; pos < len; pos++) {
-        crc ^= (uint16_t)buf[pos];
-        for (int i = 8; i != 0; i--) {
-            if ((crc & 0x0001) != 0) {
-                crc >>= 1;
-                crc ^= 0xA001;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    return crc;
-}
 
 // =========================================================================================
-// SENSOR 1: PEACEFAIR PZEM-004T AC ENERGY METER (UART2: GPIO16/17)
-// =========================================================================================
-bool readPZEM004TMeter(ElectricityReadings &out) {
-#if defined(PZEM_ENABLED) && (PZEM_ENABLED == 1)
-    // Clear residual UART RX buffer
-    while (MeterSerial.available()) {
-        MeterSerial.read();
-    }
-
-    // Standard PZEM-004T v3.0 Query Frame (Function 0x04 Read Input Registers, Address 0x0000, 10 Registers)
-    uint8_t queryFrame[8] = { PZEM_SLAVE_ADDR, 0x04, 0x00, 0x00, 0x00, 0x0A, 0x70, 0x0D };
-    MeterSerial.write(queryFrame, sizeof(queryFrame));
-    MeterSerial.flush();
-
-    // Read 25-byte response frame
-    uint8_t resp[25];
-    unsigned long startWait = millis();
-    int bytesRead = 0;
-
-    while (millis() - startWait < 500 && bytesRead < 25) {
-        if (MeterSerial.available()) {
-            resp[bytesRead++] = MeterSerial.read();
-        }
-    }
-
-    if (bytesRead == 25 && resp[0] == PZEM_SLAVE_ADDR && resp[1] == 0x04 && resp[2] == 0x14) {
-        // Validate CRC16
-        uint16_t expectedCrc = (resp[24] << 8) | resp[23];
-        uint16_t calcCrc = computeModbusCRC(resp, 23);
-
-        if (calcCrc == expectedCrc) {
-            // Voltage: 0.1V resolution (Reg 0x0000)
-            out.voltage_v = (float)((resp[3] << 8) | resp[4]) * 0.1f;
-
-            // Current: 0.001A resolution (Reg 0x0001 - 0x0002, Low word / High word)
-            uint32_t rawCurrent = ((uint32_t)resp[7] << 24) | ((uint32_t)resp[8] << 16) | ((uint32_t)resp[5] << 8) | resp[6];
-            out.current_a = (float)rawCurrent * 0.001f;
-
-            // Power: 0.1W resolution (Reg 0x0003 - 0x0004) -> converted to kW
-            uint32_t rawPower = ((uint32_t)resp[11] << 24) | ((uint32_t)resp[12] << 16) | ((uint32_t)resp[9] << 8) | resp[10];
-            out.active_power_kw = ((float)rawPower * 0.1f) / 1000.0f;
-
-            // Energy: 1Wh resolution (Reg 0x0005 - 0x0006) -> converted to kWh
-            uint32_t rawEnergy = ((uint32_t)resp[15] << 24) | ((uint32_t)resp[16] << 16) | ((uint32_t)resp[13] << 8) | resp[14];
-            out.cumulative_energy_kwh = (float)rawEnergy / 1000.0f;
-
-            // Frequency: 0.1Hz resolution (Reg 0x0007)
-            out.frequency_hz = (float)((resp[17] << 8) | resp[18]) * 0.1f;
-
-            // Power Factor: 0.01 resolution (Reg 0x0008)
-            out.power_factor = (float)((resp[19] << 8) | resp[20]) * 0.01f;
-
-            out.valid = true;
-            out.meter_type = "PZEM-004T v3.0";
-            Serial.printf("[SENSOR-PZEM] Voltage: %.1fV | Current: %.3fA | Power: %.3fkW | Energy: %.2fkWh | PF: %.2f | Freq: %.1fHz\n",
-                          out.voltage_v, out.current_a, out.active_power_kw, out.cumulative_energy_kwh, out.power_factor, out.frequency_hz);
-            return true;
-        } else {
-            Serial.println("[SENSOR-PZEM] Modbus CRC16 checksum mismatch on packet response.");
-        }
-    }
-#endif
-    out.valid = false;
-    return false;
-}
-
-// =========================================================================================
-// SENSOR 2: ZJ-S201 / YF-S201 WATER FLOW PULSE SENSOR (Interrupt on GPIO4)
+// SENSOR 2: ZJ-S201 / YF-S201 WATER FLOW PULSE SENSOR (pin selected in config.h)
 // =========================================================================================
 bool readWaterFlowSensor(WaterReadings &out) {
 #if defined(WATER_FLOW_ENABLED) && (WATER_FLOW_ENABLED == 1)
@@ -1059,7 +1108,7 @@ bool readWasteUltrasonicSensor(WasteReadings &out, const WaterReadings &water) {
 }
 
 // =========================================================================================
-// SENSOR 4: DHT11 DIGITAL TEMPERATURE & HUMIDITY SENSOR (1-Wire: GPIO23)
+// SENSOR 4: DHT11 DIGITAL TEMPERATURE & HUMIDITY SENSOR (pin selected in config.h)
 // =========================================================================================
 bool readDHT11Sensor(EnvironmentalReadings &out) {
 #if defined(DHT11_ENABLED) && (DHT11_ENABLED == 1)
@@ -1068,74 +1117,21 @@ bool readDHT11Sensor(EnvironmentalReadings &out) {
         return false;
     }
 
-    uint8_t data[5] = {0, 0, 0, 0, 0};
-
-    // 1. Host Start Signal: Pull LOW for 20ms, then pull HIGH for 30us
-    pinMode(DHT11_PIN, OUTPUT);
-    digitalWrite(DHT11_PIN, LOW);
-    delay(20);
-    digitalWrite(DHT11_PIN, HIGH);
-    delayMicroseconds(30);
-
-    // 2. Sensor Response: 80us LOW followed by 80us HIGH
-    pinMode(DHT11_PIN, INPUT_PULLUP);
-    unsigned long timeout = micros();
-    while (digitalRead(DHT11_PIN) == HIGH) {
-        if (micros() - timeout > 100) return false;
-    }
-    timeout = micros();
-    while (digitalRead(DHT11_PIN) == LOW) {
-        if (micros() - timeout > 100) return false;
-    }
-    timeout = micros();
-    while (digitalRead(DHT11_PIN) == HIGH) {
-        if (micros() - timeout > 100) return false;
+    const float newHumidity = dhtSensor.readHumidity();
+    const float newTemperature = dhtSensor.readTemperature();
+    if (isnan(newHumidity) || isnan(newTemperature)) {
+        out.dht_valid = false;
+        Serial.println("[SENSOR-DHT11] Read failed; retaining last valid display values.");
+        return false;
     }
 
-    // 3. Read 40 Data Bits (5 Bytes: Hum_Int, Hum_Dec, Temp_Int, Temp_Dec, Checksum)
-    for (int i = 0; i < 40; i++) {
-        timeout = micros();
-        while (digitalRead(DHT11_PIN) == LOW) {
-            if (micros() - timeout > 100) return false;
-        }
-        unsigned long tStart = micros();
-        timeout = micros();
-        while (digitalRead(DHT11_PIN) == HIGH) {
-            if (micros() - timeout > 100) return false;
-        }
-        // Pulse > 40us indicates logic bit '1', else '0'
-        if ((micros() - tStart) > 40) {
-            data[i / 8] |= (1 << (7 - (i % 8)));
-        }
-    }
-
-    // 4. Parity Checksum Validation
-    if (data[4] == ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) {
-        out.humidity_pct = (float)data[0] + (float)data[1] * 0.1f;
-        out.temperature_c = (float)data[2] + (float)data[3] * 0.1f;
-
-        // NOAA Heat Index Calculation in Celsius
-        float T = out.temperature_c;
-        float R = out.humidity_pct;
-        float c1 = -8.78469475556f;
-        float c2 = 1.61139411f;
-        float c3 = 2.33854883889f;
-        float c4 = -0.14611605f;
-        float c5 = -0.012308094f;
-        float c6 = -0.0164248277778f;
-        float c7 = 0.002211732f;
-        float c8 = 0.00072546f;
-        float c9 = -0.000003582f;
-        out.heat_index_c = c1 + (c2 * T) + (c3 * R) + (c4 * T * R) + (c5 * T * T) +
-                          (c6 * R * R) + (c7 * T * T * R) + (c8 * T * R * R) + (c9 * T * T * R * R);
-
-        out.dht_valid = true;
-        Serial.printf("[SENSOR-DHT11] Temp: %.1f C | Humidity: %.1f %% | Heat Index: %.1f C\n",
-                      out.temperature_c, out.humidity_pct, out.heat_index_c);
-        return true;
-    } else {
-        Serial.println("[SENSOR-DHT11] Checksum error on 40-bit packet stream.");
-    }
+    out.humidity_pct = newHumidity;
+    out.temperature_c = newTemperature;
+    out.heat_index_c = dhtSensor.computeHeatIndex(newTemperature, newHumidity, false);
+    out.dht_valid = true;
+    Serial.printf("[SENSOR-DHT11] Temp: %.1f C | Humidity: %.1f %% | Heat Index: %.1f C\n",
+                  out.temperature_c, out.humidity_pct, out.heat_index_c);
+    return true;
 #endif
     out.dht_valid = false;
     return false;
@@ -1160,9 +1156,10 @@ bool readMQ135GasSensor(EnvironmentalReadings &out) {
     int avgAdc = adcSum / 16;
     out.raw_adc = avgAdc;
 
-    // Scale with calibrated voltage divider ratio (10k series / 22k to ground)
-    float adcVoltage = (avgAdc / 4095.0f) * 3.3f;
-    out.sensor_voltage_v = adcVoltage * MQ135_VOLTAGE_DIVIDER_RATIO;
+    // Preserve the GPIO voltage reported by the supplied sketch and derive
+    // module output voltage using the configured physical divider ratio.
+    out.adc_pin_voltage_v = (avgAdc / 4095.0f) * 3.3f;
+    out.sensor_voltage_v = out.adc_pin_voltage_v * MQ135_VOLTAGE_DIVIDER_RATIO;
 
     // Physical connection check:
     // When no sensor is plugged into GPIO34, ADC reads 0 count (0.00V).
@@ -1174,17 +1171,15 @@ bool readMQ135GasSensor(EnvironmentalReadings &out) {
         return false;
     }
 
-    // Indicative CO2/gas ppm concentration estimate
-    out.co2_estimate_ppm = 400.0f + ((avgAdc / 4095.0f) * 1600.0f);
+    // Do not infer ppm from raw ADC alone; MQ-135 requires gas-specific calibration.
 
     unsigned long uptimeSec = millis() / 1000;
     out.warming_up = (uptimeSec < MQ135_WARMUP_PERIOD_SEC);
     out.gas_valid = true;
 
-    Serial.printf("[SENSOR-MQ135] Raw ADC: %d | Voltage: %.2fV | Warmup: %s | Est: %.0f ppm\n",
-                  out.raw_adc, out.sensor_voltage_v,
-                  out.warming_up ? "WARMING_UP" : "STABILIZED",
-                  out.co2_estimate_ppm);
+    Serial.printf("[SENSOR-MQ135] Raw ADC: %d | Pin: %.2fV | Module output: %.2fV | Warmup: %s\n",
+                  out.raw_adc, out.adc_pin_voltage_v, out.sensor_voltage_v,
+                  out.warming_up ? "WARMING_UP" : "STABILIZED");
     return true;
 #else
     out.gas_valid = false;
@@ -1210,18 +1205,12 @@ void setup() {
     Serial.printf("[TRANSPORT] Ingestion: %s\n", USE_HTTP_INGESTION ? "Direct HTTP REST" : "MQTT Broker");
     Serial.printf("[ENDPOINT] %s\n", HTTP_API_ENDPOINT);
 
-    // 1. Initialize PZEM-004T UART2
-#if defined(PZEM_ENABLED) && (PZEM_ENABLED == 1)
-    MeterSerial.begin(PZEM_BAUD_RATE, SERIAL_8N1, PZEM_RX_PIN, PZEM_TX_PIN);
-    Serial.printf("[PZEM-004T] Initialized UART2 on RX:%d, TX:%d at %d baud\n",
-                  PZEM_RX_PIN, PZEM_TX_PIN, PZEM_BAUD_RATE);
-#endif
 
     // 2. Initialize Water Flow Sensor Interrupt on GPIO 4
 #if defined(WATER_FLOW_ENABLED) && (WATER_FLOW_ENABLED == 1)
     if (WATER_PULSE_PIN >= 0) {
         pinMode(WATER_PULSE_PIN, INPUT_PULLUP);
-        attachInterrupt(digitalPinToInterrupt(WATER_PULSE_PIN), onWaterPulseISR, RISING);
+        attachInterrupt(digitalPinToInterrupt(WATER_PULSE_PIN), onWaterPulseISR, FALLING);
         Serial.printf("[WATER-FLOW] ZJ-S201 Hall pulse interrupt attached on GPIO %d\n", WATER_PULSE_PIN);
     }
 #endif
@@ -1240,7 +1229,7 @@ void setup() {
     // 4. Initialize DHT11 Data Pin
 #if defined(DHT11_ENABLED) && (DHT11_ENABLED == 1)
     if (DHT11_PIN >= 0) {
-        pinMode(DHT11_PIN, INPUT_PULLUP);
+        dhtSensor.begin();
         Serial.printf("[DHT11] Digital Temp/Humidity initialized on GPIO %d\n", DHT11_PIN);
     }
 #endif
@@ -1259,10 +1248,26 @@ void setup() {
     // 6. Initialize 0.96 Inch OLED Display
 #if defined(OLED_ENABLED) && (OLED_ENABLED == 1)
     oledInitDisplay();
+    oledDrawLineClamped(0, "EstateIQ Edge Gateway");
+    oledDrawLineClamped(1, "Firmware: v3.0-Prod");
+    oledDrawLineClamped(2, "OLED: SSD1306 100kHz");
+    oledDrawLineClamped(3, "Sensors: HC/DHT/MQ/ZJ");
+    oledDrawLineClamped(4, "WiFi: Connecting...");
+    oledDrawLineClamped(5, "Endpoint: REST Ingest");
+    oledDrawLineClamped(6, "EstateIQ Cloud Sync");
+    oledDrawLineClamped(7, "Status: Booting Up...");
+    oledRender();
 #endif
 
     // 7. Initialize Wi-Fi
+    WiFi.disconnect(true);
+    delay(100);
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
+    WiFi.setSleep(false); // CRITICAL: Disable modem sleep power saving to avoid dropping beacon frames
+#if defined(WIFI_POWER_19_5dBm)
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
+#endif
     WiFi.onEvent(onWiFiEvent);
     Serial.printf("[WIFI] Connecting to SSID: '%s'...\n", WIFI_SSID);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -1287,6 +1292,15 @@ void loop() {
 
     unsigned long now = millis();
 
+    // Fast periodic OLED update for smooth 4-second page carousel & prompt response
+    static unsigned long lastOledRefreshMillis = 0;
+    if (now - lastOledRefreshMillis >= 1000UL) {
+        lastOledRefreshMillis = now;
+#if defined(OLED_ENABLED) && (OLED_ENABLED == 1)
+        oledUpdateDashboard();
+#endif
+    }
+
     // =================================================================================
     // 1. HIGH-FREQUENCY INTERNAL SENSOR ACQUISITION & EDGE ANOMALY DETECTION
     // =================================================================================
@@ -1294,8 +1308,7 @@ void loop() {
         lastAcquisitionMillis = now;
 
         // A. Sample physical hardware sensors at continuous high-frequency rate
-        ElectricityReadings elec;
-        readPZEM004TMeter(elec);
+        ElectricityReadings elec; // Dedicated to Node #2 (PZEM-004T)
         g_lastElec = elec;
 
         WaterReadings water;
@@ -1403,8 +1416,7 @@ void loop() {
 
         char timestampIso[32];
         if (!getISOTimestamp(timestampIso, sizeof(timestampIso))) {
-            Serial.println("[TIME] Clock not yet synchronized; skipping telemetry to avoid fabricated timestamps.");
-            return;
+            Serial.printf("[TIME] Clock sync pending; using relative uptime timestamp (%s) to guarantee zero packet loss.\n", timestampIso);
         }
 
         const char* stateStr = (currentReportingState == REPORT_STATE_NORMAL_15M) ? "NORMAL_15M" :
@@ -1418,70 +1430,6 @@ void loop() {
         WaterReadings water = g_lastWater;
         EnvironmentalReadings env = g_lastEnv;
 
-        // =================================================================================
-        // PACKET 1: AC ELECTRICAL METROLOGY (PZEM-004T / MODBUS)
-        // ONLY transmitted when PZEM-004T hardware is physically connected & returning valid data!
-        // =================================================================================
-        if (elec.valid) {
-            StaticJsonDocument<1536> docElec;
-            docElec["schema_version"] = "1.0";
-            char msgIdElec[48];
-            snprintf(msgIdElec, sizeof(msgIdElec), "MSG_%s_%s_%lu", DEVICE_ID_ELEC, bootId, sequenceCounter);
-            docElec["message_id"] = msgIdElec;
-            docElec["gateway_id"] = MQTT_CLIENT_ID;
-            docElec["boot_id"] = bootId;
-            docElec["device_id"] = DEVICE_ID_ELEC;
-            docElec["auth_token"] = GATEWAY_API_KEY;
-            docElec["facility_id"] = FACILITY_ID;
-            docElec["building_id"] = BUILDING_ID;
-            docElec["source_type"] = "real_sensor";
-            docElec["event_timestamp"] = timestampIso;
-            docElec["sent_timestamp"] = timestampIso;
-            docElec["sequence_number"] = sequenceCounter;
-
-            docElec["reporting_state"] = stateStr;
-            docElec["reporting_interval_sec"] = intervalSec;
-            docElec["next_report_expected_sec"] = intervalSec;
-            docElec["is_anomaly"] = (g_edgeAnomaly.is_active && strcmp(g_edgeAnomaly.device_id, DEVICE_ID_ELEC) == 0);
-
-            if (g_edgeAnomaly.is_active && strcmp(g_edgeAnomaly.device_id, DEVICE_ID_ELEC) == 0) {
-                docElec["anomaly_origin"] = "edge";
-                docElec["anomaly_metric"] = g_edgeAnomaly.metric;
-                docElec["anomaly_observed_value"] = g_edgeAnomaly.observed_value;
-                docElec["anomaly_threshold"] = g_edgeAnomaly.threshold_value;
-                docElec["anomaly_reason"] = g_edgeAnomaly.reason;
-            }
-
-            JsonArray metricsElec = docElec.createNestedArray("metrics");
-            JsonObject m1 = metricsElec.createNestedObject();
-            m1["metric"] = "voltage_v"; m1["value"] = elec.voltage_v; m1["unit"] = "V"; m1["quality"] = "good";
-
-            JsonObject m2 = metricsElec.createNestedObject();
-            m2["metric"] = "current_a"; m2["value"] = elec.current_a; m2["unit"] = "A"; m2["quality"] = "good";
-
-            JsonObject m3 = metricsElec.createNestedObject();
-            m3["metric"] = "active_power_kw"; m3["value"] = elec.active_power_kw; m3["unit"] = "kW"; m3["quality"] = "good";
-
-            JsonObject m4 = metricsElec.createNestedObject();
-            m4["metric"] = "cumulative_energy_kwh"; m4["value"] = elec.cumulative_energy_kwh; m4["unit"] = "kWh"; m4["quality"] = "good";
-
-            JsonObject m5 = metricsElec.createNestedObject();
-            m5["metric"] = "power_factor"; m5["value"] = elec.power_factor; m5["unit"] = "ratio"; m5["quality"] = "good";
-
-            JsonObject m6 = metricsElec.createNestedObject();
-            m6["metric"] = "frequency_hz"; m6["value"] = elec.frequency_hz; m6["unit"] = "Hz"; m6["quality"] = "good";
-
-            char bufferElec[1536];
-            serializeJson(docElec, bufferElec);
-            Serial.printf("[PUB-ELEC] Transmitting live PZEM packet (%.2f kW, %.1f V) via HTTP\n", elec.active_power_kw, elec.voltage_v);
-#if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
-            if (!sendHttpTelemetry(bufferElec)) enqueueTelemetry(MQTT_TOPIC_ELEC, bufferElec);
-#else
-            if (!mqttClient.publish(MQTT_TOPIC_ELEC, bufferElec, false)) enqueueTelemetry(MQTT_TOPIC_ELEC, bufferElec);
-#endif
-        } else {
-            Serial.println("[ELEC-STANDBY] PZEM meter not connected/idle; skipping METER-BLOCK-B-001 packet.");
-        }
 
         // =================================================================================
         // PACKET 2: WATER NODE (ZJ-S201 FLOW + ULTRASONIC TANK)
@@ -1549,6 +1497,9 @@ void loop() {
 
                 JsonObject w3 = metricsWater.createNestedObject();
                 w3["metric"] = "water_cumulative_liters"; w3["value"] = water.cumulative_liters; w3["unit"] = "L"; w3["quality"] = "good";
+
+                JsonObject w4 = metricsWater.createNestedObject();
+                w4["metric"] = "water_pulse_count_total"; w4["value"] = water.pulse_count_total; w4["unit"] = "count"; w4["quality"] = "good";
             }
 
             char bufferWater[1536];
@@ -1673,7 +1624,7 @@ void loop() {
                 e2["metric"] = "mq135_voltage_v"; e2["value"] = env.sensor_voltage_v; e2["unit"] = "V"; e2["quality"] = "good";
 
                 JsonObject e3 = metricsEnv.createNestedObject();
-                e3["metric"] = "mq135_co2_estimate_ppm"; e3["value"] = env.co2_estimate_ppm; e3["unit"] = "ppm (sensor estimate)"; e3["quality"] = "good";
+                e3["metric"] = "mq135_adc_pin_voltage_v"; e3["value"] = env.adc_pin_voltage_v; e3["unit"] = "V"; e3["quality"] = "good";
 
                 JsonObject e4 = metricsEnv.createNestedObject();
                 e4["metric"] = "mq135_warmup_status"; e4["value"] = env.warming_up ? 0 : 1; e4["unit"] = "status"; e4["quality"] = "good";

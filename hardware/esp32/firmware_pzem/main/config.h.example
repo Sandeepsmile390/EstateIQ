@@ -1,0 +1,57 @@
+#pragma once
+
+// =========================================================================================
+// EstateIQ ESP32 Dedicated PZEM-004T Metrology Node Configuration
+// =========================================================================================
+
+// 1. Wi-Fi Network Credentials
+#ifndef WIFI_SSID
+#define WIFI_SSID                   "sandeepsmile390"
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD               "followme"
+#endif
+
+// 2. EstateIQ FastAPI Backend Endpoint
+// Set this to your laptop/server LAN IP running EstateIQ (e.g., http://10.144.97.191:8000)
+#ifndef ESTATEIQ_BACKEND_HOST
+#define ESTATEIQ_BACKEND_HOST       "10.144.97.191"
+#endif
+
+#ifndef ESTATEIQ_BACKEND_PORT
+#define ESTATEIQ_BACKEND_PORT       8000
+#endif
+
+#ifndef ESTATEIQ_TELEMETRY_PATH
+#define ESTATEIQ_TELEMETRY_PATH     "/api/v1/iot/telemetry"
+#endif
+
+// 3. Security & Gateway Provenance Authentication
+#ifndef GATEWAY_API_KEY
+#define GATEWAY_API_KEY             "gw_secret_estateiq_hw_2026"
+#endif
+
+#ifndef GATEWAY_ID
+#define GATEWAY_ID                  "ESP32_PZEM_GATEWAY_01"
+#endif
+
+#ifndef DEVICE_ID_ELEC
+#define DEVICE_ID_ELEC              "METER-BLOCK-B-001"
+#endif
+
+#ifndef FACILITY_ID
+#define FACILITY_ID                 "FAC_GEC_CAMPUS"
+#endif
+
+#ifndef BUILDING_ID
+#define BUILDING_ID                 "Block B Hostel"
+#endif
+
+// 4. Hardware UART Configuration for PZEM-004T
+#define PZEM_RX_PIN                 16
+#define PZEM_TX_PIN                 17
+#define PZEM_BAUD_RATE              9600
+
+// 5. Sampling and Reporting Intervals
+#define PZEM_READ_INTERVAL_MS       3000

@@ -2589,11 +2589,27 @@ function initIotSimulator() {
 
         const connState = document.getElementById("monConnState");
         if (connState) {
-            connState.textContent = status.status === "RUNNING" ? "LIVE STREAMING" : (status.status || "CONNECTED");
+            if (window.hasLiveHardwareTelemetry) {
+                connState.textContent = "HARDWARE STREAMING";
+            } else {
+                connState.textContent = status.status === "RUNNING" ? "LIVE STREAMING" : (status.status || "CONNECTED");
+            }
         }
         const monSimInstancesCount = document.getElementById("monSimInstancesCount");
         if (monSimInstancesCount) {
-            monSimInstancesCount.textContent = `1 Simulator (${status.mode || 'Standard Mode'})`;
+            if (window.hasLiveHardwareTelemetry) {
+                monSimInstancesCount.textContent = "1 Physical Gateway";
+            } else {
+                monSimInstancesCount.textContent = "1 Simulator Node";
+            }
+        }
+        const simIpLabel = document.getElementById("monSimIpLabel");
+        if (simIpLabel) {
+            if (window.hasLiveHardwareTelemetry) {
+                simIpLabel.textContent = "IP: 172.16.222.83 (ESP32 Hardware)";
+            } else {
+                simIpLabel.textContent = `IP: 127.0.0.1 (${status.mode || 'Standard'})`;
+            }
         }
         const monThroughput = document.getElementById("monThroughput");
         if (monThroughput) {
@@ -3339,6 +3355,8 @@ function initIotSimulator() {
             if (simInst) simInst.textContent = '1 Physical Gateway';
             const connState = document.getElementById('monConnState');
             if (connState) connState.textContent = 'HARDWARE STREAMING';
+        } else {
+            window.hasLiveHardwareTelemetry = false;
         }
 
         // Update Matrix Header Badges
@@ -4197,7 +4215,7 @@ window.currentFleetFilter = 'all';
                 if (backendAlertPill) backendAlertPill.style.display = hasBackend ? "inline-flex" : "none";
             } else {
                 if (anomStatusEl) {
-                    anomStatusEl.innerHTML = "All telemetry metrics nominal across campus. Internal acquisition continuous (2.0s loop). High-frequency pulse counting active.";
+                    anomStatusEl.innerHTML = "All telemetry metrics nominal across campus &bull; Continuous 2.0s acquisition active";
                 }
                 if (edgeAlertPill) edgeAlertPill.style.display = "none";
                 if (backendAlertPill) backendAlertPill.style.display = "none";

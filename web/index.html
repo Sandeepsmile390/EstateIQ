@@ -1736,6 +1736,15 @@
     border-radius: 14px !important;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6) !important;
     color: #FFFFFF !important;
+    min-height: 124px !important;
+    height: 124px !important;
+    max-height: 124px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    padding: 14px 16px !important;
 }
 
 #contentIotMonitor .fc-label {
@@ -1744,20 +1753,37 @@
     font-weight: 800 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.6px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.2 !important;
 }
 
 #contentIotMonitor .fc-val {
     color: #FFFFFF !important;
-    font-size: 1.75rem !important;
+    font-size: 1.25rem !important;
     font-weight: 900 !important;
-    margin: 4px 0 !important;
+    margin: 2px 0 !important;
+    line-height: 1.2 !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    font-variant-numeric: tabular-nums !important;
     text-shadow: 0 0 16px rgba(0, 240, 181, 0.4) !important;
+    overflow: hidden !important;
+    word-break: break-word !important;
 }
 
 #contentIotMonitor .fc-sub {
     color: #94E4D0 !important;
-    font-size: 12px !important;
+    font-size: 11px !important;
     font-weight: 700 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+    line-height: 1.2 !important;
 }
 
 #contentIotMonitor table {
@@ -1838,6 +1864,44 @@
     background-color: #0A251D !important;
     border: 1px solid rgba(0, 240, 181, 0.4) !important;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+    min-height: 104px !important;
+    height: 104px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    overflow: hidden !important;
+}
+
+#contentIotMonitor .sensor-readings-grid > div > div:nth-child(2) {
+    min-height: 36px !important;
+    max-height: 36px !important;
+    line-height: 36px !important;
+    overflow: hidden !important;
+    font-variant-numeric: tabular-nums !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+#contentIotMonitor .gateway-box {
+    min-height: 76px !important;
+    height: 76px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+#contentIotMonitor #adaptiveCadenceBanner {
+    min-height: 56px !important;
+    box-sizing: border-box !important;
+}
+
+#contentIotMonitor #cadenceAnomalyStatusText {
+    max-width: 440px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: bottom;
 }
 
 #contentIotMonitor h2,
@@ -1971,22 +2035,22 @@
                             <div class="forecast-cards-grid" style="margin-top: 20px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
                                 <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
                                     <span class="fc-label" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #E2E8F0;">Connected Instances</span>
-                                    <h3 class="fc-val text-mint" id="monSimInstancesCount" style="font-size: 1.4rem; margin: 4px 0;">1 Simulator</h3>
+                                    <h3 class="fc-val text-mint" id="monSimInstancesCount">1 Simulator</h3>
                                     <span class="fc-sub text-muted" id="monSimIpLabel">IP: 127.0.0.1 (Paired)</span>
                                 </div>
                                 <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
                                     <span class="fc-label" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #E2E8F0;">Monitored Devices</span>
-                                    <h3 class="fc-val text-mint" id="monDevicesActiveCount" style="font-size: 1.4rem; margin: 4px 0;">8 Devices</h3>
+                                    <h3 class="fc-val text-mint" id="monDevicesActiveCount">8 Devices</h3>
                                     <span class="fc-sub text-mint">100% Sensors Online</span>
                                 </div>
                                 <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
                                     <span class="fc-label" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #E2E8F0;">Ingestion Throughput</span>
-                                    <h3 class="fc-val text-amber" id="monThroughput" style="font-size: 1.4rem; margin: 4px 0;">12 Packets/min</h3>
+                                    <h3 class="fc-val text-amber" id="monThroughput">12 Packets/min</h3>
                                     <span class="fc-sub text-amber">HTTP REST / JSON Stream</span>
                                 </div>
                                 <div class="forecast-card" style="background: rgba(14, 61, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 18px; border-radius: 14px;">
                                     <span class="fc-label" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #E2E8F0;">Total Packets Ingested</span>
-                                    <h3 class="fc-val text-gold" id="monTotalIngestedRecords" style="font-size: 1.4rem; margin: 4px 0;">--</h3>
+                                    <h3 class="fc-val text-gold" id="monTotalIngestedRecords">--</h3>
                                     <span class="fc-sub text-gold" id="monProvenanceBadge">Tagged: [SIMULATED IoT]</span>
                                 </div>
                             </div>

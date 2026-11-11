@@ -33,6 +33,14 @@ DHT dhtSensor(DHT11_PIN, DHT11);
 DHT dhtSensorAlt(DHT11_PIN_ALT, DHT11);
 #endif
 
+#ifndef WATER_PULSE_PIN_ALT
+#define WATER_PULSE_PIN_ALT -1
+#endif
+
+#ifndef DHT11_PIN_ALT
+#define DHT11_PIN_ALT -1
+#endif
+
 // Keep older local config.h files buildable. Set SYSTEM_TIME_ENDPOINT in config.h
 // to the backend's LAN URL to enable backend clock sync for your demo network.
 #ifndef SYSTEM_TIME_ENDPOINT
@@ -958,7 +966,7 @@ void maintainMQTT() {
 // =========================================================================================
 bool readWaterFlowSensor(WaterReadings &out) {
 #if defined(WATER_FLOW_ENABLED) && (WATER_FLOW_ENABLED == 1)
-    if (WATER_PULSE_PIN < 0 && (!defined(WATER_PULSE_PIN_ALT) || WATER_PULSE_PIN_ALT < 0)) {
+    if (WATER_PULSE_PIN < 0 && WATER_PULSE_PIN_ALT < 0) {
         out.flow_valid = false;
         return false;
     }

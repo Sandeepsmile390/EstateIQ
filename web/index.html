@@ -204,6 +204,11 @@
             color: #0E3D32 !important;
             border-color: #00D09C !important;
         }
+
+        .role-hidden {
+            display: none !important;
+            visibility: hidden !important;
+        }
     </style>
 </head>
 <body>
@@ -242,11 +247,15 @@
                 <div class="login-quick-roles">
                     <span>Quick Select Demo Accounts:</span>
                     <div class="quick-role-chips">
-                        <button type="button" class="role-chip-btn" data-preset="admin">Admin</button>
-                        <button type="button" class="role-chip-btn" data-preset="manager">Facility Manager</button>
-                        <button type="button" class="role-chip-btn" data-preset="operations">Operations</button>
-                        <button type="button" class="role-chip-btn" data-preset="sustainability">Sustainability</button>
-                        <button type="button" class="role-chip-btn" data-preset="staff">Maintenance Staff</button>
+                        <button type="button" class="role-chip-btn" data-preset="admin">
+                            <i class="fa-solid fa-crown" style="color: #FCD34D;"></i> Admin (Full Access)
+                        </button>
+                        <button type="button" class="role-chip-btn" data-preset="sustainability">
+                            <i class="fa-solid fa-leaf" style="color: #34D399;"></i> Sustainability Officer
+                        </button>
+                        <button type="button" class="role-chip-btn" data-preset="operations">
+                            <i class="fa-solid fa-gears" style="color: #38BDF8;"></i> Operations Team
+                        </button>
                     </div>
                 </div>
             </div>
@@ -476,38 +485,24 @@
                                 <div class="r-avatar" style="background:#124B3E;">RS</div>
                                 <div class="r-info">
                                     <strong>RS Administrator</strong>
-                                    <span>Facility Lead & Admin (Full Access)</span>
+                                    <span>Admin (Full Access)</span>
                                 </div>
                             </div>
-                            <div class="role-option" data-role="engineer">
+                            <div class="role-option" data-role="sustainability">
+                                <div class="r-avatar" style="background:#0D9488;">PS</div>
+                                <div class="r-info">
+                                    <strong>Dr. Priya Sharma</strong>
+                                    <span>Sustainability Officer</span>
+                                </div>
+                            </div>
+                            <div class="role-option" data-role="operations">
                                 <div class="r-avatar" style="background:#1E7A68;">AC</div>
                                 <div class="r-info">
                                     <strong>Alex Chen</strong>
-                                    <span>Operations Engineer (Technical Access)</span>
+                                    <span>Operations Team</span>
                                 </div>
                             </div>
-                            <div class="role-option" data-role="auditor">
-                                <div class="r-avatar" style="background:#D97706;">PS</div>
-                                <div class="r-info">
-                                    <strong>Dr. Priya Sharma</strong>
-                                    <span>ESG Compliance Auditor (Audit & ROI)</span>
-                                </div>
-                            </div>
-                            <div class="role-option" data-role="viewer">
-                                <div class="r-avatar" style="background:#4B5563;">ST</div>
-                                <div class="r-info">
-                                    <strong>Sam Taylor</strong>
-                                    <span>Campus Stakeholder (View Only)</span>
-                                </div>
-                            </div>
-                            <div class="role-option" data-role="staff">
-                                <div class="r-avatar" style="background:#2563EB;">FM</div>
-                                <div class="r-info">
-                                    <strong>Facility Maintenance Staff</strong>
-                                    <span>Field Operations & Work Orders</span>
-                                </div>
-                            </div>
-                            <div class="role-dropdown-header" id="btnSignOut" style="cursor: pointer; border-top: 1px solid rgba(0,0,0,0.06); color: #C5221F; padding: 12px 16px; margin-top: 4px; border-radius: 8px;">
+                            <div class="role-dropdown-header" id="btnSignOut" style="cursor: pointer; border-top: 1px solid rgba(255,255,255,0.1); color: #EF4444; padding: 12px 16px; margin-top: 4px; border-radius: 8px;">
                                 <i class="fa-solid fa-arrow-right-from-bracket"></i> <strong>Sign Out of Session</strong>
                             </div>
                         </div>

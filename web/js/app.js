@@ -9,13 +9,13 @@
    ========================================================================== */
 
 let currentUserSession = {
-    user_id: "USR_ADMIN_01",
+    user_id: "USR_SUPER_00",
     name: "RS Administrator",
     initials: "RS",
     role_key: "admin",
-    role_label: "Facility Lead & Admin",
+    role_label: "Admin (Full Access)",
     avatar_bg: "#124B3E",
-    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "resource-simulator", "iot-simulator", "iot-monitor", "faq", "decision-intelligence", "esg", "billing", "work-orders", "ai-assistant"],
+    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "resource-simulator", "iot-monitor", "ai-assistant", "faq", "esg", "billing", "work-orders"],
     can_execute_rules: true,
     can_upgrade_subscription: true
 };
@@ -95,18 +95,12 @@ function initLoginPortal() {
             if (preset === "admin") {
                 emailInput.value = "admin@estateiq.in";
                 passInput.value = "Admin@123";
-            } else if (preset === "manager") {
-                emailInput.value = "manager@estateiq.in";
-                passInput.value = "Manager@123";
-            } else if (preset === "operations") {
-                emailInput.value = "operations@estateiq.in";
-                passInput.value = "Ops@123";
             } else if (preset === "sustainability") {
                 emailInput.value = "sustainability@estateiq.in";
                 passInput.value = "Sust@123";
-            } else if (preset === "staff") {
-                emailInput.value = "staff@estateiq.in";
-                passInput.value = "Staff@123";
+            } else if (preset === "operations") {
+                emailInput.value = "operations@estateiq.in";
+                passInput.value = "Ops@123";
             }
             form.dispatchEvent(new Event("submit"));
         });
@@ -137,6 +131,45 @@ function initLoginPortal() {
             }
         } catch (err) {
             console.warn("Using offline authentication fallback.");
+            const emailLower = email.toLowerCase();
+            if (emailLower.includes("sust")) {
+                currentUserSession = {
+                    user_id: "USR_AUD_03",
+                    name: "Dr. Priya Sharma",
+                    initials: "PS",
+                    role_key: "sustainability",
+                    role_label: "Sustainability Officer",
+                    avatar_bg: "#0D9488",
+                    permissions: ["overview", "esg", "suggestions", "energy", "water", "waste", "mobility", "faq"],
+                    can_execute_rules: false,
+                    can_upgrade_subscription: false
+                };
+            } else if (emailLower.includes("oper") || emailLower.includes("alex")) {
+                currentUserSession = {
+                    user_id: "USR_ENG_02",
+                    name: "Alex Chen",
+                    initials: "AC",
+                    role_key: "operations",
+                    role_label: "Operations Team",
+                    avatar_bg: "#1E7A68",
+                    permissions: ["overview", "iot-monitor", "resource-simulator", "simulator", "work-orders", "ai-assistant", "energy", "water", "waste", "mobility", "faq"],
+                    can_execute_rules: true,
+                    can_upgrade_subscription: false
+                };
+            } else {
+                currentUserSession = {
+                    user_id: "USR_SUPER_00",
+                    name: "RS Administrator",
+                    initials: "RS",
+                    role_key: "admin",
+                    role_label: "Admin (Full Access)",
+                    avatar_bg: "#124B3E",
+                    permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "resource-simulator", "iot-monitor", "ai-assistant", "faq", "esg", "billing", "work-orders"],
+                    can_execute_rules: true,
+                    can_upgrade_subscription: true
+                };
+            }
+            updateUIUserSession(currentUserSession);
         } finally {
             localStorage.setItem("estateiq_authenticated", "true");
             portal.classList.add("hidden");
@@ -207,10 +240,48 @@ async function initRoleBasedAuth() {
                     const data = await res.json();
                     currentUserSession = data.user;
                     updateUIUserSession(currentUserSession);
-                    showToast(`Logged in as ${currentUserSession.name} (${currentUserSession.role_label})`);
+                    showToast(`Active Session: ${currentUserSession.role_label}`);
                 }
             } catch (err) {
-                showToast(`Switched active session role to ${roleKey.toUpperCase()}`);
+                if (roleKey === "sustainability") {
+                    currentUserSession = {
+                        user_id: "USR_AUD_03",
+                        name: "Dr. Priya Sharma",
+                        initials: "PS",
+                        role_key: "sustainability",
+                        role_label: "Sustainability Officer",
+                        avatar_bg: "#0D9488",
+                        permissions: ["overview", "esg", "suggestions", "energy", "water", "waste", "mobility", "faq"],
+                        can_execute_rules: false,
+                        can_upgrade_subscription: false
+                    };
+                } else if (roleKey === "operations") {
+                    currentUserSession = {
+                        user_id: "USR_ENG_02",
+                        name: "Alex Chen",
+                        initials: "AC",
+                        role_key: "operations",
+                        role_label: "Operations Team",
+                        avatar_bg: "#1E7A68",
+                        permissions: ["overview", "iot-monitor", "resource-simulator", "simulator", "work-orders", "ai-assistant", "energy", "water", "waste", "mobility", "faq"],
+                        can_execute_rules: true,
+                        can_upgrade_subscription: false
+                    };
+                } else {
+                    currentUserSession = {
+                        user_id: "USR_SUPER_00",
+                        name: "RS Administrator",
+                        initials: "RS",
+                        role_key: "admin",
+                        role_label: "Admin (Full Access)",
+                        avatar_bg: "#124B3E",
+                        permissions: ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "resource-simulator", "iot-monitor", "ai-assistant", "faq", "esg", "billing", "work-orders"],
+                        can_execute_rules: true,
+                        can_upgrade_subscription: true
+                    };
+                }
+                updateUIUserSession(currentUserSession);
+                showToast(`Switched active role: ${currentUserSession.role_label}`);
             }
         });
     });
@@ -227,6 +298,10 @@ async function initRoleBasedAuth() {
 }
 
 function updateUIUserSession(user) {
+    if (!user) return;
+    currentUserSession = user;
+    window.currentUserSession = user;
+
     const avatar = document.getElementById("activeAvatarInitials");
     const nameEl = document.getElementById("activeUserName");
     const roleLabelEl = document.getElementById("activeUserRoleLabel");
@@ -234,12 +309,12 @@ function updateUIUserSession(user) {
     const bannerUserRole = document.getElementById("bannerUserRole");
 
     if (avatar) {
-        avatar.textContent = user.initials;
+        avatar.textContent = user.initials || "RS";
         avatar.style.backgroundColor = user.avatar_bg || "#124B3E";
     }
-    if (nameEl) nameEl.textContent = user.name;
-    if (roleLabelEl) roleLabelEl.textContent = user.role_label;
-    if (statusPill) statusPill.textContent = `${user.role_label} Active`;
+    if (nameEl) nameEl.textContent = user.name || "RS Administrator";
+    if (roleLabelEl) roleLabelEl.textContent = user.role_label || "Admin (Full Access)";
+    if (statusPill) statusPill.textContent = `${user.role_label || "Admin"} Active`;
     if (bannerUserRole) bannerUserRole.textContent = `${user.name} (${user.role_label})`;
 
     // Update active checkmarks in role switcher
@@ -251,18 +326,57 @@ function updateUIUserSession(user) {
         }
     });
 
-    // Update sidebar locks based on permissions
-    document.querySelectorAll(".nav-item[data-tab-nav]").forEach(item => {
+    const perms = Array.isArray(user.permissions) ? user.permissions : [];
+
+    // STRICT INVISIBLE ROLE ENFORCEMENT:
+    // 1. Sidebar navigation links: show if permitted, HIDE COMPLETELY if not!
+    document.querySelectorAll(".sidebar-nav .nav-item[data-tab-nav]").forEach(item => {
         const tabId = item.getAttribute("data-tab-nav");
-        const lockIcon = item.querySelector(".lock-icon");
-        if (user.permissions.includes(tabId)) {
-            if (lockIcon) lockIcon.style.display = "none";
-            item.style.opacity = "1";
+        if (perms.includes(tabId)) {
+            item.style.removeProperty("display");
+            item.classList.remove("role-hidden");
         } else {
-            if (lockIcon) lockIcon.style.display = "inline-block";
-            item.style.opacity = "0.7";
+            item.style.setProperty("display", "none", "important");
+            item.classList.add("role-hidden");
         }
     });
+
+    // 2. Horizontal Dashboard Tabs Bar: show if permitted, HIDE COMPLETELY if not!
+    document.querySelectorAll(".dashboard-tabs .tab-btn[data-tab]").forEach(btn => {
+        const tabId = btn.getAttribute("data-tab");
+        if (perms.includes(tabId)) {
+            btn.style.removeProperty("display");
+            btn.classList.remove("role-hidden");
+        } else {
+            btn.style.setProperty("display", "none", "important");
+            btn.classList.add("role-hidden");
+        }
+    });
+
+    // 3. SaaS Plan Upgrade Pill in Header
+    const planPill = document.getElementById("headerPlanPill");
+    if (planPill) {
+        if (perms.includes("billing")) {
+            planPill.style.removeProperty("display");
+        } else {
+            planPill.style.setProperty("display", "none", "important");
+        }
+    }
+
+    // 4. Work Orders active role badge
+    const woRolePill = document.getElementById("woRolePill");
+    if (woRolePill) {
+        woRolePill.textContent = `Active Role: ${user.role_label}`;
+    }
+
+    // 5. Auto-redirect if current active tab is now hidden in the new role
+    const activeNav = document.querySelector(".sidebar-nav .nav-item.active");
+    const activeTab = activeNav ? activeNav.getAttribute("data-tab-nav") : null;
+    if (activeTab && !perms.includes(activeTab)) {
+        if (typeof window.switchTab === "function") {
+            window.switchTab("overview");
+        }
+    }
 }
 
 /* --------------------------------------------------------------------------
@@ -307,9 +421,10 @@ function initTabs() {
         let activeTab = TAB_ALIASES[rawTab] || rawTab;
         if (!activeTab) activeTab = "overview";
 
-        // Unrestricted tab opening policy: all tabs open directly for any active user session
+        // Strict Role-Based Access Enforcement
         if (currentUserSession && currentUserSession.permissions && !currentUserSession.permissions.includes(activeTab)) {
-            currentUserSession.permissions.push(activeTab);
+            showToast(`Access Restricted: '${activeTab.toUpperCase()}' is not available for ${currentUserSession.role_label || 'this role'}.`);
+            activeTab = "overview";
         }
 
         tabBtns.forEach(b => b.classList.remove("active"));

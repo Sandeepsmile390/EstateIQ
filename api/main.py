@@ -24,7 +24,7 @@ from src.data.mongo_db import connect_mongo_db, get_db_status, save_prediction_l
 from src.decisions.trace import DecisionTraceEngine
 from src.auth.security import (
     authenticate_user, create_user_token, revoke_token, verify_current_user,
-    require_permission, require_facility_access, USER_ROLES_DB, ROLE_PERMISSIONS
+    require_permission, require_facility_access, USER_ROLES_DB, USERS_DB, ROLE_PERMISSIONS
 )
 from src.models.baseline import ContextualBaselineEngine
 from src.explainability.shap_engine import SHAPExplainabilityEngine
@@ -263,37 +263,73 @@ def readiness_check():
         "timestamp": pd.Timestamp.now().isoformat()
     }
 
+# --- Centralized 3-Role Frontend Profiles ---
+ROLE_FRONTEND_PROFILES = {
+    "admin": {
+        "role_key": "admin",
+        "role_label": "Admin (Full Access)",
+        "avatar_bg": "#124B3E",
+        "user_email": "admin@estateiq.in",
+        "permissions": [
+            "overview", "suggestions", "energy", "water", "waste", "mobility",
+            "simulator", "resource-simulator", "iot-monitor", "ai-assistant",
+            "faq", "esg", "billing", "work-orders"
+        ],
+        "can_execute_rules": True,
+        "can_upgrade_subscription": True
+    },
+    "sustainability": {
+        "role_key": "sustainability",
+        "role_label": "Sustainability Officer",
+        "avatar_bg": "#0D9488",
+        "user_email": "sustainability@estateiq.in",
+        "permissions": [
+            "overview", "esg", "suggestions", "energy", "water", "waste", "mobility", "faq"
+        ],
+        "can_execute_rules": False,
+        "can_upgrade_subscription": False
+    },
+    "operations": {
+        "role_key": "operations",
+        "role_label": "Operations Team",
+        "avatar_bg": "#1E7A68",
+        "user_email": "operations@estateiq.in",
+        "permissions": [
+            "overview", "iot-monitor", "resource-simulator", "simulator", "work-orders",
+            "ai-assistant", "energy", "water", "waste", "mobility", "faq"
+        ],
+        "can_execute_rules": True,
+        "can_upgrade_subscription": False
+    }
+}
+
 # --- Auth Endpoints ---
 @app.post("/api/v1/auth/login")
 def auth_login(req: LoginRequest):
     if req.email and req.password:
         user = authenticate_user(req.email, req.password)
     elif req.role:
-        role_key = req.role.lower()
-        if role_key in USER_ROLES_DB:
-            user = USER_ROLES_DB[role_key]
+        role_key = req.role.lower().strip()
+        if role_key in ["admin", "super_admin", "facility_admin"]:
+            user = USERS_DB["admin@estateiq.in"]
+        elif role_key in ["sustainability", "sustainability_officer", "esg_auditor", "auditor"]:
+            user = USERS_DB["sustainability@estateiq.in"]
+        elif role_key in ["operations", "operations_team", "operations_engineer", "engineer"]:
+            user = USERS_DB["operations@estateiq.in"]
         else:
-            user = get_user_by_role(role_key)
+            user = USERS_DB["admin@estateiq.in"]
     else:
-        user = USER_ROLES_DB["lead@estateiq.in"]
+        user = USERS_DB["admin@estateiq.in"]
+
+    user_role = (user.get("role") or "").upper()
+    if user_role in ["SUSTAINABILITY_OFFICER", "ESG_AUDITOR", "SUSTAINABILITY"]:
+        profile = ROLE_FRONTEND_PROFILES["sustainability"]
+    elif user_role in ["OPERATIONS_ENGINEER", "OPERATIONS", "OPERATIONS_TEAM"]:
+        profile = ROLE_FRONTEND_PROFILES["operations"]
+    else:
+        profile = ROLE_FRONTEND_PROFILES["admin"]
 
     token = create_user_token(user)
-    permissions = ROLE_PERMISSIONS.get(user["role"], [])
-    
-    # Unrestricted tab opening policy: all logged-in roles can access all tabs
-    tab_permissions = ["overview", "suggestions", "energy", "water", "waste", "mobility", "simulator", "resource-simulator", "iot-simulator", "iot-monitor", "faq", "decision-intelligence", "models", "esg", "billing", "work-orders", "ai-assistant"]
-    role_key_norm = req.role.lower() if req.role else "admin"
-    if user["role"] in ["SUPER_ADMIN", "FACILITY_ADMIN"]:
-        avatar_bg = "#124B3E"
-    elif user["role"] == "OPERATIONS_ENGINEER":
-        avatar_bg = "#1E7A68"
-    elif user["role"] == "ESG_AUDITOR":
-        avatar_bg = "#D97706"
-    elif user["role"] == "STAFF":
-        avatar_bg = "#2563EB"
-    else:  # MANAGEMENT_VIEWER
-        avatar_bg = "#4B5563"
-
     record_audit_event("LOGIN_SUCCESS", user, "LOGIN", "auth", result="SUCCESS")
     
     return {
@@ -306,19 +342,40 @@ def auth_login(req: LoginRequest):
             "name": user["name"],
             "initials": user.get("initials", user["name"][:2].upper()),
             "role": user["role"],
-            "role_key": role_key_norm,
-            "role_label": user["role_label"],
-            "avatar_bg": avatar_bg,
-            "facility_id": user["facility_id"],
-            "permissions": tab_permissions,
-            "can_execute_rules": "recommendations.execute" in permissions,
-            "can_upgrade_subscription": "billing.manage" in permissions
+            "role_key": profile["role_key"],
+            "role_label": profile["role_label"],
+            "avatar_bg": profile["avatar_bg"],
+            "facility_id": user.get("facility_id", "FAC_GEC_01"),
+            "permissions": profile["permissions"],
+            "can_execute_rules": profile["can_execute_rules"],
+            "can_upgrade_subscription": profile["can_upgrade_subscription"]
         }
     }
 
 @app.get("/api/v1/auth/me")
 def get_current_user_profile(user: Dict[str, Any] = Depends(verify_current_user)):
-    return user
+    user_role = (user.get("role") or "").upper()
+    if user_role in ["SUSTAINABILITY_OFFICER", "ESG_AUDITOR", "SUSTAINABILITY"]:
+        profile = ROLE_FRONTEND_PROFILES["sustainability"]
+    elif user_role in ["OPERATIONS_ENGINEER", "OPERATIONS", "OPERATIONS_TEAM"]:
+        profile = ROLE_FRONTEND_PROFILES["operations"]
+    else:
+        profile = ROLE_FRONTEND_PROFILES["admin"]
+
+    return {
+        "user_id": user.get("user_id", "USR_SUPER_00"),
+        "email": user.get("email", profile["user_email"]),
+        "name": user.get("name", "RS Administrator"),
+        "initials": user.get("initials", "RS"),
+        "role": user_role,
+        "role_key": profile["role_key"],
+        "role_label": profile["role_label"],
+        "avatar_bg": profile["avatar_bg"],
+        "facility_id": user.get("facility_id", "FAC_GEC_01"),
+        "permissions": profile["permissions"],
+        "can_execute_rules": profile["can_execute_rules"],
+        "can_upgrade_subscription": profile["can_upgrade_subscription"]
+    }
 
 @app.post("/api/v1/auth/logout")
 def auth_logout(user: Dict[str, Any] = Depends(verify_current_user)):
@@ -331,11 +388,9 @@ def auth_logout(user: Dict[str, Any] = Depends(verify_current_user)):
 def list_available_roles():
     return {
         "roles": [
-            {"key": "SUPER_ADMIN", "label": "RS Administrator", "title": "System Administrator", "badge": "FULL ACCESS"},
-            {"key": "FACILITY_ADMIN", "label": "Rajesh Sharma", "title": "Facility Lead & Admin", "badge": "FACILITY ACCESS"},
-            {"key": "OPERATIONS_ENGINEER", "label": "Alex Chen", "title": "Operations Engineer", "badge": "TECHNICAL ACCESS"},
-            {"key": "ESG_AUDITOR", "label": "Dr. Priya Sharma", "title": "ESG Compliance Auditor", "badge": "AUDIT & SUGGESTIONS"},
-            {"key": "MANAGEMENT_VIEWER", "label": "Sam Taylor", "title": "Campus Stakeholder", "badge": "VIEW ONLY"}
+            {"key": "admin", "label": "RS Administrator", "title": "Admin (Full Access)", "badge": "FULL ACCESS"},
+            {"key": "sustainability", "label": "Dr. Priya Sharma", "title": "Sustainability Officer", "badge": "ESG & ROI"},
+            {"key": "operations", "label": "Alex Chen", "title": "Operations Team", "badge": "IOT & OPERATIONS"}
         ]
     }
 

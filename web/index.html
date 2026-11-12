@@ -4509,6 +4509,39 @@
         </div>
     </div>
 
+    <!-- REAL-TIME LIVE HARDWARE ANOMALY POPUP BANNER (JURY DEMO) -->
+    <div id="liveAnomalyPopupContainer" class="live-anomaly-popup-container" style="display: none;">
+        <div class="live-anomaly-card" id="liveAnomalyCard">
+            <div class="live-anomaly-header">
+                <div class="live-anomaly-badge-group">
+                    <span class="live-anomaly-beacon"></span>
+                    <span class="live-anomaly-severity-pill" id="liveAnomalySeverityBadge">CRITICAL</span>
+                    <span class="live-anomaly-device-tag" id="liveAnomalyDeviceTag">ENV-BLOCK-B-001</span>
+                </div>
+                <button class="live-anomaly-close-btn" id="liveAnomalyDismissBtn" title="Dismiss Alert">&times;</button>
+            </div>
+            <div class="live-anomaly-body">
+                <div class="live-anomaly-icon-box" id="liveAnomalyIconBox">
+                    <i class="fa-solid fa-fire-flame-curved" id="liveAnomalyIcon"></i>
+                </div>
+                <div class="live-anomaly-content">
+                    <h3 class="live-anomaly-title" id="liveAnomalyTitle">Smoke &amp; Hazardous Fumes Detected</h3>
+                    <p class="live-anomaly-detail" id="liveAnomalyDetail">MQ-135 raw response surged to 1,240 count (~850 PPM). Baseline &lt; 450 count.</p>
+                    <div class="live-anomaly-action-box" id="liveAnomalyActionBox">
+                        <i class="fa-solid fa-wrench"></i> <span id="liveAnomalyActionText">Trigger emergency exhaust ventilation and verify fire safety perimeter.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="live-anomaly-footer">
+                <span class="live-anomaly-time" id="liveAnomalyTimeText">Just now • Live Hardware Sensor</span>
+                <div class="live-anomaly-actions">
+                    <button class="btn btn-sm btn-ghost" id="liveAnomalyMuteBtn">Mute 30s</button>
+                    <button class="btn btn-sm btn-danger" id="liveAnomalyAckBtn"><i class="fa-solid fa-check"></i> Acknowledge</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Custom JavaScript -->
     <script src="js/charts.js?v=20261108_dark_v4"></script>
     <script src="js/resource_simulator.js?v=20261108_dark_v4"></script>

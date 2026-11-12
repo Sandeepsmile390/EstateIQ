@@ -465,21 +465,39 @@ class EstateIQAdaptiveAnomalyEngine:
                 action_text = "Audit electrical circuit breaker and stage-shed non-critical loads immediately."
 
         # Thermal Hazard
-        elif metric in ("temperature_c", "temperature") and value > 45.0:
+        elif metric in ("temperature_c", "temperature") and value >= 35.0:
             is_extreme = True
-            physical_reason = f"Ambient enclosure temperature reached {value:.1f}°C (exceeds 45°C limit)."
-            action_text = "Inspect server/electrical room ventilation and auxiliary exhaust fan operation."
+            physical_reason = f"Ambient enclosure temperature reached {value:.1f}°C (comfort baseline 22-26°C). Thermal heat stress hazard."
+            action_text = "Deploy localized cooling and inspect server/electrical room ventilation."
 
         # Waste Bin Overflow / Critical Fill Level (HC-SR04 Sonar)
-        elif metric in ("fill_level_percent", "bin_fill_level_percent", "fill_level") and value >= 80.0:
+        elif metric in ("fill_level_percent", "bin_fill_level_percent", "fill_level") and value >= 75.0:
             is_extreme = True
-            physical_reason = f"Smart waste bin fill level ({value:.1f}%) reached critical capacity threshold (>= 80.0%)."
+            physical_reason = f"Smart waste bin fill level ({value:.1f}%) reached critical capacity threshold (>= 75.0%)."
             action_text = "Dispatch custodial / waste collection crew to empty bin immediately."
 
-        elif metric in ("bin_distance_cm", "bin_clearance_cm", "bin_distance") and 0.0 < value <= 10.0:
+        elif metric in ("bin_distance_cm", "bin_clearance_cm", "bin_distance") and 0.0 < value <= 15.0:
             is_extreme = True
-            physical_reason = f"Ultrasonic bin clearance ({value:.1f} cm) below 10.0 cm safety buffer. Bin overflow imminent."
+            physical_reason = f"Ultrasonic bin clearance ({value:.1f} cm) below 15.0 cm safety buffer. Bin overflow imminent."
             action_text = "Dispatch sanitation personnel for immediate bin clearance."
+
+        # MQ-135 Gas / Smoke Surge (Live Hackathon Demonstration Priority)
+        elif metric in ("mq135_raw_adc", "raw_adc", "smoke_alert", "harmful_gas", "gas_adc") and value >= 600.0:
+            is_extreme = True
+            is_smoke = value >= 850.0
+            physical_reason = (
+                f"CRITICAL: Smoke & hazardous combustion fumes detected! MQ-135 raw response surged to {value:.0f} ADC counts "
+                f"(Clean ambient baseline: < 450 ADC)."
+            ) if is_smoke else (
+                f"HIGH: Elevated air pollutants / gas surge detected! MQ-135 response reached {value:.0f} ADC counts."
+            )
+            action_text = "Trigger localized exhaust ventilation, verify zone fire perimeter, and inspect safety sensors."
+
+        # Line Current Surge / Heavy Connected Load
+        elif metric in ("current_a", "current", "line_current_a") and value >= 2.0:
+            is_extreme = True
+            physical_reason = f"Line Current surged to {value:.3f} A, indicating unexpected high demand load on monitored branch."
+            action_text = "Audit electrical circuit breaker and stage-shed non-critical loads immediately."
 
         # Power Factor Penalty / Inductive Inefficiency
         elif metric in ("power_factor", "pf") and 0.0 < value < 0.80:

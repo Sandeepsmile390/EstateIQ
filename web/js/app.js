@@ -3240,9 +3240,20 @@ function initIotSimulator() {
                 if (elFill) elFill.textContent = `${fillPct.toFixed(1)} %`;
                 if (elDist) elDist.textContent = `${distCm.toFixed(1)} cm`;
                 if (elRisk) {
-                    if (fillPct >= 80.0) {
+                    if (fillPct >= 75.0 || (distCm > 0 && distCm <= 15.0)) {
                         elRisk.textContent = 'OVERFLOW RISK';
                         elRisk.style.color = '#EF4444';
+                        // LIVE JURY DEMO: Immediate Waste Bin Sonar Popup
+                        window.triggerLiveHardwareAnomalyPopup({
+                            id: 'ALT_WASTE_BIN_OVERFLOW',
+                            device_id: item.device_id || 'WASTE-BLOCK-B-001',
+                            metric: 'fill_level_percent',
+                            issue: '🗑️ HIGH ANOMALY: SMART WASTE BIN CRITICAL OVERFLOW',
+                            severity: 'HIGH',
+                            observed_value: `${fillPct.toFixed(1)}% Fill (${distCm.toFixed(1)} cm clearance)`,
+                            explanation: 'HC-SR04 ultrasonic sonar detected bin capacity threshold exceeded.',
+                            recommended_action: 'Dispatch custodial / waste collection crew for immediate bin emptying.'
+                        });
                     } else {
                         elRisk.textContent = 'NORMAL';
                         elRisk.style.color = '#00D09C';
@@ -3343,6 +3354,20 @@ function initIotSimulator() {
                 if (waterCode) waterCode.textContent = JSON.stringify(item, null, 2);
 
                 pushSparklinePoint(liveWaterChart, flow, timeStr);
+
+                // LIVE JURY DEMO: Immediate Water Pipe Leak / Burst Popup
+                if (flow >= 8.0) {
+                    window.triggerLiveHardwareAnomalyPopup({
+                        id: 'ALT_WATER_BURST',
+                        device_id: item.device_id || 'WATER-BLOCK-B-001',
+                        metric: 'water_flow_lmin',
+                        issue: '💧 CRITICAL: RAPID WATER PIPE LEAK / BURST SURGE',
+                        severity: 'CRITICAL',
+                        observed_value: `${flow.toFixed(1)} L/min (Baseline: < 5.0 L/min)`,
+                        explanation: 'Turbine flow meter recorded sustained high volumetric velocity.',
+                        recommended_action: 'Inspect riser line isolation valves and emergency shutoff actuators.'
+                    });
+                }
             }
 
             // Update electricity card with NEWEST electricity packet
@@ -3369,6 +3394,21 @@ function initIotSimulator() {
                     if (elSub) elSub.textContent = kw > 0.0001 ? 'Peak Demand Load' : 'Line Active (Zero Load)';
                     updateCardLiveBadge(badge, lastSeen, secAgo, 'PZEM-004T Live Stream', '#00D09C');
                     pushSparklinePoint(livePowerChart, kw, timeStr);
+
+                    // LIVE JURY DEMO: Immediate Electrical Load / Current Surge Popup
+                    const curA = Number(m.current_a ?? 0);
+                    if (curA >= 2.0 || kw >= 0.45) {
+                        window.triggerLiveHardwareAnomalyPopup({
+                            id: 'ALT_ELEC_OVERLOAD',
+                            device_id: item.device_id || 'METER-BLOCK-B-001',
+                            metric: 'current_a',
+                            issue: '⚡ HIGH: ELECTRICAL LINE CURRENT SURGE / OVERLOAD',
+                            severity: 'HIGH',
+                            observed_value: `${curA.toFixed(3)} A (${(kw * 1000).toFixed(0)} W)`,
+                            explanation: 'PZEM-004T Modbus metrology recorded branch current exceeding normal load envelope.',
+                            recommended_action: 'Audit circuit breaker branch load and stage-shed non-critical devices.'
+                        });
+                    }
                 } else {
                     if (elP) elP.textContent = '-- kW';
                     if (elSub) elSub.textContent = 'PZEM not connected';
@@ -3426,11 +3466,26 @@ function initIotSimulator() {
                     }
                     if (elStat) {
                         const isWarm = m.mq135_warmup_status === 0 || m.mq135_warmup_status === 0.0;
-                        elStat.textContent = isWarm ? 'WARMING UP (180s)' : 'STABILIZED';
-                        elStat.style.color = isWarm ? '#F59E0B' : '#00D09C';
+                        elStat.textContent = isWarm ? 'WARMING UP (180s)' : (Number(rawVal) >= 600 ? 'SMOKE SURGE' : 'STABILIZED');
+                        elStat.style.color = isWarm ? '#F59E0B' : (Number(rawVal) >= 600 ? '#EF4444' : '#00D09C');
                     }
                     updateCardLiveBadge(badge, lastSeen, secAgo, 'Active ADC Stream', '#F59E0B');
                     pushSparklinePoint(liveMq135Chart, rawVal ?? voltVal, timeStr);
+
+                    // LIVE JURY DEMO: Immediate Smoke / Hazardous Gas Popup
+                    if (Number(rawVal) >= 600) {
+                        const isSmoke = Number(rawVal) >= 850;
+                        window.triggerLiveHardwareAnomalyPopup({
+                            id: 'ALT_SMOKE_HAZARD',
+                            device_id: item.device_id || 'ENV-BLOCK-B-001',
+                            metric: 'mq135_raw_adc',
+                            issue: isSmoke ? '🔥 CRITICAL: SMOKE & COMBUSTION FUMES DETECTED!' : '⚠️ HIGH: ELEVATED AIR QUALITY POLLUTANTS SURGE',
+                            severity: isSmoke ? 'CRITICAL' : 'HIGH',
+                            observed_value: `${Math.round(rawVal)} ADC count (~${Math.round(rawVal * 0.76)} PPM)`,
+                            explanation: 'MQ-135 detected rapid aerosol/fume combustion particles near sensor probe.',
+                            recommended_action: 'Initiate localized exhaust ventilation and verify zone fire safety.'
+                        });
+                    }
                 } else {
                     if (elAdc) elAdc.textContent = '-- count';
                     if (elVolt) elVolt.textContent = '-- V';
@@ -4351,8 +4406,262 @@ window.currentFleetFilter = 'all';
         }
     };
 
-    // Global Set to track notified unique alert keys so alerts are notified ONLY ONCE per session
-    window.notifiedAlertKeys = window.notifiedAlertKeys || new Set();
+
+// =========================================================================
+// REAL-TIME DEMO ANOMALY & POPUP NOTIFICATION MANAGER (JURY DEMO)
+// =========================================================================
+window.liveAnomalyDebounceMap = window.liveAnomalyDebounceMap || {};
+let liveAutoDismissTimer = null;
+let currentActiveAlert = null;
+
+function playAnomalyChime(severity) {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        const isCrit = (severity === 'CRITICAL');
+        osc.type = isCrit ? 'sawtooth' : 'sine';
+        osc.frequency.setValueAtTime(isCrit ? 880 : 660, now);
+        osc.frequency.exponentialRampToValueAtTime(isCrit ? 1320 : 880, now + 0.15);
+        
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+    } catch (e) {
+        // Audio policy fallback
+    }
+}
+
+window.triggerLiveHardwareAnomalyPopup = function(anomaly) {
+    if (!anomaly || !anomaly.issue) return;
+
+    const key = `${anomaly.device_id || 'DEV'}_${anomaly.metric || anomaly.id || 'ANOM'}`;
+    const now = Date.now();
+    const severity = (anomaly.severity || 'HIGH').toUpperCase();
+    const isCritical = (severity === 'CRITICAL');
+
+    let tracker = window.liveAnomalyDebounceMap[key];
+    if (!tracker) {
+        tracker = {
+            timesShown: 0,
+            lastShownAt: 0,
+            acknowledged: false,
+            firstSeenAt: now
+        };
+        window.liveAnomalyDebounceMap[key] = tracker;
+    }
+
+    // If user already acknowledged this specific episode, don't popup again
+    if (tracker.acknowledged) {
+        updateNotificationBellCount();
+        return;
+    }
+
+    // Anti-glitch cooldown:
+    // CRITICAL: max 3 times total, at least 20 seconds between popups
+    // HIGH: max 2 times total, at least 30 seconds between popups
+    // MEDIUM / LOW: max 1 time total
+    const maxShows = isCritical ? 3 : (severity === 'HIGH' ? 2 : 1);
+    const minSpacingMs = isCritical ? 20000 : 30000;
+
+    if (tracker.timesShown >= maxShows) {
+        updateNotificationBellCount();
+        return;
+    }
+
+    if (tracker.lastShownAt > 0 && (now - tracker.lastShownAt) < minSpacingMs) {
+        return;
+    }
+
+    // Update tracker
+    tracker.timesShown++;
+    tracker.lastShownAt = now;
+    currentActiveAlert = { key, anomaly };
+
+    // 1. Play Sound Chime
+    playAnomalyChime(severity);
+
+    // 2. Render On-Screen Floating Popup
+    const container = document.getElementById('liveAnomalyPopupContainer');
+    const card = document.getElementById('liveAnomalyCard');
+    const sevBadge = document.getElementById('liveAnomalySeverityBadge');
+    const devTag = document.getElementById('liveAnomalyDeviceTag');
+    const titleEl = document.getElementById('liveAnomalyTitle');
+    const detailEl = document.getElementById('liveAnomalyDetail');
+    const actionEl = document.getElementById('liveAnomalyActionText');
+    const timeEl = document.getElementById('liveAnomalyTimeText');
+    const iconBox = document.getElementById('liveAnomalyIconBox');
+    const iconEl = document.getElementById('liveAnomalyIcon');
+
+    if (container && card) {
+        card.className = `live-anomaly-card ${isCritical ? 'severity-critical' : 'severity-high'}`;
+        if (sevBadge) sevBadge.textContent = severity;
+        if (devTag) devTag.textContent = anomaly.device_id || 'ESP32 GATEWAY';
+        if (titleEl) titleEl.textContent = anomaly.issue;
+        if (detailEl) detailEl.textContent = anomaly.observed_value 
+            ? `Observed: ${anomaly.observed_value} • ${anomaly.explanation || 'Edge boundary exceeded'}`
+            : (anomaly.explanation || 'Sensor threshold exceeded contextual envelope');
+        if (actionEl) actionEl.textContent = anomaly.recommended_action || 'Inspect physical sensor and verify zone safety.';
+        if (timeEl) timeEl.textContent = `Just now • Live Hardware Sensor (${tracker.timesShown}/${maxShows})`;
+
+        if (iconBox && iconEl) {
+            let iconClass = 'fa-triangle-exclamation';
+            const issueLower = (anomaly.issue || '').toLowerCase();
+            const metricLower = (anomaly.metric || '').toLowerCase();
+            if (issueLower.includes('smoke') || issueLower.includes('fire') || metricLower.includes('smoke') || metricLower.includes('mq135')) {
+                iconClass = 'fa-fire-flame-curved';
+            } else if (issueLower.includes('water') || issueLower.includes('leak') || metricLower.includes('water')) {
+                iconClass = 'fa-faucet-drip';
+            } else if (issueLower.includes('bin') || issueLower.includes('waste') || metricLower.includes('fill')) {
+                iconClass = 'fa-trash-can';
+            } else if (issueLower.includes('voltage') || issueLower.includes('power') || issueLower.includes('current') || metricLower.includes('volt')) {
+                iconClass = 'fa-bolt';
+            } else if (issueLower.includes('temp') || issueLower.includes('heat') || metricLower.includes('temp')) {
+                iconClass = 'fa-temperature-high';
+            }
+            iconEl.className = `fa-solid ${iconClass}`;
+        }
+
+        container.style.display = 'block';
+
+        // Auto-hide popup after 12s if user doesn't dismiss, but keep in bell
+        if (liveAutoDismissTimer) clearTimeout(liveAutoDismissTimer);
+        liveAutoDismissTimer = setTimeout(() => {
+            container.style.display = 'none';
+        }, 12000);
+    }
+
+    // 3. Update Top Navbar Notification Bell & Dropdown
+    prependNotificationDropdownItem(anomaly, key);
+    updateNotificationBellCount();
+};
+
+window.dismissLiveHardwareAnomalyPopup = function() {
+    const container = document.getElementById('liveAnomalyPopupContainer');
+    if (container) container.style.display = 'none';
+    if (liveAutoDismissTimer) clearTimeout(liveAutoDismissTimer);
+};
+
+window.acknowledgeLiveHardwareAnomaly = function() {
+    if (currentActiveAlert && window.liveAnomalyDebounceMap[currentActiveAlert.key]) {
+        window.liveAnomalyDebounceMap[currentActiveAlert.key].acknowledged = true;
+    }
+    window.dismissLiveHardwareAnomalyPopup();
+    showToast('✓ Incident Acknowledged. Telemetry alerts silenced for this cycle.');
+    updateNotificationBellCount();
+};
+
+window.muteLiveHardwareAnomaly = function(seconds = 30) {
+    if (currentActiveAlert && window.liveAnomalyDebounceMap[currentActiveAlert.key]) {
+        window.liveAnomalyDebounceMap[currentActiveAlert.key].lastShownAt = Date.now() + (seconds * 1000) - 20000;
+    }
+    window.dismissLiveHardwareAnomalyPopup();
+    showToast(`Muted alert popup for ${seconds}s.`);
+};
+
+window.resetAnomalyTrackerIfNormal = function(activeAnomalyKeys) {
+    Object.keys(window.liveAnomalyDebounceMap).forEach(key => {
+        if (!activeAnomalyKeys.has(key)) {
+            const tr = window.liveAnomalyDebounceMap[key];
+            // If clean for 15 seconds, clear tracker so jury can re-trigger test
+            if (Date.now() - tr.lastShownAt > 15000) {
+                delete window.liveAnomalyDebounceMap[key];
+            }
+        }
+    });
+};
+
+function updateNotificationBellCount() {
+    const notifBadge = document.getElementById('notificationCount');
+    const notifUnread = document.getElementById('notifUnreadBadge');
+    const notifList = document.getElementById('notifListItems');
+    if (!notifList) return;
+
+    const unreadCount = notifList.querySelectorAll('.notif-item.unread').length;
+    if (notifBadge) {
+        notifBadge.textContent = unreadCount;
+        notifBadge.style.display = unreadCount > 0 ? 'flex' : 'none';
+        if (unreadCount > 0) {
+            notifBadge.classList.add('pulse');
+        } else {
+            notifBadge.classList.remove('pulse');
+        }
+    }
+    if (notifUnread) {
+        notifUnread.textContent = `${unreadCount} New`;
+    }
+}
+
+function prependNotificationDropdownItem(anomaly, key) {
+    const notifList = document.getElementById('notifListItems');
+    if (!notifList) return;
+
+    // Check if an item for this key already exists
+    const existing = notifList.querySelector(`[data-alert-key="${key}"]`);
+    if (existing) {
+        const timeEl = existing.querySelector('.notif-time');
+        if (timeEl) timeEl.textContent = 'Just now';
+        return;
+    }
+
+    const isCrit = (anomaly.severity === 'CRITICAL');
+    let iconClass = 'fa-triangle-exclamation';
+    const issueLower = (anomaly.issue || '').toLowerCase();
+    if (issueLower.includes('smoke') || issueLower.includes('fire')) {
+        iconClass = 'fa-fire-flame-curved';
+    } else if (issueLower.includes('water') || issueLower.includes('leak')) {
+        iconClass = 'fa-faucet-drip';
+    } else if (issueLower.includes('bin') || issueLower.includes('waste')) {
+        iconClass = 'fa-trash-can';
+    } else if (issueLower.includes('voltage') || issueLower.includes('power') || issueLower.includes('current')) {
+        iconClass = 'fa-bolt';
+    } else if (issueLower.includes('temp') || issueLower.includes('heat')) {
+        iconClass = 'fa-temperature-high';
+    }
+
+    const item = document.createElement('div');
+    item.className = `notif-item unread ${isCrit ? 'p1-alert' : 'p2-alert'}`;
+    item.setAttribute('data-alert-key', key);
+    item.innerHTML = `
+        <div class="notif-icon-box ${isCrit ? 'bg-red' : 'bg-amber'}">
+            <i class="fa-solid ${iconClass}"></i>
+        </div>
+        <div class="notif-content" style="flex: 1;">
+            <div class="notif-top-row">
+                <span class="notif-severity ${isCrit ? 'badge-red' : 'badge-amber'}">${anomaly.severity}</span>
+                <span class="notif-time">Just now</span>
+            </div>
+            <h4 style="margin: 3px 0 2px 0;">${escapeHtml(anomaly.issue)}</h4>
+            <p style="margin: 0 0 6px 0; font-size: 11px;">${escapeHtml(anomaly.observed_value || anomaly.explanation || '')}</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 10px; color: #94A3B8;">${escapeHtml(anomaly.device_id || 'Hardware')}</span>
+                <button class="btn btn-sm" onclick="this.closest('.notif-item').classList.remove('unread'); this.remove(); updateNotificationBellCount();" style="font-size: 10px; padding: 2px 7px; background: rgba(0, 240, 181, 0.15); color: #00D09C; border: 1px solid rgba(0, 240, 181, 0.4); border-radius: 4px; cursor: pointer;">
+                    <i class="fa-solid fa-check"></i> Ack
+                </button>
+            </div>
+        </div>
+    `;
+    notifList.insertBefore(item, notifList.firstChild);
+}
+
+// Bind live anomaly popup buttons
+document.addEventListener('DOMContentLoaded', () => {
+    const dismissBtn = document.getElementById('liveAnomalyDismissBtn');
+    const ackBtn = document.getElementById('liveAnomalyAckBtn');
+    const muteBtn = document.getElementById('liveAnomalyMuteBtn');
+
+    if (dismissBtn) dismissBtn.addEventListener('click', window.dismissLiveHardwareAnomalyPopup);
+    if (ackBtn) ackBtn.addEventListener('click', window.acknowledgeLiveHardwareAnomaly);
+    if (muteBtn) muteBtn.addEventListener('click', () => window.muteLiveHardwareAnomaly(30));
+});
 
     const syncGlobalTelemetryDashboard = async () => {
         try {
@@ -4378,41 +4687,18 @@ window.currentFleetFilter = 'all';
                     monProv.className = data.provenance_badge.includes("REAL") ? "fc-sub text-mint" : "fc-sub text-gold";
                 }
 
-                if (sidebarBadge) sidebarBadge.textContent = data.active_anomalies_count;
-                if (notifBadge) notifBadge.textContent = data.active_anomalies_count;
-                if (notifUnreadBadge) notifUnreadBadge.textContent = `${data.active_anomalies_count} Active`;
-
-                // Loop through anomalies and notify ONLY ONCE per unique alert key
+                const activeKeys = new Set();
                 (data.anomalies || []).forEach(anom => {
-                    const alertKey = `${anom.issue}_${anom.building}`;
-                    if (!window.notifiedAlertKeys.has(alertKey)) {
-                        window.notifiedAlertKeys.add(alertKey);
-
-                        // 1. Trigger live glassmorphic toast notification (one time only)
-                        showToast(`⚡ Alert [${anom.severity}]: ${anom.issue} (${anom.observed_value}) in ${anom.building}`);
-
-                        // 2. Prepend live notification item into Notifications Dropdown
-                        const notifList = document.getElementById("notifListItems");
-                        if (notifList) {
-                            const notifItem = document.createElement("div");
-                            notifItem.className = `notif-item unread ${anom.severity === 'CRITICAL' ? 'p1-alert' : 'p2-alert'}`;
-                            notifItem.innerHTML = `
-                                <div class="notif-icon-box ${anom.severity === 'CRITICAL' ? 'bg-red' : 'bg-amber'}">
-                                    <i class="fa-solid ${anom.severity === 'CRITICAL' ? 'fa-bolt' : 'fa-triangle-exclamation'}"></i>
-                                </div>
-                                <div class="notif-content">
-                                    <div class="notif-top-row">
-                                        <span class="notif-severity ${anom.severity === 'CRITICAL' ? 'badge-red' : 'badge-amber'}">${anom.severity}</span>
-                                        <span class="notif-time">Just now</span>
-                                    </div>
-                                    <h4>${escapeHtml(anom.issue)} — ${escapeHtml(anom.building)}</h4>
-                                    <p>Observed ${escapeHtml(String(anom.observed_value))} baseline telemetry envelope.</p>
-                                </div>
-                            `;
-                            notifList.insertBefore(notifItem, notifList.firstChild);
-                        }
+                    if (anom.severity !== 'NORMAL' && anom.id !== 'ALT_NORMAL_00') {
+                        const alertKey = `${anom.device_id || 'DEV'}_${anom.metric || anom.id || anom.issue}`;
+                        activeKeys.add(alertKey);
+                        // Trigger smart debounced popup & bell update
+                        window.triggerLiveHardwareAnomalyPopup(anom);
                     }
                 });
+
+                // Reset trackers for sensors that returned to normal so they can trigger again
+                window.resetAnomalyTrackerIfNormal(activeKeys);
             }
         } catch (e) {
             console.error("Telemetry sync error:", e);

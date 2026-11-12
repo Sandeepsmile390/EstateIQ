@@ -3,10 +3,13 @@ import logging
 import os
 import time
 
+from dotenv import load_dotenv
+
 from src.services.sns import deliver_telegram_outbox, poll_telegram_link_commands
 
 
 def main() -> None:
+    load_dotenv(override=True)
     interval = max(2, int(os.getenv("SNS_WORKER_INTERVAL_SECONDS", "5")))
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
     log = logging.getLogger("estateiq.sns.worker")

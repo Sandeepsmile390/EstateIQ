@@ -74,6 +74,10 @@ def init_sns_schema() -> None:
             token_hash TEXT PRIMARY KEY, user_email TEXT NOT NULL, expires_at REAL NOT NULL,
             used_at TEXT, created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS sns_telegram_poll_state (
+            id INTEGER PRIMARY KEY CHECK (id=1), next_update_id INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS sns_recipient_channels (
             user_email TEXT NOT NULL, channel TEXT NOT NULL, channel_user_id TEXT NOT NULL,
             active INTEGER NOT NULL DEFAULT 1, linked_at TEXT NOT NULL,
@@ -419,7 +423,7 @@ def complete_telegram_link(token: str, telegram_chat_id: str) -> bool:
 
 
 def telegram_status(email: str) -> Dict[str, Any]:
-    configured = bool(os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_WEBHOOK_SECRET"))
+    configured = bool(os.getenv("TELEGRAM_BOT_TOKEN"))
     conn = get_db_connection()
     try:
         row = conn.execute("SELECT active,linked_at FROM sns_recipient_channels WHERE user_email=? AND channel='telegram'", (email.lower(),)).fetchone()
@@ -477,7 +481,8 @@ def deliver_telegram_outbox(batch_size: int = 20) -> Dict[str, int]:
                     raise RuntimeError("Telegram API rejected delivery")
         except Exception as exc:
             status = "FAILED" if row["attempts"] >= 4 else "RETRYING"
-            error = str(exc)[:300]
+            # urllib exceptions may include the request URL, which contains the bot token.
+            error = f"Telegram request failed ({type(exc).__name__})"
         conn = get_db_connection()
         try:
             conn.execute("BEGIN IMMEDIATE")
@@ -489,4 +494,67 @@ def deliver_telegram_outbox(batch_size: int = 20) -> Dict[str, int]:
         finally:
             conn.close()
         counts["sent" if status == "DELIVERED" else "failed"] += 1
+    return counts
+
+
+def poll_telegram_link_commands() -> Dict[str, int]:
+    """Poll Telegram updates and process /link commands for local demos.
+
+    Do not configure a webhook for the same bot while polling is active.
+    """
+    import urllib.parse
+    import urllib.request
+
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        return {"processed": 0, "linked": 0, "failed": 0}
+    init_sns_schema()
+    conn = get_db_connection()
+    try:
+        row = conn.execute("SELECT next_update_id FROM sns_telegram_poll_state WHERE id=1").fetchone()
+        offset = int(row["next_update_id"]) if row else 0
+    finally:
+        conn.close()
+
+    query = urllib.parse.urlencode({"offset": offset, "timeout": 0, "allowed_updates": '["message"]'})
+    request = urllib.request.Request(f"https://api.telegram.org/bot{token}/getUpdates?{query}", method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=8) as response:
+            result = json.loads(response.read().decode())
+        if not result.get("ok"):
+            return {"processed": 0, "linked": 0, "failed": 1}
+    except Exception:
+        # Exception messages can contain the tokenized request URL; never persist/log them.
+        return {"processed": 0, "linked": 0, "failed": 1}
+
+    counts = {"processed": 0, "linked": 0, "failed": 0}
+    for update in result.get("result", []):
+        update_id = int(update.get("update_id", -1))
+        message = update.get("message") or {}
+        chat = message.get("chat") or {}
+        parts = str(message.get("text", "")).strip().split()
+        if len(parts) == 2 and parts[0].split("@", 1)[0].lower() == "/link" and chat.get("id") is not None:
+            linked = complete_telegram_link(parts[1], str(chat["id"]))
+            reply = ("EstateIQ Telegram notifications are now linked." if linked else
+                     "That link code is invalid or expired. Generate a new one in EstateIQ Notifications.")
+            try:
+                body = _json({"chat_id": chat["id"], "text": reply}).encode()
+                send = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=body,
+                    headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(send, timeout=8) as response:
+                    if not json.loads(response.read().decode()).get("ok"):
+                        counts["failed"] += 1
+            except Exception:
+                counts["failed"] += 1
+            if linked:
+                counts["linked"] += 1
+        counts["processed"] += 1
+        if update_id >= 0:
+            conn = get_db_connection()
+            try:
+                conn.execute("INSERT INTO sns_telegram_poll_state(id,next_update_id,updated_at) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET next_update_id=excluded.next_update_id,updated_at=excluded.updated_at",
+                    (update_id + 1, _now()))
+                conn.commit()
+            finally:
+                conn.close()
     return counts

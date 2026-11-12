@@ -32,7 +32,15 @@ This document indexes the formal IEEE conference-style academic paper documentin
 
 - **Title**: *Elite-DIF: An Interpretable Robust Seasonal-Baseline, Scale-Floored Residual Scoring, and Evidence-Fused Decision Intelligence Algorithm for Real-Time Commercial Building Anomaly Triage*
 - **Format**: Formal IEEE conference draft, two-column layout, Times New Roman typography, formal Roman numeral sectioning, running headers, and page numbering.
-- **Compiled Length**: 8 pages including 11 formal tables, 9 publication figures, 30 rendered display equations, and complete bibliographical references.
+- **Compiled Length**: Strictly 5 pages (IEEE standard length constraint) including 11 formal tables, 9 publication figures, 30 rendered display equations, explicit algorithmic limitations, and complete bibliographical references.
+- **Section X (Algorithmic Limitations)**: Explicitly identifies the 7 key algorithmic boundaries:
+  1. *Univariate Anomaly Detection*: Residual score evaluates electricity consumption on its own while contextual dimensions (weather, HVAC, power factor) enter via heuristic rules rather than joint multivariate density.
+  2. *Slot-Boundary Discontinuity*: Discrete 15-minute weekly baseline slots may introduce sudden steps at boundaries.
+  3. *MAD Scaling Assumption*: The 1.4826 normal-consistency multiplier may misestimate thresholds under skewed/multimodal distributions.
+  4. *Fixed Dispersion Thresholds*: Predefined scale factors ($\rho=0.05, \sigma_{\mathrm{abs}}=0.5\text{ kWh}$) may require re-tuning across divergent equipment scales.
+  5. *Persistence-Based Detection Latency*: Requiring $n \ge 2$ consecutive intervals delays alert emission by one evaluation cycle and may miss intermittent transients.
+  6. *Lack of Prediction Uncertainty*: Baselines provide deterministic point estimates rather than full probabilistic distributions.
+  7. *Absence of Infrastructure Graph Awareness*: Anomaly detection operates per-meter without topological electrical graph propagation.
 - **Mathematical Formulations**: 30 display equations covering:
   - Weekly slot decomposition: $s(t) = 96 \cdot d(t) + 4 \cdot h(t) + \lfloor m(t)/15 \rfloor$ (Eq 4)
   - Robust non-parametric seasonal baseline: $m_{(b,s)} = \operatorname{median}(\{y_i\})$ with 50% breakdown point (Eq 6)

@@ -15,7 +15,7 @@
 #define USE_HTTP_INGESTION          1
 #define HTTP_API_ENDPOINT           "http://192.168.1.100:8000/api/v1/iot/telemetry"
 #define SYSTEM_TIME_ENDPOINT        "http://192.168.1.100:8000/api/v1/system/time"
-#define HTTP_REQUEST_TIMEOUT_MS     5000
+#define HTTP_REQUEST_TIMEOUT_MS     1500
 
 // Set this to the server-side ESTATEIQ_GATEWAY_API_KEY. Never commit the real key.
 #define GATEWAY_API_KEY             "REPLACE_WITH_SERVER_PROVISIONED_GATEWAY_KEY"

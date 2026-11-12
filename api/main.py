@@ -2364,14 +2364,18 @@ def ingest_iot_telemetry(payload: Dict[str, Any]):
         v_v = m.get("voltage_v") or m.get("voltage") or 0.0
         c_a = m.get("current_a") or m.get("current") or 0.0
         e_kwh = m.get("cumulative_energy_kwh") or m.get("energy_kwh") or 0.0
+        freq_hz = m.get("frequency_hz") or m.get("frequency") or 50.0
+        pf_val = m.get("power_factor") or m.get("pf") or 1.0
         res["peer_meter"] = {
             "valid": True,
             "device_id": "METER-BLOCK-B-001",
             "power_kw": round(float(p_kw), 3),
             "power_w": round(float(p_kw) * 1000.0, 1),
             "voltage_v": round(float(v_v), 1),
-            "current_a": round(float(c_a), 2),
+            "current_a": round(float(c_a), 3),
             "energy_kwh": round(float(e_kwh), 3),
+            "frequency_hz": round(float(freq_hz), 1),
+            "power_factor": round(float(pf_val), 2),
             "last_sample_at": pzem_snap.get("last_sample_at")
         }
     else:
@@ -2382,7 +2386,9 @@ def ingest_iot_telemetry(payload: Dict[str, Any]):
             "power_w": 0.0,
             "voltage_v": 0.0,
             "current_a": 0.0,
-            "energy_kwh": 0.0
+            "energy_kwh": 0.0,
+            "frequency_hz": 50.0,
+            "power_factor": 1.0
         }
     return res
 

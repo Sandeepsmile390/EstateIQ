@@ -4699,9 +4699,18 @@ button:active, .btn:active, .tab-btn:active, .quick-chip:active {
 #contentIotMonitor .sensor-readings-grid > div {
     background: #0A251D !important;
     background-color: #0A251D !important;
-    border: 1.5px solid rgba(0, 208, 156, 0.4) !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
     color: #FFFFFF !important;
+    padding: 16px !important;
+    min-height: 108px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+#contentIotMonitor .sensor-readings-grid > div:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8) !important;
 }
 
 /* Live device map: square schematic canvas, deliberately not represented as GPS. */
@@ -4853,7 +4862,6 @@ button:active, .btn:active, .tab-btn:active, .quick-chip:active {
     background-color: #0A251D !important;
     background: #0A251D !important;
     border-radius: 14px !important;
-    border: 1px solid rgba(0, 240, 181, 0.35) !important;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
     color: #FFFFFF !important;
 }
@@ -5584,11 +5592,25 @@ button:active, .btn:active, .tab-btn:active, .quick-chip:active {
     color: #93C5FD !important;
     background: rgba(96, 165, 250, 0.16) !important;
     border: 1px solid rgba(96, 165, 250, 0.35) !important;
-    padding: 2px 8px !important;
+    padding: 3px 8px !important;
     border-radius: 6px !important;
     letter-spacing: 0.3px !important;
     white-space: nowrap !important;
     line-height: normal !important;
+    align-self: center !important;
+}
+
+@media (max-width: 640px) {
+    #contentIotMonitor .sensor-readings-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    #liveMetricCurrentVal {
+        font-size: 1.55rem !important;
+    }
+    #liveMetricVoltageV {
+        font-size: 1.55rem !important;
+    }
 }
 
 @media (max-width: 480px) {

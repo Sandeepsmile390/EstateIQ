@@ -2287,8 +2287,8 @@ function initIotSimulator() {
             pfEl.textContent = pfText;
         } else {
             el.innerHTML = `
-                <span style="font-size: 1.8rem; font-weight: 800; color: #60A5FA; text-shadow: 0 0 12px rgba(96, 165, 250, 0.25); line-height: 1.1; white-space: nowrap;" id="liveMetricCurrentVal">${currText}</span>
-                <span style="font-size: 11px; font-weight: 700; color: #93C5FD; background: rgba(96, 165, 250, 0.16); border: 1px solid rgba(96, 165, 250, 0.35); padding: 2px 8px; border-radius: 6px; letter-spacing: 0.3px; white-space: nowrap;" id="liveMetricPfVal">${pfText}</span>
+                <span style="font-size: 1.75rem; font-weight: 800; color: #60A5FA; text-shadow: 0 0 12px rgba(96, 165, 250, 0.25); line-height: 1.15; white-space: nowrap;" id="liveMetricCurrentVal">${currText}</span>
+                <span style="font-size: 11px; font-weight: 700; color: #93C5FD; background: rgba(96, 165, 250, 0.16); border: 1px solid rgba(96, 165, 250, 0.35); padding: 3px 8px; border-radius: 6px; letter-spacing: 0.3px; white-space: nowrap; align-self: center;" id="liveMetricPfVal">${pfText}</span>
             `;
         }
     };
@@ -2353,14 +2353,35 @@ function initIotSimulator() {
                     const vV = document.getElementById("liveMetricVoltageV");
                     const iPF = document.getElementById("liveMetricCurrentPF");
 
-                    if (pKW && t.active_power_kw !== undefined && t.active_power_kw !== null) pKW.textContent = `${t.active_power_kw} kW`;
-                    if (eKWH && (t.cumulative_energy_kwh !== undefined || t.energy_kwh !== undefined)) {
-                        const val = t.cumulative_energy_kwh ?? t.energy_kwh;
-                        eKWH.textContent = `${val} kWh`;
+                    if (pKW && t.active_power_kw !== undefined && t.active_power_kw !== null) {
+                        const kw = Number(t.active_power_kw);
+                        if (!isNaN(kw)) {
+                            if (kw <= 0.0001) pKW.textContent = '0.00 kW (Idle)';
+                            else if (kw < 1.0) pKW.textContent = `${kw.toFixed(3)} kW`;
+                            else if (kw < 100.0) pKW.textContent = `${kw.toFixed(2)} kW`;
+                            else pKW.textContent = `${kw.toFixed(1)} kW`;
+                        } else {
+                            pKW.textContent = `${t.active_power_kw} kW`;
+                        }
                     }
-                    if (vV && t.voltage_v !== undefined && t.voltage_v !== null) vV.textContent = `${t.voltage_v} V`;
+                    if (eKWH && (t.cumulative_energy_kwh !== undefined || t.energy_kwh !== undefined)) {
+                        const val = Number(t.cumulative_energy_kwh ?? t.energy_kwh);
+                        if (!isNaN(val)) {
+                            eKWH.textContent = val < 10.0 ? `${val.toFixed(3)} kWh` : `${val.toFixed(2)} kWh`;
+                        } else {
+                            eKWH.textContent = `${t.cumulative_energy_kwh ?? t.energy_kwh} kWh`;
+                        }
+                    }
+                    if (vV && t.voltage_v !== undefined && t.voltage_v !== null) {
+                        const vNum = Number(t.voltage_v);
+                        vV.textContent = !isNaN(vNum) ? `${vNum.toFixed(1)} V` : `${t.voltage_v} V`;
+                    }
                     if (iPF) {
                         renderCurrentAndPF(t.current_a, t.power_factor);
+                        if (t.frequency_hz !== undefined) {
+                            const subEl = document.getElementById('liveMetricCurrentSub');
+                            if (subEl) subEl.textContent = `Single-Phase Active Load • ${Number(t.frequency_hz).toFixed(1)} Hz`;
+                        }
                     }
 
                     // Update matrix status
@@ -3273,12 +3294,17 @@ function initIotSimulator() {
                 const elC = document.getElementById('liveMetricCumWater');
                 const elPulses = document.getElementById('liveMetricWaterPulses');
                 const elT = document.getElementById('liveMetricTankLevel');
+                const elD = document.getElementById('liveMetricTankDistance');
+                const bar = document.getElementById('liveTankBar');
+                const barLabel = document.getElementById('liveTankBarLabel');
                 const badge = document.getElementById('liveWaterCardBadge');
                 const lastSeen = document.getElementById('liveWaterLastSeen');
 
                 const flow = Number(m.water_flow_lmin ?? 0);
                 const pulses = Number(m.water_pulse_count_total ?? m.pulses ?? 0);
-                latestWaterData = { flow, pulses };
+                const distCm = (m.tank_distance_cm !== undefined || m.distance_cm !== undefined) ? Number(m.tank_distance_cm ?? m.distance_cm) : null;
+                const tankPct = (m.tank_level_pct !== undefined && m.tank_level_pct !== null && !isNaN(Number(m.tank_level_pct))) ? Number(m.tank_level_pct) : null;
+                latestWaterData = { flow, pulses, distCm, tankPct };
 
                 if (elF) elF.textContent = `${flow.toFixed(1)} L/min`;
                 if (elC) {
@@ -3288,10 +3314,25 @@ function initIotSimulator() {
                 if (elPulses) elPulses.textContent = `${pulses.toLocaleString()} pulses`;
                 
                 if (elT) {
-                    if (m.tank_level_pct !== undefined && Number(m.tank_level_pct) > 0) {
-                        elT.textContent = `${Number(m.tank_level_pct).toFixed(1)} %`;
+                    if (tankPct !== null && tankPct >= 0) {
+                        elT.textContent = `${tankPct.toFixed(1)} %`;
                     } else {
                         elT.textContent = 'STANDBY';
+                    }
+                }
+                if (elD) {
+                    if (distCm !== null && distCm > 0) {
+                        elD.textContent = `${distCm.toFixed(1)} cm`;
+                    } else {
+                        elD.textContent = '-- cm';
+                    }
+                }
+                if (bar && tankPct !== null) {
+                    const clamped = Math.min(100, Math.max(0, tankPct));
+                    bar.style.width = `${clamped}%`;
+                    if (barLabel) {
+                        const dText = distCm !== null && distCm > 0 ? ` (${distCm.toFixed(1)} cm clearance)` : '';
+                        barLabel.textContent = `${clamped.toFixed(1)}% Storage${dText}`;
                     }
                 }
 
@@ -3312,19 +3353,26 @@ function initIotSimulator() {
                 const elV = document.getElementById('liveMetricVoltageV');
                 const elPF = document.getElementById('liveMetricCurrentPF');
                 const elSub = document.getElementById('liveMetricPowerSub');
+                const elCurrSub = document.getElementById('liveMetricCurrentSub');
                 const badge = document.getElementById('liveElecCardBadge');
                 const lastSeen = document.getElementById('liveElecLastSeen');
 
                 const hasPzemOnline = (m.voltage_v !== undefined && Number(m.voltage_v) > 50.0) || (m.active_power_kw !== undefined && Number(m.active_power_kw) > 0);
                 if (hasPzemOnline) {
                     const kw = Number(m.active_power_kw ?? 0);
-                    if (elP) elP.textContent = kw > 0 ? `${kw.toFixed(2)} kW` : `0.00 kW (Idle)`;
-                    if (elSub) elSub.textContent = kw > 0 ? 'Peak Demand Load' : 'Line Active (Zero Load)';
+                    if (elP) {
+                        if (kw <= 0.0001) elP.textContent = '0.00 kW (Idle)';
+                        else if (kw < 1.0) elP.textContent = `${kw.toFixed(3)} kW`;
+                        else if (kw < 100.0) elP.textContent = `${kw.toFixed(2)} kW`;
+                        else elP.textContent = `${kw.toFixed(1)} kW`;
+                    }
+                    if (elSub) elSub.textContent = kw > 0.0001 ? 'Peak Demand Load' : 'Line Active (Zero Load)';
                     updateCardLiveBadge(badge, lastSeen, secAgo, 'PZEM-004T Live Stream', '#00D09C');
                     pushSparklinePoint(livePowerChart, kw, timeStr);
                 } else {
                     if (elP) elP.textContent = '-- kW';
                     if (elSub) elSub.textContent = 'PZEM not connected';
+                    renderCurrentAndPF(null, null);
                     if (badge) {
                         badge.className = 'live-pulse-badge standby';
                         badge.innerHTML = '<span class="pulse-beacon-dot standby"></span> STANDBY (No PZEM)';
@@ -3335,10 +3383,14 @@ function initIotSimulator() {
                     }
                 }
                 if (elE && (m.cumulative_energy_kwh !== undefined || m.energy_kwh !== undefined)) {
-                    elE.textContent = `${Number(m.cumulative_energy_kwh ?? m.energy_kwh).toFixed(1)} kWh`;
+                    const eVal = Number(m.cumulative_energy_kwh ?? m.energy_kwh);
+                    elE.textContent = eVal < 10.0 ? `${eVal.toFixed(3)} kWh` : `${eVal.toFixed(2)} kWh`;
                 }
                 if (elV && m.voltage_v !== undefined) elV.textContent = `${Number(m.voltage_v).toFixed(1)} V`;
                 if (elPF && m.current_a !== undefined) renderCurrentAndPF(m.current_a, m.power_factor ?? '0.95');
+                if (m.frequency_hz !== undefined && elCurrSub) {
+                    elCurrSub.textContent = `Single-Phase Active Load • ${Number(m.frequency_hz).toFixed(1)} Hz`;
+                }
 
                 const elecCode = document.getElementById('elecWirePayloadCode');
                 if (elecCode) elecCode.textContent = JSON.stringify(item, null, 2);
@@ -3349,14 +3401,13 @@ function initIotSimulator() {
                 airUpdated = true;
                 const elAdc = document.getElementById('liveMetricMq135Adc');
                 const elVolt = document.getElementById('liveMetricMq135Voltage');
-                const elPinVoltage = document.getElementById('liveMetricMq135PinVoltage');
+                const elCo2 = document.getElementById('liveMetricMq135Co2');
                 const elStat = document.getElementById('liveMetricMq135Status');
                 const badge = document.getElementById('liveAirCardBadge');
                 const lastSeen = document.getElementById('liveAirLastSeen');
 
                 const rawVal = m.mq135_raw_adc ?? m.raw_adc;
                 const voltVal = m.mq135_voltage_v ?? m.sensor_voltage_v;
-                const pinVoltageVal = m.mq135_adc_pin_voltage_v ?? m.adc_pin_voltage_v;
                 const isActuallyConnected = (rawVal !== undefined && Number(rawVal) >= 80 && Number(voltVal) >= 0.08);
 
                 latestAirData = { adc: Math.round(rawVal || 0), volt: Number(voltVal || 0).toFixed(2) };
@@ -3364,10 +3415,18 @@ function initIotSimulator() {
                 if (isActuallyConnected) {
                     if (elAdc) elAdc.textContent = `${Math.round(rawVal)} count`;
                     if (elVolt) elVolt.textContent = `${Number(voltVal).toFixed(2)} V`;
-                    if (elPinVoltage) elPinVoltage.textContent = pinVoltageVal !== undefined ? `${Number(pinVoltageVal).toFixed(3)} V` : '-- V';
+                    if (elCo2) {
+                        const ppmVal = m.mq135_estimated_ppm ?? m.estimated_ppm;
+                        if (ppmVal !== undefined && !isNaN(Number(ppmVal))) {
+                            elCo2.textContent = `${Math.round(Number(ppmVal))} ppm`;
+                        } else {
+                            const estPpm = Math.max(380, Math.round(rawVal * 0.76));
+                            elCo2.textContent = `${estPpm} ppm`;
+                        }
+                    }
                     if (elStat) {
                         const isWarm = m.mq135_warmup_status === 0 || m.mq135_warmup_status === 0.0;
-                        elStat.textContent = isWarm ? 'WARMING UP (180s)' : 'STABILIZED (Indicative)';
+                        elStat.textContent = isWarm ? 'WARMING UP (180s)' : 'STABILIZED';
                         elStat.style.color = isWarm ? '#F59E0B' : '#00D09C';
                     }
                     updateCardLiveBadge(badge, lastSeen, secAgo, 'Active ADC Stream', '#F59E0B');
@@ -3375,7 +3434,7 @@ function initIotSimulator() {
                 } else {
                     if (elAdc) elAdc.textContent = '-- count';
                     if (elVolt) elVolt.textContent = '-- V';
-                    if (elPinVoltage) elPinVoltage.textContent = '-- V';
+                    if (elCo2) elCo2.textContent = '-- ppm';
                     if (elStat) {
                         elStat.textContent = 'DISCONNECTED';
                         elStat.style.color = '#94A3B8';
@@ -3812,7 +3871,7 @@ function initIotSimulator() {
 
         // 7. Dynamic Additional Physically Connected Hardware
         devices.forEach(d => {
-            const isBase = (d.device_id === 'WATER-BLOCK-B-001' || d.device_id === 'ENV-BLOCK-B-001' || d.device_id === 'METER-BLOCK-B-001');
+            const isBase = (d.device_id === 'WATER-BLOCK-B-001' || d.device_id === 'ENV-BLOCK-B-001' || d.device_id === 'METER-BLOCK-B-001' || d.device_id === 'WASTE-BLOCK-B-001');
             const isHw = (d.is_verified_hardware === true || d.source_type === 'real_sensor');
             if (!isBase && isHw && (d.status === 'ONLINE' || d.status === 'STREAMING')) {
                 const m = d.last_telemetry || {};
@@ -4029,6 +4088,64 @@ window.currentFleetFilter = 'all';
                             <div style="font-size: 10px; color: #CCFBF1; font-weight: 700; text-transform: uppercase;">HVAC Chiller Load</div>
                             <div style="font-size: 1.4rem; font-weight: 800; color: #2DD4BF;">${Number(m.hvac_load_kw).toFixed(1)} kW</div>
                             <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">Compressor</div>
+                        </div>
+                    `);
+                }
+                if (m.fill_level_percent !== undefined || m.fill_level_pct !== undefined) {
+                    const fVal = Number(m.fill_level_percent ?? m.fill_level_pct);
+                    metricChips.push(`
+                        <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #FEF3C7; font-weight: 700; text-transform: uppercase;">Bin Fill Level</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #F59E0B;">${fVal.toFixed(1)} %</div>
+                            <div style="height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden; margin-top: 4px;">
+                                <div style="height: 100%; width: ${Math.min(100, Math.max(0, fVal))}%; background: linear-gradient(90deg, #00D09C, #F59E0B);"></div>
+                            </div>
+                        </div>
+                    `);
+                }
+                if (m.bin_distance_cm !== undefined) {
+                    metricChips.push(`
+                        <div style="background: rgba(0, 240, 181, 0.15); border: 1px solid rgba(0, 240, 181, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #A7F3D0; font-weight: 700; text-transform: uppercase;">Sonar Clearance</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #00D09C;">${Number(m.bin_distance_cm).toFixed(1)} cm</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">HC-SR04 Sonar</div>
+                        </div>
+                    `);
+                }
+                if (m.temperature_c !== undefined) {
+                    metricChips.push(`
+                        <div style="background: rgba(45, 212, 191, 0.15); border: 1px solid rgba(45, 212, 191, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #CCFBF1; font-weight: 700; text-transform: uppercase;">Temperature</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #2DD4BF;">${Number(m.temperature_c).toFixed(1)} °C</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">DHT11 1-Wire</div>
+                        </div>
+                    `);
+                }
+                if (m.humidity_pct !== undefined) {
+                    metricChips.push(`
+                        <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #BAE6FD; font-weight: 700; text-transform: uppercase;">Humidity</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #38BDF8;">${Number(m.humidity_pct).toFixed(0)} % RH</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">Relative Humidity</div>
+                        </div>
+                    `);
+                }
+                if (m.voltage_v !== undefined) {
+                    metricChips.push(`
+                        <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #FEF3C7; font-weight: 700; text-transform: uppercase;">Line Voltage</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #F59E0B;">${Number(m.voltage_v).toFixed(1)} V</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">PZEM Metrology</div>
+                        </div>
+                    `);
+                }
+                if (m.current_a !== undefined) {
+                    const curVal = Number(m.current_a);
+                    metricChips.push(`
+                        <div style="background: rgba(96, 165, 250, 0.15); border: 1px solid rgba(96, 165, 250, 0.35); border-radius: 10px; padding: 8px 12px;">
+                            <div style="font-size: 10px; color: #DBEAFE; font-weight: 700; text-transform: uppercase;">Line Current</div>
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #60A5FA;">${curVal < 10 ? curVal.toFixed(3) : curVal.toFixed(2)} A</div>
+                            <div style="font-size: 10px; color: #CBD5E1; margin-top: 2px;">CT Coil Induction</div>
                         </div>
                     `);
                 }
@@ -4425,14 +4542,22 @@ window.currentFleetFilter = 'all';
     syncGlobalTelemetryDashboard();
     fetchAdaptiveStatus();
 
-    // Auto refresh interval: 1.0s fast cadence for instant live sensor responsiveness in demo
-    setInterval(() => {
-        syncGlobalTelemetryDashboard();
-        fetchStatus();
-        fetchStreamLog();
-        renderDynamicFleet();
-        fetchAdaptiveStatus();
-    }, 1000);
+    // Auto refresh interval: silky smooth, debounced, synchronized cadence
+    let isGlobalSyncInProgress = false;
+    setInterval(async () => {
+        if (isGlobalSyncInProgress) return;
+        isGlobalSyncInProgress = true;
+        try {
+            await fetchStreamLog();
+            await fetchStatus();
+            await fetchAdaptiveStatus();
+            await syncGlobalTelemetryDashboard();
+        } catch (err) {
+            console.error('Telemetry sync loop error:', err);
+        } finally {
+            isGlobalSyncInProgress = false;
+        }
+    }, 1200);
 }
 
 

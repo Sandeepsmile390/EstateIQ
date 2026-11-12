@@ -2182,38 +2182,38 @@
                                 </div>
 
                                 <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 208, 156, 0.3); border-top: 3px solid #00D09C;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 208, 156, 0.3) !important; border-top: 3px solid #00D09C !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Active Power</span>
                                             <i class="fa-solid fa-arrow-trend-up text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #00D09C; margin: 6px 0; text-shadow: 0 0 12px rgba(0, 208, 156, 0.25);" id="liveMetricPowerKW">-- kW</div>
-                                        <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Peak Demand Load</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #00D09C; margin: 6px 0; text-shadow: 0 0 12px rgba(0, 208, 156, 0.25); line-height: 1.15;" id="liveMetricPowerKW">-- kW</div>
+                                        <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;" id="liveMetricPowerSub">Peak Demand Load</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.3); border-top: 3px solid #34D399;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.3) !important; border-top: 3px solid #34D399 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Energy Consumption</span>
                                             <i class="fa-solid fa-chart-line text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #34D399; margin: 6px 0; text-shadow: 0 0 12px rgba(52, 211, 153, 0.25);" id="liveMetricEnergyKWH">-- kWh</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #34D399; margin: 6px 0; text-shadow: 0 0 12px rgba(52, 211, 153, 0.25); line-height: 1.15;" id="liveMetricEnergyKWH">-- kWh</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Hourly Accumulator</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25); border-top: 3px solid #F59E0B;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25) !important; border-top: 3px solid #F59E0B !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Line Voltage</span>
                                             <i class="fa-solid fa-plug text-amber" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #F59E0B; margin: 6px 0; text-shadow: 0 0 12px rgba(245, 158, 11, 0.25); line-height: 1.1;" id="liveMetricVoltageV">-- V</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #F59E0B; margin: 6px 0; text-shadow: 0 0 12px rgba(245, 158, 11, 0.25); line-height: 1.15;" id="liveMetricVoltageV">-- V</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Nominal Target: 230 V</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(96, 165, 250, 0.25); border-top: 3px solid #60A5FA;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(96, 165, 250, 0.25) !important; border-top: 3px solid #60A5FA !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #DBEAFE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Line Current &amp; PF</span>
                                             <i class="fa-solid fa-wave-square text-blue" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="margin: 6px 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-height: 34px; line-height: 1.1;" id="liveMetricCurrentPF">
-                                            <span style="font-size: 1.8rem; font-weight: 800; color: #60A5FA; text-shadow: 0 0 12px rgba(96, 165, 250, 0.25); line-height: 1.1; white-space: nowrap;" id="liveMetricCurrentVal">-- A</span>
-                                            <span style="font-size: 11px; font-weight: 700; color: #93C5FD; background: rgba(96, 165, 250, 0.16); border: 1px solid rgba(96, 165, 250, 0.35); padding: 2px 8px; border-radius: 6px; letter-spacing: 0.3px; white-space: nowrap;" id="liveMetricPfVal">PF: --</span>
+                                        <div style="margin: 6px 0; display: flex; align-items: baseline; justify-content: space-between; flex-wrap: nowrap; gap: 8px; min-height: 34px; line-height: 1.15; overflow: visible;" id="liveMetricCurrentPF">
+                                            <span style="font-size: 1.75rem; font-weight: 800; color: #60A5FA; text-shadow: 0 0 12px rgba(96, 165, 250, 0.25); line-height: 1.15; white-space: nowrap;" id="liveMetricCurrentVal">-- A</span>
+                                            <span style="font-size: 11px; font-weight: 700; color: #93C5FD; background: rgba(96, 165, 250, 0.16); border: 1px solid rgba(96, 165, 250, 0.35); padding: 3px 8px; border-radius: 6px; letter-spacing: 0.3px; white-space: nowrap; align-self: center;" id="liveMetricPfVal">PF: --</span>
                                         </div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;" id="liveMetricCurrentSub">Single-Phase Active Load</div>
                                     </div>
@@ -2243,36 +2243,36 @@
                                 </div>
 
                                 <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(45, 212, 191, 0.3); border-top: 3px solid #2DD4BF;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(45, 212, 191, 0.3) !important; border-top: 3px solid #2DD4BF !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #CCFBF1; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Compressor Load</span>
                                             <i class="fa-solid fa-gauge-high text-teal" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #2DD4BF; margin: 6px 0; text-shadow: 0 0 12px rgba(45, 212, 191, 0.25);" id="liveMetricHvacKW">-- kW</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #2DD4BF; margin: 6px 0; text-shadow: 0 0 12px rgba(45, 212, 191, 0.25); line-height: 1.15;" id="liveMetricHvacKW">-- kW</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Thermal Duty Cycle</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3); border-top: 3px solid #38BDF8;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3) !important; border-top: 3px solid #38BDF8 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #E0F2FE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Chiller Loop Temp</span>
                                             <i class="fa-solid fa-temperature-arrow-down text-blue" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25);" id="liveMetricChillerTemp">-- °C</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25); line-height: 1.15;" id="liveMetricChillerTemp">-- °C</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Loop Water Return</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25); border-top: 3px solid #F59E0B;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25) !important; border-top: 3px solid #F59E0B !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>AHU Fan Speed</span>
                                             <i class="fa-solid fa-fan text-amber" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #F59E0B; margin: 6px 0;" id="liveMetricFanSpeed">-- RPM</div>
+                                        <div style="font-size: 1.75rem; font-weight: 800; color: #F59E0B; margin: 6px 0; line-height: 1.15;" id="liveMetricFanSpeed">-- RPM</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Air Distribution Flow</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25); border-top: 3px solid #34D399;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25) !important; border-top: 3px solid #34D399 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>HVAC Operating Status</span>
                                             <i class="fa-solid fa-circle-check text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #34D399; margin: 6px 0;" id="liveMetricHvacStatus">NORMAL</div>
+                                        <div style="font-size: 1.5rem; font-weight: 800; color: #34D399; margin: 6px 0; line-height: 1.15;" id="liveMetricHvacStatus">NORMAL</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Setpoint Active</div>
                                     </div>
                                 </div>
@@ -2294,36 +2294,36 @@
                                 </div>
 
                                 <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3); border-top: 3px solid #38BDF8;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3) !important; border-top: 3px solid #38BDF8 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #E0F2FE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Tank Water Level</span>
                                             <i class="fa-solid fa-layer-group text-blue" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25);" id="liveMetricTankLevel">-- %</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25); line-height: 1.15;" id="liveMetricTankLevel">-- %</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Overhead Reservoir Tank</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 208, 156, 0.3); border-top: 3px solid #00D09C;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 208, 156, 0.3) !important; border-top: 3px solid #00D09C !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Ultrasonic Distance</span>
                                             <i class="fa-solid fa-ruler-vertical text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #00D09C; margin: 6px 0; text-shadow: 0 0 12px rgba(0, 208, 156, 0.25);" id="liveMetricTankDistance">-- cm</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #00D09C; margin: 6px 0; text-shadow: 0 0 12px rgba(0, 208, 156, 0.25); line-height: 1.15;" id="liveMetricTankDistance">-- cm</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">AJ-SR04M Sonar Clearance</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(96, 165, 250, 0.3); border-top: 3px solid #60A5FA;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(96, 165, 250, 0.3) !important; border-top: 3px solid #60A5FA !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #DBEAFE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Flow Rate</span>
                                             <i class="fa-solid fa-water text-blue" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #60A5FA; margin: 6px 0;" id="liveMetricWaterFlow">-- L/min</div>
+                                        <div style="font-size: 1.75rem; font-weight: 800; color: #60A5FA; margin: 6px 0; line-height: 1.15;" id="liveMetricWaterFlow">-- L/min</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Riser Line Velocity</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25); border-top: 3px solid #34D399;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25) !important; border-top: 3px solid #34D399 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Cumulative Meter</span>
                                             <i class="fa-solid fa-calculator text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #34D399; margin: 6px 0;" id="liveMetricCumWater">-- m³</div>
+                                        <div style="font-size: 1.75rem; font-weight: 800; color: #34D399; margin: 6px 0; line-height: 1.15;" id="liveMetricCumWater">-- m³</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Total Volumetric Flow</div>
                                     </div>
                                 </div>
@@ -2361,36 +2361,36 @@
                                 </div>
 
                                 <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.3); border-top: 3px solid #F59E0B;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.3) !important; border-top: 3px solid #F59E0B !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Raw Sensor ADC</span>
                                             <i class="fa-solid fa-microchip text-amber" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #F59E0B; margin: 6px 0; text-shadow: 0 0 12px rgba(245, 158, 11, 0.25);" id="liveMetricMq135Adc">-- count</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #F59E0B; margin: 6px 0; text-shadow: 0 0 12px rgba(245, 158, 11, 0.25); line-height: 1.15;" id="liveMetricMq135Adc">-- count</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">0 - 4095 Direct ADC Count</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3); border-top: 3px solid #38BDF8;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3) !important; border-top: 3px solid #38BDF8 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #E0F2FE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Sensor Output Voltage</span>
                                             <i class="fa-solid fa-bolt text-blue" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25);" id="liveMetricMq135Voltage">-- V</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25); line-height: 1.15;" id="liveMetricMq135Voltage">-- V</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">0.00 - 3.30 V ADC Range</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25); border-top: 3px solid #34D399;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25) !important; border-top: 3px solid #34D399 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Indicative Gas Estimate</span>
                                             <i class="fa-solid fa-chart-line text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #34D399; margin: 6px 0;" id="liveMetricMq135Co2">-- ppm (estimate)</div>
-                                        <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Uncalibrated Sensor Estimate</div>
+                                        <div style="font-size: 1.75rem; font-weight: 800; color: #34D399; margin: 6px 0; text-shadow: 0 0 12px rgba(52, 211, 153, 0.25); line-height: 1.15;" id="liveMetricMq135Co2">-- ppm</div>
+                                        <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Indicative Gas Concentration</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(168, 85, 247, 0.25); border-top: 3px solid #A855F7;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(168, 85, 247, 0.25) !important; border-top: 3px solid #A855F7 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #F3E8FF; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Heater Warm-Up Status</span>
                                             <i class="fa-solid fa-clock-rotate-left text-purple" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #C084FC; margin: 6px 0;" id="liveMetricMq135Status">STABILIZED</div>
+                                        <div style="font-size: 1.5rem; font-weight: 800; color: #00F0B5; margin: 6px 0; line-height: 1.15;" id="liveMetricMq135Status">STABILIZED</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">180s Baseline Stabilization</div>
                                     </div>
                                 </div>
@@ -2423,36 +2423,36 @@
                                 </div>
 
                                 <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(45, 212, 191, 0.3); border-top: 3px solid #2DD4BF;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(45, 212, 191, 0.3) !important; border-top: 3px solid #2DD4BF !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #CCFBF1; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Ambient Temperature</span>
                                             <i class="fa-solid fa-thermometer text-teal" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #2DD4BF; margin: 6px 0; text-shadow: 0 0 12px rgba(45, 212, 191, 0.25);" id="liveMetricDhtTemp">-- &deg;C</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #2DD4BF; margin: 6px 0; text-shadow: 0 0 12px rgba(45, 212, 191, 0.25); line-height: 1.15;" id="liveMetricDhtTemp">-- &deg;C</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Operating Range: 0 - 50 &deg;C</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3); border-top: 3px solid #38BDF8;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3) !important; border-top: 3px solid #38BDF8 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #E0F2FE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Relative Humidity</span>
                                             <i class="fa-solid fa-droplet text-blue" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25);" id="liveMetricDhtHumidity">-- % RH</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin: 6px 0; text-shadow: 0 0 12px rgba(56, 189, 248, 0.25); line-height: 1.15;" id="liveMetricDhtHumidity">-- % RH</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Operating Range: 20 - 90 %</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25); border-top: 3px solid #F59E0B;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25) !important; border-top: 3px solid #F59E0B !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>NOAA Heat Index</span>
                                             <i class="fa-solid fa-fire-flame-curved text-amber" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #F59E0B; margin: 6px 0;" id="liveMetricDhtHeatIndex">-- &deg;C</div>
+                                        <div style="font-size: 1.75rem; font-weight: 800; color: #F59E0B; margin: 6px 0; line-height: 1.15;" id="liveMetricDhtHeatIndex">-- &deg;C</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Apparent Perceived Temp</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25); border-top: 3px solid #34D399;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25) !important; border-top: 3px solid #34D399 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Thermal Comfort Zone</span>
                                             <i class="fa-solid fa-shield-heart text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #34D399; margin: 6px 0;" id="liveMetricDhtStatus">NORMAL</div>
+                                        <div style="font-size: 1.5rem; font-weight: 800; color: #34D399; margin: 6px 0; line-height: 1.15;" id="liveMetricDhtStatus">NORMAL</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">ASHRAE 55 Standard</div>
                                     </div>
                                 </div>
@@ -2475,36 +2475,36 @@
                                 </div>
 
                                 <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.3); border-top: 3px solid #F59E0B;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.3) !important; border-top: 3px solid #F59E0B !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Bin Fill Level</span>
                                             <i class="fa-solid fa-dumpster text-amber" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #F59E0B; margin: 6px 0; text-shadow: 0 0 12px rgba(245, 158, 11, 0.25);" id="liveMetricBinFill">-- %</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #F59E0B; margin: 6px 0; text-shadow: 0 0 12px rgba(245, 158, 11, 0.25); line-height: 1.15;" id="liveMetricBinFill">-- %</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">0 - 100% Volumetric Fill</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 208, 156, 0.3); border-top: 3px solid #00D09C;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 208, 156, 0.3) !important; border-top: 3px solid #00D09C !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Sonar Clearance</span>
                                             <i class="fa-solid fa-ruler-vertical text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.8rem; font-weight: 800; color: #00D09C; margin: 6px 0; text-shadow: 0 0 12px rgba(0, 208, 156, 0.25);" id="liveMetricBinDistance">-- cm</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #00D09C; margin: 6px 0; text-shadow: 0 0 12px rgba(0, 208, 156, 0.25); line-height: 1.15;" id="liveMetricBinDistance">-- cm</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">HC-SR04 Clearance Distance</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.25); border-top: 3px solid #38BDF8;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.25) !important; border-top: 3px solid #38BDF8 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #E0F2FE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Total Bin Depth</span>
                                             <i class="fa-solid fa-arrows-up-down text-blue" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #38BDF8; margin: 6px 0;">80.0 cm</div>
+                                        <div style="font-size: 1.75rem; font-weight: 800; color: #38BDF8; margin: 6px 0; line-height: 1.15;">80.0 cm</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Geometric Reference Baseline</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25); border-top: 3px solid #34D399;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25) !important; border-top: 3px solid #34D399 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Collection Status</span>
                                             <i class="fa-solid fa-truck-pickup text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #34D399; margin: 6px 0;" id="liveMetricBinRisk">NORMAL</div>
+                                        <div style="font-size: 1.5rem; font-weight: 800; color: #34D399; margin: 6px 0; line-height: 1.15;" id="liveMetricBinRisk">NORMAL</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Threshold: 80% Full</div>
                                     </div>
                                 </div>
@@ -2542,36 +2542,36 @@
                                 </div>
 
                                 <div class="sensor-readings-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 240, 181, 0.3); border-top: 3px solid #00F0B5;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(0, 240, 181, 0.3) !important; border-top: 3px solid #00F0B5 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>OLED Display Status</span>
                                             <i class="fa-solid fa-tv text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #00F0B5; margin: 6px 0;" id="liveMetricOledStatus">SSD1306 ACTIVE</div>
+                                        <div style="font-size: 1.5rem; font-weight: 800; color: #00F0B5; margin: 6px 0; line-height: 1.15;" id="liveMetricOledStatus">SSD1306 ACTIVE</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">I2C 0x3C (SDA:21, SCL:22)</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3); border-top: 3px solid #38BDF8;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(56, 189, 248, 0.3) !important; border-top: 3px solid #38BDF8 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #E0F2FE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>PZEM-004T UART2</span>
                                             <i class="fa-solid fa-microchip text-blue" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #38BDF8; margin: 6px 0;" id="liveMetricModbusStatus">9600 BAUD</div>
+                                        <div style="font-size: 1.5rem; font-weight: 800; color: #38BDF8; margin: 6px 0; line-height: 1.15;" id="liveMetricModbusStatus">9600 BAUD</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">UART2 (RX:16, TX:17)</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25); border-top: 3px solid #F59E0B;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(245, 158, 11, 0.25) !important; border-top: 3px solid #F59E0B !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #FEF3C7; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>ZJ-S201 Pulse Counter</span>
                                             <i class="fa-solid fa-gauge text-amber" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #F59E0B; margin: 6px 0;" id="liveMetricFlowStatus">GPIO4 ARMED</div>
+                                        <div style="font-size: 1.5rem; font-weight: 800; color: #F59E0B; margin: 6px 0; line-height: 1.15;" id="liveMetricFlowStatus">GPIO4 ARMED</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Hardware Hall Interrupt</div>
                                     </div>
-                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25); border-top: 3px solid #34D399;">
+                                    <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.25) !important; border-top: 3px solid #34D399 !important;">
                                         <div style="font-size: 11px; font-weight: 700; color: #D1FAE5; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
                                             <span>Hardware Architecture</span>
                                             <i class="fa-solid fa-memory text-mint" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #34D399; margin: 6px 0;">ESP32-WROOM-32</div>
+                                        <div style="font-size: 1.5rem; font-weight: 800; color: #34D399; margin: 6px 0; line-height: 1.15;">ESP32-WROOM-32</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Dual Core 240MHz / FreeRTOS</div>
                                     </div>
                                 </div>

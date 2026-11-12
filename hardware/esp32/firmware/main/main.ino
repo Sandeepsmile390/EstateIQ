@@ -23,6 +23,7 @@
 #include <ArduinoJson.h>
 #include <Wire.h>
 #include <time.h>
+#include <stdlib.h>
 #include <esp_wifi.h>
 #include "DHT.h"
 
@@ -98,6 +99,7 @@ struct ElectricityReadings {
     float cumulative_energy_kwh = 0.0f;
     float power_factor = 0.95f;
     float frequency_hz = 50.0f;
+    unsigned long last_update_ms = 0;
     const char* meter_type = "PZEM-004T";
 };
 
@@ -621,13 +623,14 @@ static void oledUpdateDashboard() {
         if (!oledInitialized) return;
     }
 
-    // Use two screens so each value has a full blank text row between it and
-    // the next value. The header and Wi-Fi icon remain fixed on both screens.
+    // Redraw the complete buffer every second. Rotate three focused pages so
+    // all sensor values, including the full PZEM sample, remain readable.
     const unsigned long now = millis();
     if (oledLastPageFlip == 0) oledLastPageFlip = now;
-    if (now - oledLastPageFlip >= 5000UL) {
-        oledCurrentPage = (oledCurrentPage + 1) % 2;
+    if (now - oledLastPageFlip >= 3000UL) {
+        oledCurrentPage = (oledCurrentPage + 1) % 3;
         oledLastPageFlip = now;
+        Serial.printf("[OLED] Switched to display page %u/3\n", (unsigned int)oledCurrentPage + 1U);
     }
 
     oledClear();
@@ -637,28 +640,28 @@ static void oledUpdateDashboard() {
     if (oledCurrentPage == 0) {
         if (g_lastWaste.bin_valid) {
             snprintf(lineBuf, sizeof(lineBuf), "Bin: %.1f cm", g_lastWaste.bin_distance_cm);
-        } else if (g_lastWater.tank_valid) {
-            snprintf(lineBuf, sizeof(lineBuf), "Tank: %.1f cm", g_lastWater.tank_distance_cm);
         } else {
-            snprintf(lineBuf, sizeof(lineBuf), "Sonar: Standby");
+            snprintf(lineBuf, sizeof(lineBuf), "Bin: Standby");
         }
         oledDrawLineClamped(2, lineBuf);
 
-        if (g_lastEnv.dht_valid) {
-            snprintf(lineBuf, sizeof(lineBuf), "Temp: %.1f C", g_lastEnv.temperature_c);
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "Temp: Standby");
-        }
+        if (g_lastWater.tank_valid) snprintf(lineBuf, sizeof(lineBuf), "Tank: %.1f cm", g_lastWater.tank_distance_cm);
+        else snprintf(lineBuf, sizeof(lineBuf), "Tank: Standby");
         oledDrawLineClamped(4, lineBuf);
 
-        if (g_lastEnv.dht_valid) {
-            snprintf(lineBuf, sizeof(lineBuf), "Humidity: %.1f%%", g_lastEnv.humidity_pct);
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "Humidity: Standby");
-        }
+        if (g_lastWater.flow_valid) snprintf(lineBuf, sizeof(lineBuf), "Flow: %.1f L/min", g_lastWater.water_flow_lmin);
+        else snprintf(lineBuf, sizeof(lineBuf), "Flow: Standby");
         oledDrawLineClamped(6, lineBuf);
-        oledDrawString(108, 7, "1/2");
-    } else {
+        oledDrawString(108, 7, "1/3");
+    } else if (oledCurrentPage == 1) {
+        if (g_lastEnv.dht_valid) snprintf(lineBuf, sizeof(lineBuf), "Temp: %.1f C", g_lastEnv.temperature_c);
+        else snprintf(lineBuf, sizeof(lineBuf), "Temp: Standby");
+        oledDrawLineClamped(2, lineBuf);
+
+        if (g_lastEnv.dht_valid) snprintf(lineBuf, sizeof(lineBuf), "Humidity: %.1f%%", g_lastEnv.humidity_pct);
+        else snprintf(lineBuf, sizeof(lineBuf), "Humidity: Standby");
+        oledDrawLineClamped(4, lineBuf);
+
         if (!g_lastEnv.gas_valid) {
             snprintf(lineBuf, sizeof(lineBuf), "MQ135: Standby");
         } else if (g_lastEnv.smoke_detected) {
@@ -670,26 +673,23 @@ static void oledUpdateDashboard() {
         } else {
             snprintf(lineBuf, sizeof(lineBuf), "Air: %s", g_lastEnv.air_quality_label);
         }
+        oledDrawLineClamped(6, lineBuf);
+        oledDrawString(108, 7, "2/3");
+    } else {
+        const bool pzemFresh = g_lastElec.valid && g_lastElec.last_update_ms != 0 &&
+                               (now - g_lastElec.last_update_ms) <= 12000UL;
+        if (pzemFresh) snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.1fV %.3fA", g_lastElec.voltage_v, g_lastElec.current_a);
+        else snprintf(lineBuf, sizeof(lineBuf), "PZEM: waiting for data");
         oledDrawLineClamped(2, lineBuf);
 
-        if (g_lastElec.valid) {
-            if (g_lastElec.active_power_kw >= 1.0f) {
-                snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.2fkW %.0fV", g_lastElec.active_power_kw, g_lastElec.voltage_v);
-            } else {
-                snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.0fW %.0fV", g_lastElec.active_power_kw * 1000.0f, g_lastElec.voltage_v);
-            }
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "PZEM: Standby");
-        }
+        if (pzemFresh) snprintf(lineBuf, sizeof(lineBuf), "Power: %.0fW PF:%.2f", g_lastElec.active_power_kw * 1000.0f, g_lastElec.power_factor);
+        else snprintf(lineBuf, sizeof(lineBuf), "Power: --  PF: --");
         oledDrawLineClamped(4, lineBuf);
 
-        if (g_lastWater.flow_valid) {
-            snprintf(lineBuf, sizeof(lineBuf), "Flow: %.1f L/min", g_lastWater.water_flow_lmin);
-        } else {
-            snprintf(lineBuf, sizeof(lineBuf), "Flow: Standby");
-        }
+        if (pzemFresh) snprintf(lineBuf, sizeof(lineBuf), "E:%.3fkWh F:%.1fHz", g_lastElec.cumulative_energy_kwh, g_lastElec.frequency_hz);
+        else snprintf(lineBuf, sizeof(lineBuf), "Energy: waiting");
         oledDrawLineClamped(6, lineBuf);
-        oledDrawString(108, 7, "2/2");
+        oledDrawString(108, 7, "3/3");
     }
 
     oledRender();
@@ -792,10 +792,36 @@ void enqueueTelemetry(const char* topic, const char* payload) {
 
 // ---------------- Peer PZEM-004T Synchronization (Node #2) ----------------
 static unsigned long g_lastPeerPzemSyncMillis = 0;
+static char g_lastPeerPzemSampleAt[40] = "";
+
+static float peerJsonFloat(JsonVariantConst value) {
+    // The dedicated PZEM node's /api/data currently serializes values as
+    // display strings (for example "241.2" or "--"). Accept both strings
+    // and numeric JSON values so the optional direct-LAN path works too.
+    if (!value.is<const char*>()) return value.as<float>();
+    const char* text = value.as<const char*>();
+    if (!text || !text[0] || strcmp(text, "--") == 0) return NAN;
+    char* end = nullptr;
+    float parsed = strtof(text, &end);
+    return (end != text && *end == '\0') ? parsed : NAN;
+}
+
+static bool isNewPeerPzemSample(const char* sampleAt) {
+    // The backend's latest-reading endpoint provides this timestamp. Keeping
+    // it lets us distinguish a fresh meter packet from a cached old response.
+    if (!sampleAt || sampleAt[0] == '\0') return false;
+    if (strncmp(g_lastPeerPzemSampleAt, sampleAt, sizeof(g_lastPeerPzemSampleAt)) == 0) return false;
+    strncpy(g_lastPeerPzemSampleAt, sampleAt, sizeof(g_lastPeerPzemSampleAt) - 1);
+    g_lastPeerPzemSampleAt[sizeof(g_lastPeerPzemSampleAt) - 1] = '\0';
+    return true;
+}
 
 static void syncPeerPzemFromNetwork() {
-    if (WiFi.status() != WL_CONNECTED) return;
     unsigned long now = millis();
+    if (g_lastElec.last_update_ms != 0 && (now - g_lastElec.last_update_ms) > 12000UL) {
+        g_lastElec.valid = false;
+    }
+    if (WiFi.status() != WL_CONNECTED) return;
     if (now - g_lastPeerPzemSyncMillis < PEER_PZEM_SYNC_INTERVAL_MS) return;
     g_lastPeerPzemSyncMillis = now;
 
@@ -814,13 +840,32 @@ static void syncPeerPzemFromNetwork() {
             StaticJsonDocument<512> pDoc;
             DeserializationError err = deserializeJson(pDoc, payload);
             if (!err) {
-                g_lastElec.valid = pDoc["connected"].as<bool>();
-                g_lastElec.voltage_v = pDoc["voltage"].as<float>();
-                g_lastElec.current_a = pDoc["current"].as<float>();
-                float pW = pDoc["power"].as<float>();
-                g_lastElec.active_power_kw = isnan(pW) ? 0.0f : (pW / 1000.0f);
-                g_lastElec.cumulative_energy_kwh = pDoc["energy"].as<float>();
-                syncSuccess = true;
+                float newVoltage = peerJsonFloat(pDoc["voltage"]);
+                float newCurrent = peerJsonFloat(pDoc["current"]);
+                float newPower = peerJsonFloat(pDoc["power"]);
+                float newEnergy = peerJsonFloat(pDoc["energy"]);
+                float newFrequency = peerJsonFloat(pDoc["frequency"]);
+                float newPf = peerJsonFloat(pDoc["pf"]);
+                const bool validDirectSample = pDoc["connected"].as<bool>() &&
+                    isfinite(newVoltage) && newVoltage >= 80.0f && newVoltage <= 280.0f &&
+                    isfinite(newCurrent) && newCurrent >= 0.0f && newCurrent <= 100.0f &&
+                    isfinite(newPower) && newPower >= 0.0f && newPower <= 28000.0f &&
+                    isfinite(newEnergy) && newEnergy >= 0.0f &&
+                    isfinite(newFrequency) && newFrequency >= 45.0f && newFrequency <= 65.0f &&
+                    isfinite(newPf) && newPf >= 0.0f && newPf <= 1.0f;
+                if (validDirectSample) {
+                    g_lastElec.valid = true;
+                    g_lastElec.voltage_v = newVoltage;
+                    g_lastElec.current_a = newCurrent;
+                    g_lastElec.active_power_kw = newPower / 1000.0f;
+                    g_lastElec.cumulative_energy_kwh = newEnergy;
+                    g_lastElec.frequency_hz = newFrequency;
+                    g_lastElec.power_factor = newPf;
+                    g_lastElec.last_update_ms = now;
+                    syncSuccess = true;
+                } else {
+                    g_lastElec.valid = false;
+                }
             }
         }
         http.end();
@@ -836,18 +881,41 @@ static void syncPeerPzemFromNetwork() {
             StaticJsonDocument<768> bDoc;
             DeserializationError err = deserializeJson(bDoc, payload);
             if (!err && bDoc.containsKey("telemetry")) {
-                JsonObject tel = bDoc["telemetry"];
+                JsonObject tel = bDoc["telemetry"].as<JsonObject>();
                 if (tel.containsKey("active_power_kw") || tel.containsKey("voltage_v")) {
-                    g_lastElec.valid = true;
-                    g_lastElec.active_power_kw = tel["active_power_kw"] | (tel["power_kw"] | 0.0f);
-                    g_lastElec.voltage_v = tel["voltage_v"] | (tel["voltage"] | 0.0f);
-                    g_lastElec.current_a = tel["current_a"] | (tel["current"] | 0.0f);
-                    g_lastElec.cumulative_energy_kwh = tel["cumulative_energy_kwh"] | 0.0f;
-                    syncSuccess = true;
+                    float newVoltage = tel["voltage_v"] | (tel["voltage"] | 0.0f);
+                    float newCurrent = tel["current_a"] | (tel["current"] | 0.0f);
+                    float newPowerKw = tel["active_power_kw"] | (tel["power_kw"] | 0.0f);
+                    float newEnergy = tel["cumulative_energy_kwh"] | (tel["energy_kwh"] | 0.0f);
+                    if (isfinite(newVoltage) && newVoltage >= 80.0f && newVoltage <= 280.0f &&
+                        isfinite(newCurrent) && newCurrent >= 0.0f && newCurrent <= 100.0f &&
+                        isfinite(newPowerKw) && newPowerKw >= 0.0f && newPowerKw <= 28.0f &&
+                        isfinite(newEnergy) && newEnergy >= 0.0f) {
+                        const char* sampleAt = bDoc["last_sample_at"] | "";
+                        const bool newSample = isNewPeerPzemSample(sampleAt);
+                        if (newSample) g_lastElec.last_update_ms = now;
+                        g_lastElec.voltage_v = newVoltage;
+                        g_lastElec.current_a = newCurrent;
+                        g_lastElec.active_power_kw = newPowerKw;
+                        g_lastElec.cumulative_energy_kwh = newEnergy;
+                        g_lastElec.power_factor = tel["power_factor"] | 0.0f;
+                        g_lastElec.frequency_hz = tel["frequency_hz"] | 0.0f;
+                        g_lastElec.valid = newSample ||
+                            (g_lastElec.last_update_ms != 0 && (now - g_lastElec.last_update_ms) <= 12000UL);
+                        syncSuccess = g_lastElec.valid;
+                    }
                 }
             }
         }
         http.end();
+    }
+
+    if (syncSuccess) {
+        Serial.printf("[PZEM-PEER] Live sample: %.1fV %.3fA %.1fW %.3fkWh PF %.2f %.1fHz\n",
+                      g_lastElec.voltage_v, g_lastElec.current_a,
+                      g_lastElec.active_power_kw * 1000.0f,
+                      g_lastElec.cumulative_energy_kwh,
+                      g_lastElec.power_factor, g_lastElec.frequency_hz);
     }
 }
 
@@ -874,11 +942,26 @@ bool sendHttpTelemetry(const char* payload) {
             if (!err && doc.containsKey("peer_meter")) {
                 JsonObject pm = doc["peer_meter"];
                 if (pm["valid"].as<bool>()) {
-                    g_lastElec.valid = true;
-                    g_lastElec.active_power_kw = pm["power_kw"].as<float>();
-                    g_lastElec.voltage_v = pm["voltage_v"].as<float>();
-                    g_lastElec.current_a = pm["current_a"].as<float>();
-                    g_lastElec.cumulative_energy_kwh = pm["energy_kwh"].as<float>();
+                    float newPowerKw = pm["power_kw"].as<float>();
+                    float newVoltage = pm["voltage_v"].as<float>();
+                    float newCurrent = pm["current_a"].as<float>();
+                    float newEnergy = pm["energy_kwh"].as<float>();
+                    if (isfinite(newVoltage) && newVoltage >= 80.0f && newVoltage <= 280.0f &&
+                        isfinite(newCurrent) && newCurrent >= 0.0f && newCurrent <= 100.0f &&
+                        isfinite(newPowerKw) && newPowerKw >= 0.0f && newPowerKw <= 28.0f &&
+                        isfinite(newEnergy) && newEnergy >= 0.0f) {
+                        const char* sampleAt = pm["last_sample_at"] | "";
+                        const bool newSample = isNewPeerPzemSample(sampleAt);
+                        if (newSample) {
+                            g_lastElec.voltage_v = newVoltage;
+                            g_lastElec.current_a = newCurrent;
+                            g_lastElec.active_power_kw = newPowerKw;
+                            g_lastElec.cumulative_energy_kwh = newEnergy;
+                            g_lastElec.last_update_ms = millis();
+                        }
+                        g_lastElec.valid = newSample ||
+                            (g_lastElec.last_update_ms != 0 && (millis() - g_lastElec.last_update_ms) <= 12000UL);
+                    }
                 }
             }
         }
@@ -892,29 +975,34 @@ bool sendHttpTelemetry(const char* payload) {
 }
 
 void drainOfflineQueue() {
-    if (queueCount == 0) return;
-    Serial.printf("[QUEUE] Draining %d buffered offline packets...\n", queueCount);
-    while (queueCount > 0) {
-        OfflinePacket &item = offlineQueue[queueTail];
-        if (item.in_use) {
+    static unsigned long lastQueueDrainMillis = 0;
+    if (queueCount == 0 || WiFi.status() != WL_CONNECTED) return;
+
+    // Flush one item per interval. A long backlog must not monopolize loop()
+    // and leave the OLED frozen while Wi-Fi/backend connectivity recovers.
+    const unsigned long now = millis();
+    if (now - lastQueueDrainMillis < 5000UL) return;
+    lastQueueDrainMillis = now;
+
+    OfflinePacket &item = offlineQueue[queueTail];
+    if (item.in_use) {
 #if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
-            bool ok = sendHttpTelemetry(item.payload);
+        bool ok = sendHttpTelemetry(item.payload);
 #else
-            bool ok = mqttClient.publish(item.topic, item.payload, false);
+        bool ok = mqttClient.publish(item.topic, item.payload, false);
 #endif
-            item.in_use = false;
-            queueTail = (queueTail + 1) % OFFLINE_QUEUE_SIZE;
-            queueCount--;
-            if (!ok && WiFi.status() != WL_CONNECTED) {
-                Serial.println("[QUEUE] Network interrupted during drain; pausing.");
-                break;
-            }
-            delay(50);
-        } else {
-            queueTail = (queueTail + 1) % OFFLINE_QUEUE_SIZE;
-            queueCount--;
+        if (!ok) {
+            Serial.printf("[QUEUE] Retry pending; packet retained (queue depth: %d/%d).\n",
+                          queueCount, OFFLINE_QUEUE_SIZE);
+            return;
         }
     }
+
+    item.in_use = false;
+    queueTail = (queueTail + 1) % OFFLINE_QUEUE_SIZE;
+    queueCount--;
+    Serial.printf("[QUEUE] One buffered packet sent; remaining: %d/%d.\n",
+                  queueCount, OFFLINE_QUEUE_SIZE);
 }
 
 // =========================================================================================
@@ -943,9 +1031,6 @@ void maintainWiFi() {
             Serial.println("========================================================");
             syncTimeFromBackend();
             configTime(0, 0, "pool.ntp.org", "time.google.com");
-#if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
-            drainOfflineQueue();
-#endif
         }
         return;
     }
@@ -977,7 +1062,6 @@ void maintainMQTT() {
         if (connected) {
             Serial.println("[MQTT] Connected to broker successfully!");
             mqttBackoffMs = 2000;
-            drainOfflineQueue();
         } else {
             Serial.printf("[MQTT] Connection failed, rc=%d\n", mqttClient.state());
             mqttBackoffMs = min(mqttBackoffMs * 2, maxMqttBackoffMs);
@@ -1511,10 +1595,8 @@ void loop() {
 
     unsigned long now = millis();
 
-    // Synchronize peer PZEM-004T metrology from Node #2 (direct LAN or backend relay)
-    syncPeerPzemFromNetwork();
-
-    // Fast periodic OLED update for smooth prompt response
+    // Refresh the OLED before network requests so a slow HTTP call cannot
+    // postpone the visible page update. Keep one renderer call per interval.
     static unsigned long lastOledRefreshMillis = 0;
     if (now - lastOledRefreshMillis >= 1000UL) {
         lastOledRefreshMillis = now;
@@ -1522,6 +1604,17 @@ void loop() {
         oledUpdateDashboard();
 #endif
     }
+
+    // Pull the latest PZEM-004T readings from Node #2/backend after rendering.
+    syncPeerPzemFromNetwork();
+
+    // Resume at most one queued send at a time so reconnect backlogs cannot
+    // freeze the display or starve live sensor acquisition.
+#if defined(USE_HTTP_INGESTION) && (USE_HTTP_INGESTION == 1)
+    if (WiFi.status() == WL_CONNECTED) drainOfflineQueue();
+#else
+    if (mqttClient.connected()) drainOfflineQueue();
+#endif
 
     // =================================================================================
     // 1. HIGH-FREQUENCY INTERNAL SENSOR ACQUISITION & EDGE ANOMALY DETECTION
@@ -1603,10 +1696,6 @@ void loop() {
             }
         }
 
-        // C. Refresh Local OLED Screen with latest state
-#if defined(OLED_ENABLED) && (OLED_ENABLED == 1)
-        oledUpdateDashboard();
-#endif
     }
 
     // =================================================================================
@@ -1896,9 +1985,5 @@ void loop() {
             Serial.println("[ENV-STANDBY] MQ-135 / DHT11 not connected; skipping ENV-BLOCK-B-001 packet.");
         }
 
-        // Final OLED dashboard refresh with latest cloud ingestion status
-#if defined(OLED_ENABLED) && (OLED_ENABLED == 1)
-        oledUpdateDashboard();
-#endif
     }
 }

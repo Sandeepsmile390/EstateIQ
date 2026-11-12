@@ -2203,16 +2203,19 @@
                                             <span>Line Voltage</span>
                                             <i class="fa-solid fa-plug text-amber" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #F59E0B; margin: 6px 0;" id="liveMetricVoltageV">-- V</div>
+                                        <div style="font-size: 1.8rem; font-weight: 800; color: #F59E0B; margin: 6px 0; text-shadow: 0 0 12px rgba(245, 158, 11, 0.25); line-height: 1.1;" id="liveMetricVoltageV">-- V</div>
                                         <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Nominal Target: 230 V</div>
                                     </div>
                                     <div style="background: #0A251D !important; padding: 16px; border-radius: 14px; border: 1px solid rgba(96, 165, 250, 0.25); border-top: 3px solid #60A5FA;">
                                         <div style="font-size: 11px; font-weight: 700; color: #DBEAFE; text-transform: uppercase; letter-spacing: 0.6px; display: flex; justify-content: space-between; align-items: center;">
-                                            <span>Line Current & PF</span>
+                                            <span>Line Current &amp; PF</span>
                                             <i class="fa-solid fa-wave-square text-blue" style="font-size: 10px;"></i>
                                         </div>
-                                        <div style="font-size: 1.45rem; font-weight: 800; color: #60A5FA; margin: 6px 0;" id="liveMetricCurrentPF">-- A (PF: --)</div>
-                                        <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;">Single-Phase Active Load</div>
+                                        <div style="margin: 6px 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-height: 34px; line-height: 1.1;" id="liveMetricCurrentPF">
+                                            <span style="font-size: 1.8rem; font-weight: 800; color: #60A5FA; text-shadow: 0 0 12px rgba(96, 165, 250, 0.25); line-height: 1.1; white-space: nowrap;" id="liveMetricCurrentVal">-- A</span>
+                                            <span style="font-size: 11px; font-weight: 700; color: #93C5FD; background: rgba(96, 165, 250, 0.16); border: 1px solid rgba(96, 165, 250, 0.35); padding: 2px 8px; border-radius: 6px; letter-spacing: 0.3px; white-space: nowrap;" id="liveMetricPfVal">PF: --</span>
+                                        </div>
+                                        <div style="font-size: 11px; color: #CBD5E1; font-weight: 500;" id="liveMetricCurrentSub">Single-Phase Active Load</div>
                                     </div>
                                 </div>
                                 <div style="margin-top: 14px; background: rgba(0,0,0,0.25); border-radius: 10px; padding: 10px 14px; border: 1px solid rgba(0, 208, 156, 0.15);">

@@ -5553,3 +5553,49 @@ button:active, .btn:active, .tab-btn:active, .quick-chip:active {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================================================
+   LINE CURRENT & POWER FACTOR CARD LEGIBILITY & METROLOGY STYLING
+   ========================================================================= */
+#liveMetricCurrentPF {
+    margin: 6px 0 !important;
+    display: flex !important;
+    align-items: baseline !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    min-height: 34px !important;
+    line-height: 1.1 !important;
+    overflow: visible !important;
+}
+
+#liveMetricCurrentVal {
+    font-size: 1.8rem !important;
+    font-weight: 800 !important;
+    color: #60A5FA !important;
+    text-shadow: 0 0 12px rgba(96, 165, 250, 0.25) !important;
+    white-space: nowrap !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.3px !important;
+}
+
+#liveMetricPfVal {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #93C5FD !important;
+    background: rgba(96, 165, 250, 0.16) !important;
+    border: 1px solid rgba(96, 165, 250, 0.35) !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+    letter-spacing: 0.3px !important;
+    white-space: nowrap !important;
+    line-height: normal !important;
+}
+
+@media (max-width: 480px) {
+    #liveMetricCurrentVal {
+        font-size: 1.4rem !important;
+    }
+    #liveMetricVoltageV {
+        font-size: 1.4rem !important;
+    }
+}

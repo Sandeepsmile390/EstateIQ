@@ -2255,6 +2255,44 @@ function initIotSimulator() {
         });
     };
 
+    // Render Line Current and Power Factor cleanly without ugly wraps or clipping
+    const renderCurrentAndPF = (currentA, powerFactor) => {
+        const el = document.getElementById("liveMetricCurrentPF");
+        if (!el) return;
+
+        let currText = "-- A";
+        if (currentA !== null && currentA !== undefined && currentA !== "") {
+            const num = Number(currentA);
+            if (!isNaN(num)) {
+                currText = `${num < 10 ? num.toFixed(3) : num.toFixed(2)} A`;
+            } else {
+                currText = `${currentA} A`;
+            }
+        }
+
+        let pfText = "PF: --";
+        if (powerFactor !== null && powerFactor !== undefined && powerFactor !== "") {
+            const pfNum = Number(powerFactor);
+            if (!isNaN(pfNum)) {
+                pfText = `PF: ${pfNum.toFixed(2)}`;
+            } else {
+                pfText = `PF: ${powerFactor}`;
+            }
+        }
+
+        const currEl = document.getElementById("liveMetricCurrentVal");
+        const pfEl = document.getElementById("liveMetricPfVal");
+        if (currEl && pfEl) {
+            currEl.textContent = currText;
+            pfEl.textContent = pfText;
+        } else {
+            el.innerHTML = `
+                <span style="font-size: 1.8rem; font-weight: 800; color: #60A5FA; text-shadow: 0 0 12px rgba(96, 165, 250, 0.25); line-height: 1.1; white-space: nowrap;" id="liveMetricCurrentVal">${currText}</span>
+                <span style="font-size: 11px; font-weight: 700; color: #93C5FD; background: rgba(96, 165, 250, 0.16); border: 1px solid rgba(96, 165, 250, 0.35); padding: 2px 8px; border-radius: 6px; letter-spacing: 0.3px; white-space: nowrap;" id="liveMetricPfVal">${pfText}</span>
+            `;
+        }
+    };
+
     // Poll status from backend and real hardware device registry
     const fetchStatus = async () => {
         try {
@@ -2322,9 +2360,7 @@ function initIotSimulator() {
                     }
                     if (vV && t.voltage_v !== undefined && t.voltage_v !== null) vV.textContent = `${t.voltage_v} V`;
                     if (iPF) {
-                        if (t.current_a !== undefined && t.current_a !== null) {
-                            iPF.textContent = `${t.current_a} A (PF: ${t.power_factor ?? '--'})`;
-                        }
+                        renderCurrentAndPF(t.current_a, t.power_factor);
                     }
 
                     // Update matrix status
@@ -2801,11 +2837,7 @@ function initIotSimulator() {
                 if (eKWH) eKWH.textContent = formatMetric(s.energy_kwh, "kWh");
                 if (vV) vV.textContent = formatMetric(s.voltage_v, "V");
                 if (iPF) {
-                    if (s.current_a !== null && s.current_a !== undefined) {
-                        iPF.textContent = `${s.current_a} A (PF: ${s.power_factor ?? '--'})`;
-                    } else {
-                        iPF.textContent = "-- A (PF: --)";
-                    }
+                    renderCurrentAndPF(s.current_a, s.power_factor);
                 }
 
                 const wFlow = document.getElementById("liveMetricWaterFlow");
@@ -3306,7 +3338,7 @@ function initIotSimulator() {
                     elE.textContent = `${Number(m.cumulative_energy_kwh ?? m.energy_kwh).toFixed(1)} kWh`;
                 }
                 if (elV && m.voltage_v !== undefined) elV.textContent = `${Number(m.voltage_v).toFixed(1)} V`;
-                if (elPF && m.current_a !== undefined) elPF.textContent = `${Number(m.current_a).toFixed(1)} A (PF: ${m.power_factor ?? '0.95'})`;
+                if (elPF && m.current_a !== undefined) renderCurrentAndPF(m.current_a, m.power_factor ?? '0.95');
 
                 const elecCode = document.getElementById('elecWirePayloadCode');
                 if (elecCode) elecCode.textContent = JSON.stringify(item, null, 2);

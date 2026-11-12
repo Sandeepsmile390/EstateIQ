@@ -3,7 +3,7 @@ import logging
 import os
 import time
 
-from src.services.sns import deliver_telegram_outbox
+from src.services.sns import deliver_telegram_outbox, poll_telegram_link_commands
 
 
 def main() -> None:
@@ -17,6 +17,9 @@ def main() -> None:
     try:
         while True:
             try:
+                linking = poll_telegram_link_commands()
+                if linking["linked"] or linking["failed"]:
+                    log.info("SNS Telegram polling: %s", linking)
                 result = deliver_telegram_outbox()
                 if result["sent"] or result["failed"]:
                     log.info("SNS delivery batch: %s", result)

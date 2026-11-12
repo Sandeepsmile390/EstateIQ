@@ -197,8 +197,8 @@ def get_telegram_status(user: Dict[str, Any] = Depends(_permission("sns.read")))
 
 @router.post("/integrations/telegram/link")
 def link_telegram(user: Dict[str, Any] = Depends(_permission("sns.read"))):
-    if not os.getenv("TELEGRAM_BOT_TOKEN") or not os.getenv("TELEGRAM_WEBHOOK_SECRET"):
-        return {"configured": False, "linked": False, "message": "Configure TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET to enable Telegram."}
+    if not os.getenv("TELEGRAM_BOT_TOKEN"):
+        return {"configured": False, "linked": False, "message": "Configure TELEGRAM_BOT_TOKEN and start the SNS worker to enable Telegram."}
     token = sns.create_telegram_link_token(user["email"])
     return {"configured": True, "linked": False, "link_token": token, "expires_in_seconds": 600, "instruction": "Open the configured EstateIQ Telegram bot and send /link followed by this token. It is single-use."}
 

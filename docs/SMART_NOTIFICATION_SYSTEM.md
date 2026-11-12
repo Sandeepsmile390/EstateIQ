@@ -9,7 +9,7 @@ EstateIQ SNS adds durable notifications and rule routing to the existing FastAPI
 - Work-order notification calls persist to SNS while retaining the existing in-memory engine for compatibility.
 - In-app notification reads and lifecycle actions are scoped to the authenticated user email. SNS endpoints require an actual Bearer token (they do not use EstateIQ's legacy anonymous demo-user fallback).
 - Configurable rules support event type, JSON field conditions, AND/OR, severity, recipient roles/emails, in-app or Telegram channel, and cooldown. Notifications are deduplicated per recipient and rule/event key.
-- Telegram linking uses a random single-use token with a 10-minute expiry; the database stores only its SHA-256 hash. The webhook validates `X-Telegram-Bot-Api-Secret-Token`.
+- Telegram linking uses a random single-use token with a 10-minute expiry; the database stores only its SHA-256 hash. The worker polls Telegram for `/link` commands, so local demos do not need a public webhook URL. Do not run webhook updates and polling for the same bot at the same time.
 - Telegram delivery is asynchronous through the SQLite outbox. Run `python -m src.services.sns_worker` in a separate process after configuring credentials. The worker uses bounded retries and records each attempt. Tests should mock the Telegram API; they must never send real messages.
 - The web dashboard has a Smart Notifications tab for notification history, summary counts, rule listing/toggles, rule creation, Telegram link state, and delivery attempts.
 
@@ -32,11 +32,12 @@ The built-in alert routing rule is protected from deletion and sends to operatio
 
 ## Telegram setup
 
-1. Set `TELEGRAM_BOT_TOKEN` and a high-entropy `TELEGRAM_WEBHOOK_SECRET` in the server environment. Never commit real values.
-2. Configure Telegram's webhook to `https://<host>/api/v1/sns/integrations/telegram/webhook`, passing the same secret as Telegram's `secret_token`.
-3. Start `python -m src.services.sns_worker` as a separate process.
-4. Sign into EstateIQ, open **Notifications**, select **Link Telegram**, and send `/link <one-time-token>` to the bot before the token expires.
-5. Create or update a rule with the Telegram channel enabled. Existing alert routing remains in-app by default.
+1. Create a fresh bot token with BotFather and place it in the ignored local `.env` as `TELEGRAM_BOT_TOKEN=...`. Never commit the token.
+2. Start EstateIQ and run `python -m src.services.sns_worker` in a separate terminal. Keep the worker running; it polls for account-link commands and sends queued notifications.
+3. Sign into EstateIQ, open **Notifications**, select **Link Telegram**, and send `/link <one-time-token>` to your bot before the token expires.
+4. Create or update an alert rule with the Telegram channel enabled. In-app notifications remain available too.
+
+For hosted webhook mode, expose the webhook endpoint over HTTPS and register it with Telegram. Do not use webhook updates and polling simultaneously. If the bot previously had a webhook configured, remove it before starting the polling worker.
 
 Telegram delivery is not confirmed until the Bot API accepts the send request. A queued message is not reported as delivered. A link token is shown only once to its authenticated owner.
 

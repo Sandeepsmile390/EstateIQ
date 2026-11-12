@@ -88,8 +88,10 @@ def init_sns_schema() -> None:
         conn.execute("""INSERT OR IGNORE INTO sns_rules
             (id,name,description,event_type,enabled,conditions_json,logical_operator,severity,
              recipient_roles_json,recipient_emails_json,channels_json,cooldown_seconds,created_by,created_at,updated_at)
-            VALUES(?,?,?,?,1,'[]','AND','HIGH','[\"OPERATIONS_ENGINEER\",\"FACILITY_ADMIN\",\"SUPER_ADMIN\"]','[]','[\"in_app\"]',300,'system',?,?)""",
+            VALUES(?,?,?,?,1,'[]','AND','HIGH','[\"OPERATIONS_ENGINEER\",\"FACILITY_ADMIN\",\"SUPER_ADMIN\"]','[]','[\"in_app\",\"telegram\"]',300,'system',?,?)""",
             ("sns-default-alert-created", "Notify on new facility alert", "Routes new EstateIQ alerts to operations and facility administrators.", "alert.created", now, now))
+        # Upgrade the shipped default for existing databases while preserving an admin's custom rule settings.
+        conn.execute("UPDATE sns_rules SET channels_json='[\"in_app\",\"telegram\"]' WHERE id='sns-default-alert-created' AND channels_json='[\"in_app\"]'")
         conn.commit()
     finally:
         conn.close()

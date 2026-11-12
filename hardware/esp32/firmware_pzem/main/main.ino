@@ -39,6 +39,7 @@ static char lastCloudStatus[32] = "INITIALIZING";
 static int lastHttpCode = 0;
 static unsigned long lastCloudSyncMillis = 0;
 static bool ntpSynchronized = false;
+static unsigned long lastTimeSyncAttemptMillis = 0;
 
 // ---------------- HTML Dashboard (Embedded WebServer) ----------------
 const char DASHBOARD[] PROGMEM = R"rawliteral(
@@ -237,7 +238,7 @@ async function updateDashboard() {
         // Cloud status
         const cDot = document.getElementById('cloudDot');
         const cStatus = document.getElementById('cloudStatus');
-        if (data.cloud_code === 200) {
+        if (data.cloud_code >= 200 && data.cloud_code < 300) {
             cDot.className = 'dot online';
             cStatus.textContent = 'INGESTED (HTTP 200 OK)';
             cStatus.style.color = '#00F0B5';
@@ -285,26 +286,17 @@ static bool getISOTimestamp(char* buf, size_t maxLen) {
     struct tm timeinfo;
     gmtime_r(&nowSec, &timeinfo);
 
-    if (timeinfo.tm_year > (2020 - 1900)) {
+    if (timeinfo.tm_year >= (2024 - 1900)) {
         strftime(buf, maxLen, "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
         ntpSynchronized = true;
         return true;
     }
-
-    // Relative uptime fallback: guarantee zero dropped packets before NTP lock
-    unsigned long uptimeSec = millis() / 1000UL;
-    unsigned long days = uptimeSec / 86400UL;
-    unsigned long rem = uptimeSec % 86400UL;
-    unsigned int hrs = rem / 3600UL;
-    unsigned int mins = (rem % 3600UL) / 60UL;
-    unsigned int secs = rem % 60UL;
-    snprintf(buf, maxLen, "2026-11-10T%02u:%02u:%02uZ", hrs, mins, secs);
     return false;
 }
 
 // ---------------- Synchronize Clock from Backend ----------------
-static void syncTimeFromBackend() {
-    if (WiFi.status() != WL_CONNECTED) return;
+static bool syncTimeFromBackend() {
+    if (WiFi.status() != WL_CONNECTED) return false;
     char timeUrl[128];
     snprintf(timeUrl, sizeof(timeUrl), "http://%s:%d/api/v1/system/time", ESTATEIQ_BACKEND_HOST, ESTATEIQ_BACKEND_PORT);
 
@@ -316,39 +308,106 @@ static void syncTimeFromBackend() {
         String payload = http.getString();
         StaticJsonDocument<384> doc;
         DeserializationError err = deserializeJson(doc, payload);
-        if (!err && doc.containsKey("epoch_timestamp")) {
-            time_t epoch = doc["epoch_timestamp"].as<time_t>();
+        // EstateIQ returns epoch_seconds (not epoch_timestamp).
+        if (!err && (doc.containsKey("epoch_seconds") || doc.containsKey("epoch_timestamp"))) {
+            time_t epoch = doc.containsKey("epoch_seconds")
+                               ? doc["epoch_seconds"].as<time_t>()
+                               : doc["epoch_timestamp"].as<time_t>();
+            if (epoch < 1704067200) { // Reject dates before 2024-01-01.
+                http.end();
+                return false;
+            }
             struct timeval tv = { .tv_sec = epoch, .tv_usec = 0 };
             settimeofday(&tv, NULL);
             ntpSynchronized = true;
             Serial.printf("[TIME] Synchronized system time from EstateIQ backend: epoch=%ld\n", (long)epoch);
+            http.end();
+            return true;
         }
     }
     http.end();
+    return false;
 }
 
 // ---------------- Read Physical PZEM-004T Meter ----------------
 void readSensor() {
-    float newVoltage = pzem.voltage();
+    static int s_failCount = 0;
 
-    if (isnan(newVoltage)) {
+    float newVoltage = pzem.voltage();
+    // Transient retry: If reading returned NAN or out of spec, retry once after 50ms delay
+    if (!isfinite(newVoltage) || newVoltage < 80.0f || newVoltage > 280.0f) {
+        delay(50);
+        newVoltage = pzem.voltage();
+    }
+
+    if (!isfinite(newVoltage) || newVoltage < 80.0f || newVoltage > 280.0f) {
+        s_failCount++;
+        if (s_failCount >= 3) {
+            pzemConnected = false;
+            voltage = NAN;
+            current = NAN;
+            power = NAN;
+            energy = NAN;
+            frequency = NAN;
+            pf = NAN;
+            Serial.printf("[PZEM-WARN] No PZEM reply (%d consecutive timeouts, voltage=%.2f V); check 5V/GND, crossed UART wires (PZEM TX->GPIO%d, PZEM RX->GPIO%d), and AC L/N input. A missing CT affects current measurement, not UART response.\n",
+                          s_failCount, newVoltage, PZEM_RX_PIN, PZEM_TX_PIN);
+        } else {
+            Serial.printf("[PZEM-WARN] Transient UART timeout (attempt %d/3); retaining previous telemetry.\n", s_failCount);
+        }
+        return;
+    }
+
+    // Successful voltage read: reset failure counter
+    s_failCount = 0;
+
+    // Read remaining metrology registers
+    float newCurrent = pzem.current();
+    float newPower = pzem.power();
+    float newEnergy = pzem.energy();
+    float newFrequency = pzem.frequency();
+    float newPf = pzem.pf();
+
+    // Zero-load and missing-CT handling:
+    // If AC line is alive (80-280V) but current is zero or CT is disconnected,
+    // power factor and frequency may be unassigned/NaN on some PZEM clones.
+    if (isnan(newCurrent) || newCurrent < 0.005f) {
+        newCurrent = 0.0f;
+    }
+    if (isnan(newPower) || newPower < 0.1f) {
+        newPower = 0.0f;
+    }
+    if (isnan(newPf) || newPf < 0.0f || newPf > 1.0f) {
+        newPf = (newCurrent > 0.05f) ? 0.95f : 1.00f; // Nominal unity at idle/zero load
+    }
+    if (isnan(newFrequency) || newFrequency < 40.0f || newFrequency > 70.0f) {
+        newFrequency = 50.0f; // Standard AC grid nominal frequency
+    }
+    if (isnan(newEnergy) || newEnergy < 0.0f) {
+        newEnergy = !isnan(energy) ? energy : 0.0f;
+    }
+
+    const bool sampleValid =
+        isfinite(newCurrent) && newCurrent >= 0.0f && newCurrent <= 100.0f &&
+        isfinite(newPower) && newPower >= 0.0f && newPower <= 28000.0f &&
+        isfinite(newEnergy) && newEnergy >= 0.0f &&
+        isfinite(newFrequency) && newFrequency >= 40.0f && newFrequency <= 70.0f &&
+        isfinite(newPf) && newPf >= 0.0f && newPf <= 1.0f;
+
+    if (!sampleValid) {
         pzemConnected = false;
-        voltage = NAN;
-        current = NAN;
-        power = NAN;
-        energy = NAN;
-        frequency = NAN;
-        pf = NAN;
-        Serial.println("[PZEM-WARN] PZEM sensor offline or no AC power connected to CT/meter.");
+        voltage = current = power = energy = frequency = pf = NAN;
+        Serial.printf("[PZEM-WARN] Rejected invalid sample: %.1fV %.3fA %.1fW %.3fkWh %.1fHz PF %.2f\n",
+                      newVoltage, newCurrent, newPower, newEnergy, newFrequency, newPf);
         return;
     }
 
     voltage = newVoltage;
-    current = pzem.current();
-    power = pzem.power();
-    energy = pzem.energy();
-    frequency = pzem.frequency();
-    pf = pzem.pf();
+    current = newCurrent;
+    power = newPower;
+    energy = newEnergy;
+    frequency = newFrequency;
+    pf = newPf;
     pzemConnected = true;
 
     Serial.printf("[PZEM-004T] V: %.1fV | I: %.3fA | P: %.1fW (%.3fkW) | En: %.3fkWh | Freq: %.1fHz | PF: %.2f\n",
@@ -359,18 +418,26 @@ void readSensor() {
 void transmitTelemetryToEstateIQ() {
     if (WiFi.status() != WL_CONNECTED) {
         strncpy(lastCloudStatus, "WIFI_DISCONNECTED", sizeof(lastCloudStatus));
+        lastHttpCode = 0;
         return;
     }
     if (!pzemConnected || isnan(voltage)) {
         strncpy(lastCloudStatus, "PZEM_STANDBY", sizeof(lastCloudStatus));
+        lastHttpCode = 0;
+        return;
+    }
+
+    char timestampIso[32];
+    if (!getISOTimestamp(timestampIso, sizeof(timestampIso))) {
+        strncpy(lastCloudStatus, "WAITING_FOR_TIME", sizeof(lastCloudStatus));
+        lastHttpCode = 0;
+        Serial.println("[TIME-WARN] No valid UTC time yet; not sending telemetry with a fabricated timestamp.");
         return;
     }
 
     sequenceCounter++;
-    char timestampIso[32];
-    getISOTimestamp(timestampIso, sizeof(timestampIso));
 
-    StaticJsonDocument<1536> doc;
+    StaticJsonDocument<768> doc;
     doc["schema_version"] = "1.0";
     char msgId[48];
     snprintf(msgId, sizeof(msgId), "MSG_%s_%s_%lu", DEVICE_ID_ELEC, bootSessionId, sequenceCounter);
@@ -386,7 +453,7 @@ void transmitTelemetryToEstateIQ() {
     doc["sent_timestamp"] = timestampIso;
     doc["sequence_number"] = sequenceCounter;
 
-    doc["reporting_state"] = "NORMAL_15M";
+    doc["reporting_state"] = "NORMAL_REALTIME";
     doc["reporting_interval_sec"] = PZEM_READ_INTERVAL_MS / 1000UL;
     doc["next_report_expected_sec"] = PZEM_READ_INTERVAL_MS / 1000UL;
     doc["is_anomaly"] = false;
@@ -407,13 +474,13 @@ void transmitTelemetryToEstateIQ() {
     m4["metric"] = "cumulative_energy_kwh"; m4["value"] = isnan(energy) ? 0.0f : energy; m4["unit"] = "kWh"; m4["quality"] = "good";
 
     JsonObject m5 = metrics.createNestedObject();
-    m5["metric"] = "power_factor"; m5["value"] = isnan(pf) ? 0.95f : pf; m5["unit"] = "ratio"; m5["quality"] = "good";
+    m5["metric"] = "power_factor"; m5["value"] = isnan(pf) ? 1.0f : pf; m5["unit"] = "ratio"; m5["quality"] = "good";
 
     JsonObject m6 = metrics.createNestedObject();
     m6["metric"] = "frequency_hz"; m6["value"] = isnan(frequency) ? 50.0f : frequency; m6["unit"] = "Hz"; m6["quality"] = "good";
 
-    char jsonBuf[1536];
-    serializeJson(doc, jsonBuf);
+    String jsonPayload;
+    serializeJson(doc, jsonPayload);
 
     char fullUrl[160];
     snprintf(fullUrl, sizeof(fullUrl), "http://%s:%d%s", ESTATEIQ_BACKEND_HOST, ESTATEIQ_BACKEND_PORT, ESTATEIQ_TELEMETRY_PATH);
@@ -423,14 +490,14 @@ void transmitTelemetryToEstateIQ() {
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(2500);
 
-    int httpResponseCode = http.POST((uint8_t*)jsonBuf, strlen(jsonBuf));
+    int httpResponseCode = http.POST(jsonPayload);
     lastHttpCode = httpResponseCode;
     lastCloudSyncMillis = millis();
 
     if (httpResponseCode >= 200 && httpResponseCode < 300) {
         strncpy(lastCloudStatus, "ACCEPTED", sizeof(lastCloudStatus));
-        Serial.printf("[ESTATEIQ-HTTP] Telemetry POST accepted (HTTP %d) | Seq:%lu | %.1fV | %.2fW\n",
-                      httpResponseCode, sequenceCounter, voltage, power);
+        Serial.printf("[ESTATEIQ-HTTP] Telemetry POST accepted (HTTP %d) | Seq:%lu | %.1fV | %.3fA | %.2fW\n",
+                      httpResponseCode, sequenceCounter, voltage, current, power);
     } else {
         snprintf(lastCloudStatus, sizeof(lastCloudStatus), "ERR_%d", httpResponseCode);
         Serial.printf("[ESTATEIQ-WARN] HTTP POST returned code %d to %s\n", httpResponseCode, fullUrl);
@@ -443,8 +510,15 @@ void handleRoot() {
     server.send_P(200, "text/html", DASHBOARD);
 }
 
+void handleResetEnergy() {
+    pzem.resetEnergy();
+    energy = 0.0f;
+    Serial.println("[PZEM-004T] Cumulative energy reset to 0.0 kWh via API");
+    server.send(200, "application/json", "{\"success\":true,\"message\":\"Energy reset to 0.0 kWh\"}");
+}
+
 void handleData() {
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<768> doc;
     doc["connected"] = pzemConnected;
     doc["voltage"] = formatValue(voltage, 2);
     doc["current"] = formatValue(current, 3);
@@ -453,6 +527,27 @@ void handleData() {
     doc["energy"] = formatValue(energy, 3);
     doc["frequency"] = formatValue(frequency, 2);
     doc["pf"] = formatValue(pf, 2);
+
+    // Provide numeric float representations for direct-LAN peer sync (Node #1)
+    doc["voltage_v"] = isnan(voltage) ? 0.0f : voltage;
+    doc["current_a"] = isnan(current) ? 0.0f : current;
+    doc["power_w"] = isnan(power) ? 0.0f : power;
+    doc["power_kw"] = isnan(power) ? 0.0f : (power / 1000.0f);
+    doc["energy_kwh"] = isnan(energy) ? 0.0f : energy;
+    doc["frequency_hz"] = isnan(frequency) ? 0.0f : frequency;
+    doc["power_factor"] = isnan(pf) ? 0.0f : pf;
+
+    char timestampIso[32] = "";
+    if (getISOTimestamp(timestampIso, sizeof(timestampIso))) {
+        doc["timestamp"] = timestampIso;
+        doc["last_sample_at"] = timestampIso;
+    } else {
+        char uptimeStr[32];
+        snprintf(uptimeStr, sizeof(uptimeStr), "UPTIME_%lu", millis());
+        doc["timestamp"] = uptimeStr;
+        doc["last_sample_at"] = uptimeStr;
+    }
+
     doc["backend_host"] = String(ESTATEIQ_BACKEND_HOST) + ":" + String(ESTATEIQ_BACKEND_PORT);
     doc["cloud_code"] = lastHttpCode;
     doc["cloud_status"] = lastCloudStatus;
@@ -485,9 +580,13 @@ void connectWiFi() {
         Serial.printf("[WIFI] Assigned IP: %s | RSSI: %d dBm\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
         Serial.printf("[WIFI] Local Web Dashboard: http://%s/\n", WiFi.localIP().toString().c_str());
 
-        // Initial time sync
-        syncTimeFromBackend();
         configTime(0, 0, "pool.ntp.org", "time.google.com");
+        // Start NTP and also try EstateIQ's local time endpoint (works when
+        // the hotspot/network blocks UDP port 123).
+        lastTimeSyncAttemptMillis = millis();
+        if (!syncTimeFromBackend()) {
+            Serial.println("[TIME] Backend time sync not available; waiting for NTP or retrying backend.");
+        }
     } else {
         Serial.println("\n[WIFI-WARN] Initial connection timeout. Background auto-reconnect will continue.");
     }
@@ -499,7 +598,8 @@ void setup() {
     delay(500);
 
     uint32_t chipId = (uint32_t)ESP.getEfuseMac();
-    snprintf(bootSessionId, sizeof(bootSessionId), "%08X", chipId);
+    // Include a per-boot random suffix so message IDs don't repeat after reset.
+    snprintf(bootSessionId, sizeof(bootSessionId), "%08X%06X", chipId, (unsigned int)(esp_random() & 0xFFFFFF));
 
     Serial.println();
     Serial.println("==================================================================");
@@ -508,22 +608,23 @@ void setup() {
     Serial.printf("[CONFIG] Gateway ID: %s | Device ID: %s\n", GATEWAY_ID, DEVICE_ID_ELEC);
     Serial.printf("[TARGET] http://%s:%d%s\n", ESTATEIQ_BACKEND_HOST, ESTATEIQ_BACKEND_PORT, ESTATEIQ_TELEMETRY_PATH);
 
-    // Initialize PZEM-004T HardwareSerial(2) on RX16, TX17
+    // Ensure UART2 hardware serial is started with pins and baud rate in runtime context
     PZEMSerial.begin(PZEM_BAUD_RATE, SERIAL_8N1, PZEM_RX_PIN, PZEM_TX_PIN);
-    Serial.printf("[PZEM-004T] Initialized UART2 on RX:%d, TX:%d at %d baud\n",
+    Serial.printf("[PZEM-004T] UART2 initialized on RX:%d, TX:%d at %d baud\n",
                   PZEM_RX_PIN, PZEM_TX_PIN, PZEM_BAUD_RATE);
-
-    delay(300);
 
     // Connect to Wi-Fi
     connectWiFi();
 
     // Start Local Web Server
+    server.enableCORS(true);
     server.on("/", HTTP_GET, handleRoot);
     server.on("/data", HTTP_GET, handleData);
     server.on("/api/data", HTTP_GET, handleData);
+    server.on("/api/reset-energy", HTTP_POST, handleResetEnergy);
+    server.on("/api/reset-energy", HTTP_GET, handleResetEnergy);
     server.begin();
-    Serial.println("[HTTP-SERVER] Local Web Dashboard active on port 80");
+    Serial.println("[HTTP-SERVER] Local Web Dashboard active on port 80 (CORS enabled)");
 
     // Initial sensor reading
     readSensor();
@@ -553,6 +654,10 @@ void loop() {
                 WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
             }
         } else {
+            if (!ntpSynchronized && now - lastTimeSyncAttemptMillis >= 15000UL) {
+                lastTimeSyncAttemptMillis = now;
+                syncTimeFromBackend();
+            }
             // C. Push canonical telemetry packet directly into EstateIQ FastAPI backend
             transmitTelemetryToEstateIQ();
         }

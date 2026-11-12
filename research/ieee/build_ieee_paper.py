@@ -86,7 +86,7 @@ cw = (W - lm - rm - gap) / 2.0  # 258.48 pt
 # Read markdown manuscript
 lines = MD.read_text(encoding='utf-8').splitlines()
 
-title = lines[0].replace('# ', '').strip() if lines and lines[0].startswith('# ') else 'EstateIQ-DIF: A Robust Seasonal-Baseline and Rule-Fusion Framework for Building Energy Anomaly Triage'
+title = lines[0].replace('# ', '').strip() if lines and lines[0].startswith('# ') else 'Elite-DIF: An Interpretable Robust Seasonal-Baseline, Scale-Floored Residual Scoring, and Evidence-Fused Decision Intelligence Algorithm for Real-Time Commercial Building Anomaly Triage'
 abstract = ''
 for i, line in enumerate(lines):
     if line.strip() == '## Abstract':
@@ -102,18 +102,18 @@ header_width = W - lm - rm
 hdr_blocks = [
     (Paragraph(title, S['Titlex']), S['Titlex']),
     (Paragraph(
-        '<b>[Author Name(s) Placeholder]</b> &nbsp;&bull;&nbsp; '
-        '<i>Department of Electrical and Computer Engineering / Smart Facilities Lab</i><br/>'
-        '<b>[Author Affiliation / Institution Placeholder]</b> &nbsp;&bull;&nbsp; '
-        '<b>Contact:</b> [Author Contact / Email Placeholder]<br/>'
-        '<b>Target Venue:</b> [Target IEEE Conference Placeholder - Generic Research Draft] &nbsp;&bull;&nbsp; '
-        '<b>Funding:</b> [Funding Sponsor / Grant Details Placeholder - None Declared]',
+        '<b>Team Elite (Team ID: BH26PS04T039)</b> &nbsp;&bull;&nbsp; '
+        '<b>Problem Statement-04: Smart Campus / Institutional Facility Energy &amp; Utility Optimization</b><br/>'
+        '<b>BPUT Hackathon 2026 (12&ndash;13 November 2026)</b> &nbsp;&bull;&nbsp; '
+        '<b>Track:</b> Algorithm Track &amp; Decision Intelligence Framework<br/>'
+        '<i>Elite AI &amp; Decision Intelligence Research Group, Department of Computer Science &amp; AI</i>',
         S['Authx']
     ), S['Authx']),
     (Paragraph('<b><i>Abstract</i>—</b>' + abstract.strip(), S['Abstractx']), S['Abstractx']),
     (Paragraph(
-        '<b><i>Index Terms</i>—</b>Building energy management, anomaly detection, robust statistics, median absolute deviation, seasonal baseline, telemetry processing, fault detection and diagnostics (FDD), decision support. '
-        '<i>Draft Notice:</i> Generic IEEE conference-style draft; venue template not yet selected; results evaluated on generated telemetry.',
+        '<b><i>Index Terms</i>—</b>Building energy management, decision intelligence algorithms, robust statistics, '
+        'median absolute deviation, seasonal baselining, scale-floored residual scoring, evidence fusion, '
+        'adaptive cadence scheduling, fault detection and diagnostics (FDD), operational decision support.',
         S['Indexx']
     ), S['Indexx']),
 ]
@@ -132,10 +132,10 @@ def page_art(c, doc):
 
     # Populate PDF metadata
     c.setTitle(title)
-    c.setAuthor('[Author Name(s) Placeholder]')
-    c.setSubject('Generic IEEE Conference Draft - Building Energy Anomaly Triage')
-    c.setCreator('EstateIQ-DIF IEEE Build Pipeline (ReportLab 5.1.0)')
-    c.setKeywords('building energy, anomaly detection, robust statistics, seasonal baseline, telemetry, decision support')
+    c.setAuthor('Team Elite (Team ID: BH26PS04T039)')
+    c.setSubject('BPUT Hackathon 2026 - Problem Statement-04 - Elite-DIF Algorithm Research Paper')
+    c.setCreator('Elite-DIF IEEE Build Pipeline (ReportLab 5.1.0)')
+    c.setKeywords('building energy, decision intelligence algorithms, robust statistics, median absolute deviation, seasonal baseline, evidence fusion, BPUT Hackathon 2026, Team Elite, BH26PS04T039, Problem Statement-04')
 
     if doc.page == 1:
         y = H - top
@@ -151,8 +151,8 @@ def page_art(c, doc):
         # Running header on page 2+
         c.setFont('Times-Italic', 6.0)
         c.setFillColor(colors.HexColor('#596773'))
-        c.drawString(lm, H - 0.35 * inch, 'ESTATEIQ-DIF: ADAPTIVE MULTI-MODAL TELEMETRY & DECISION FRAMEWORK FOR BUILDING TRIAGE')
-        c.drawRightString(W - rm, H - 0.35 * inch, 'GENERIC IEEE RESEARCH DRAFT')
+        c.drawString(lm, H - 0.35 * inch, 'ELITE-DIF: ROBUST SEASONAL-BASELINE & EVIDENCE-FUSED DECISION INTELLIGENCE ALGORITHM')
+        c.drawRightString(W - rm, H - 0.35 * inch, 'BPUT HACKATHON 2026 | TEAM ELITE (BH26PS04T039) | PS-04')
         c.setStrokeColor(colors.HexColor('#D1D9DF'))
         c.setLineWidth(0.4)
         c.line(lm, H - 0.38 * inch, W - rm, H - 0.38 * inch)
@@ -163,7 +163,7 @@ def page_art(c, doc):
     c.line(lm, 0.38 * inch, W - rm, 0.38 * inch)
     c.setFont('Times', 6.0)
     c.setFillColor(colors.HexColor('#596773'))
-    c.drawString(lm, 0.24 * inch, 'EstateIQ-DIF | Generic IEEE conference-style research draft (simulated telemetry)')
+    c.drawString(lm, 0.24 * inch, 'Team Elite (BH26PS04T039) | Problem Statement-04 | BPUT Hackathon 2026 (12–13 November 2026)')
     c.drawRightString(W - rm, 0.24 * inch, f"Page {doc.page}")
 
     c.restoreState()
@@ -176,10 +176,10 @@ doc = BaseDocTemplate(
     rightMargin=rm,
     topMargin=top,
     bottomMargin=bot,
-    title='EstateIQ-DIF Research Paper',
-    author='[Author Name(s) Placeholder]',
-    subject='Generic IEEE Conference Draft',
-    creator='EstateIQ-DIF IEEE Build Pipeline',
+    title=title,
+    author='Team Elite (BH26PS04T039)',
+    subject='BPUT Hackathon 2026 - Problem Statement-04 - Elite-DIF Algorithm',
+    creator='Elite-DIF IEEE Build Pipeline',
 )
 
 first_frames = [

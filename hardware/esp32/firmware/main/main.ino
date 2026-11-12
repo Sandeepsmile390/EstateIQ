@@ -381,29 +381,34 @@ static void oledInitDisplay() {
     // 1. Hardware Power-On Stabilization Delay
     delay(150);
 
-    // 2. Hardware I2C Bus Unlock & Recovery Sequence:
-    // If the ESP32 restarted during an active I2C transaction, the display slave
-    // may be holding SDA LOW. Clocking SCL 9 times clears any hung state.
-    pinMode(OLED_SCL_PIN, OUTPUT);
+    // 2. Release Wire before touching the pins, then recover a stuck I2C bus.
+    // I2C is open-drain: drive LOW to pulse a line and switch to INPUT_PULLUP
+    // to release it HIGH. Never drive an I2C line HIGH push-pull.
+    Wire.end();
+    delay(5);
+    pinMode(OLED_SCL_PIN, INPUT_PULLUP);
     pinMode(OLED_SDA_PIN, INPUT_PULLUP);
     for (int i = 0; i < 9; i++) {
-        digitalWrite(OLED_SCL_PIN, HIGH);
-        delayMicroseconds(5);
+        pinMode(OLED_SCL_PIN, OUTPUT_OPEN_DRAIN);
         digitalWrite(OLED_SCL_PIN, LOW);
+        delayMicroseconds(5);
+        pinMode(OLED_SCL_PIN, INPUT_PULLUP);
         delayMicroseconds(5);
     }
     // Generate STOP condition
-    pinMode(OLED_SDA_PIN, OUTPUT);
+    pinMode(OLED_SDA_PIN, OUTPUT_OPEN_DRAIN);
     digitalWrite(OLED_SDA_PIN, LOW);
     delayMicroseconds(5);
-    digitalWrite(OLED_SCL_PIN, HIGH);
+    pinMode(OLED_SCL_PIN, INPUT_PULLUP);
     delayMicroseconds(5);
-    digitalWrite(OLED_SDA_PIN, HIGH);
+    pinMode(OLED_SDA_PIN, INPUT_PULLUP);
     delayMicroseconds(5);
 
-    // 3. Initialize I2C Bus at 100 kHz
+    // 3. Initialize I2C Bus at 100 kHz with a finite timeout so a stuck
+    // display/bus cannot wedge the entire sensor and Wi-Fi loop indefinitely.
     Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
     Wire.setClock(100000);
+    Wire.setTimeOut(50);
 
     // 4. Auto-detect OLED I2C Address (0x3C vs 0x3D)
     uint8_t detected = 0;
@@ -418,8 +423,10 @@ static void oledInitDisplay() {
 
     // Fallback: If not found, probe swapped I2C pin configuration (SDA=22, SCL=21)
     if (detected == 0) {
+        Wire.end();
         Wire.begin(OLED_SCL_PIN, OLED_SDA_PIN);
         Wire.setClock(100000);
+        Wire.setTimeOut(50);
         for (size_t i = 0; i < sizeof(candidateAddresses); i++) {
             Wire.beginTransmission(candidateAddresses[i]);
             if (Wire.endTransmission() == 0) {
@@ -524,6 +531,38 @@ static void oledDrawLineClamped(int page, const char* str) {
     oledDrawString(0, page, clean);
 }
 
+// Draw a compact, legible Wi-Fi status icon in the header's top-right corner.
+// The custom font contains ASCII only, so draw the tick/X directly in the buffer.
+static void oledDrawPixel(int x, int y) {
+    if (x < 0 || x >= 128 || y < 0 || y >= 64) return;
+    oledBuffer[(y / 8) * 128 + x] |= (uint8_t)(1U << (y % 8));
+}
+
+static void oledDrawWifiIcon(bool connected) {
+    if (!oledInitialized) return;
+    if (connected) {
+        oledDrawPixel(114, 3);
+        oledDrawPixel(115, 4);
+        oledDrawPixel(116, 5);
+        oledDrawPixel(117, 4);
+        oledDrawPixel(118, 3);
+        oledDrawPixel(119, 2);
+        oledDrawPixel(120, 1);
+        oledDrawPixel(121, 0);
+    } else {
+        for (int i = 0; i < 8; i++) {
+            oledDrawPixel(114 + i, i);
+            oledDrawPixel(121 - i, i);
+        }
+    }
+}
+
+static void oledDrawHeader() {
+    oledDrawLineClamped(0, "ESTATEIQ");
+    oledDrawString(78, 0, "WiFi:");
+    oledDrawWifiIcon(WiFi.status() == WL_CONNECTED);
+}
+
 // Ultra-reliable page-by-page OLED renderer with auto-recovery
 static void oledRender() {
     if (!oledInitialized) return;
@@ -566,6 +605,9 @@ static void oledRender() {
         }
     } else {
         oledConsecutiveErrors = 0;
+        // Reassert display-on during normal refresh. This recovers a controller
+        // that accepted I2C data but entered display-off/sleep state.
+        oledCommand(0xAF);
     }
 }
 
@@ -579,89 +621,76 @@ static void oledUpdateDashboard() {
         if (!oledInitialized) return;
     }
 
+    // Use two screens so each value has a full blank text row between it and
+    // the next value. The header and Wi-Fi icon remain fixed on both screens.
+    const unsigned long now = millis();
+    if (oledLastPageFlip == 0) oledLastPageFlip = now;
+    if (now - oledLastPageFlip >= 5000UL) {
+        oledCurrentPage = (oledCurrentPage + 1) % 2;
+        oledLastPageFlip = now;
+    }
+
     oledClear();
+    oledDrawHeader();
     char lineBuf[32];
 
-    // =========================================================================
-    // STRICT DISPLAY LAYOUT:
-    // Line 0: EStateIQ
-    // Line 1: Wifi connected or not.
-    // Lines 2-7: All sensors line wise. Nothing else (strictly).
-    // =========================================================================
+    if (oledCurrentPage == 0) {
+        if (g_lastWaste.bin_valid) {
+            snprintf(lineBuf, sizeof(lineBuf), "Bin: %.1f cm", g_lastWaste.bin_distance_cm);
+        } else if (g_lastWater.tank_valid) {
+            snprintf(lineBuf, sizeof(lineBuf), "Tank: %.1f cm", g_lastWater.tank_distance_cm);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "Sonar: Standby");
+        }
+        oledDrawLineClamped(2, lineBuf);
 
-    // Line 0: EStateIQ Header
-    oledDrawLineClamped(0, "      EStateIQ");
+        if (g_lastEnv.dht_valid) {
+            snprintf(lineBuf, sizeof(lineBuf), "Temp: %.1f C", g_lastEnv.temperature_c);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "Temp: Standby");
+        }
+        oledDrawLineClamped(4, lineBuf);
 
-    // Line 1: Wifi connected or not
-    if (WiFi.status() == WL_CONNECTED) {
-        oledDrawLineClamped(1, "WiFi: Connected");
+        if (g_lastEnv.dht_valid) {
+            snprintf(lineBuf, sizeof(lineBuf), "Humidity: %.1f%%", g_lastEnv.humidity_pct);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "Humidity: Standby");
+        }
+        oledDrawLineClamped(6, lineBuf);
+        oledDrawString(108, 7, "1/2");
     } else {
-        oledDrawLineClamped(1, "WiFi: Not Connected");
-    }
-
-    // Line 2: Ultrasonic HC-SR04 Distance Sensor
-    if (g_lastWaste.bin_valid) {
-        snprintf(lineBuf, sizeof(lineBuf), "HC-SR04: %.1f cm", g_lastWaste.bin_distance_cm);
-    } else if (g_lastWater.tank_valid) {
-        snprintf(lineBuf, sizeof(lineBuf), "HC-SR04: %.1f cm", g_lastWater.tank_distance_cm);
-    } else {
-        snprintf(lineBuf, sizeof(lineBuf), "HC-SR04: Standby");
-    }
-    oledDrawLineClamped(2, lineBuf);
-
-    // Line 3: Temperature (DHT11)
-    if (g_lastEnv.dht_valid) {
-        snprintf(lineBuf, sizeof(lineBuf), "Temp: %.1f C", g_lastEnv.temperature_c);
-    } else {
-        snprintf(lineBuf, sizeof(lineBuf), "Temp: Standby");
-    }
-    oledDrawLineClamped(3, lineBuf);
-
-    // Line 4: Humidity (DHT11)
-    if (g_lastEnv.dht_valid) {
-        snprintf(lineBuf, sizeof(lineBuf), "Humidity: %.1f %%", g_lastEnv.humidity_pct);
-    } else {
-        snprintf(lineBuf, sizeof(lineBuf), "Humidity: Standby");
-    }
-    oledDrawLineClamped(4, lineBuf);
-
-    // Line 5: MQ-135 Gas, Smoke & Harmful Pollutants Status
-    if (g_lastEnv.gas_valid) {
-        if (g_lastEnv.smoke_detected) {
-            snprintf(lineBuf, sizeof(lineBuf), "MQ-135: SMOKE ALERT!");
+        if (!g_lastEnv.gas_valid) {
+            snprintf(lineBuf, sizeof(lineBuf), "MQ135: Standby");
+        } else if (g_lastEnv.smoke_detected) {
+            snprintf(lineBuf, sizeof(lineBuf), "MQ135: SMOKE ALERT");
         } else if (g_lastEnv.gas_alert) {
-            snprintf(lineBuf, sizeof(lineBuf), "MQ-135: GAS ALERT!");
+            snprintf(lineBuf, sizeof(lineBuf), "MQ135: GAS ALERT");
         } else if (g_lastEnv.warming_up) {
-            snprintf(lineBuf, sizeof(lineBuf), "MQ-135: Warming Up");
+            snprintf(lineBuf, sizeof(lineBuf), "MQ135: Warming up");
         } else {
-            snprintf(lineBuf, sizeof(lineBuf), "MQ-135: %s", g_lastEnv.air_quality_label);
+            snprintf(lineBuf, sizeof(lineBuf), "Air: %s", g_lastEnv.air_quality_label);
         }
-    } else {
-        snprintf(lineBuf, sizeof(lineBuf), "MQ-135: Standby");
-    }
-    oledDrawLineClamped(5, lineBuf);
+        oledDrawLineClamped(2, lineBuf);
 
-    // Line 6: Peer PZEM-004T Metrology from ESP32 Node #2
-    if (g_lastElec.valid) {
-        if (g_lastElec.active_power_kw >= 1.0f) {
-            snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.2fkW %.0fV", g_lastElec.active_power_kw, g_lastElec.voltage_v);
+        if (g_lastElec.valid) {
+            if (g_lastElec.active_power_kw >= 1.0f) {
+                snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.2fkW %.0fV", g_lastElec.active_power_kw, g_lastElec.voltage_v);
+            } else {
+                snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.0fW %.0fV", g_lastElec.active_power_kw * 1000.0f, g_lastElec.voltage_v);
+            }
         } else {
-            snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.0fW %.0fV", g_lastElec.active_power_kw * 1000.0f, g_lastElec.voltage_v);
+            snprintf(lineBuf, sizeof(lineBuf), "PZEM: Standby");
         }
-    } else {
-        snprintf(lineBuf, sizeof(lineBuf), "PZEM: Standby");
-    }
-    oledDrawLineClamped(6, lineBuf);
+        oledDrawLineClamped(4, lineBuf);
 
-    // Line 7: Water Flow Rate (ZJ-S201)
-    if (g_lastWater.flow_valid && g_lastWater.water_flow_lmin > 0.0f) {
-        snprintf(lineBuf, sizeof(lineBuf), "Water: %.1f L/min", g_lastWater.water_flow_lmin);
-    } else if (g_lastWater.flow_valid) {
-        snprintf(lineBuf, sizeof(lineBuf), "Water: 0.0 L/min");
-    } else {
-        snprintf(lineBuf, sizeof(lineBuf), "Water: Standby");
+        if (g_lastWater.flow_valid) {
+            snprintf(lineBuf, sizeof(lineBuf), "Flow: %.1f L/min", g_lastWater.water_flow_lmin);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "Flow: Standby");
+        }
+        oledDrawLineClamped(6, lineBuf);
+        oledDrawString(108, 7, "2/2");
     }
-    oledDrawLineClamped(7, lineBuf);
 
     oledRender();
 }
@@ -1418,14 +1447,11 @@ void setup() {
     // 6. Initialize 0.96 Inch OLED Display
 #if defined(OLED_ENABLED) && (OLED_ENABLED == 1)
     oledInitDisplay();
-    oledDrawLineClamped(0, "EstateIQ Edge Gateway");
-    oledDrawLineClamped(1, "Firmware: v3.0-Prod");
-    oledDrawLineClamped(2, "OLED: SSD1306 100kHz");
-    oledDrawLineClamped(3, "Sensors: HC/DHT/MQ/ZJ");
-    oledDrawLineClamped(4, "WiFi: Connecting...");
-    oledDrawLineClamped(5, "Endpoint: REST Ingest");
-    oledDrawLineClamped(6, "EstateIQ Cloud Sync");
-    oledDrawLineClamped(7, "Status: Booting Up...");
+    oledClear();
+    oledDrawHeader();
+    oledDrawLineClamped(2, "Firmware v3.0");
+    oledDrawLineClamped(4, "Sensors starting");
+    oledDrawLineClamped(6, "WiFi connecting...");
     oledRender();
 #endif
 

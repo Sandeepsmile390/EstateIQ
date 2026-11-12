@@ -139,7 +139,7 @@ def render_all_equations():
     render_piecewise_27()
     render_equation_image("eq_28.png", r"\eta_{\mathrm{tx}} = 1 - \frac{N_{\mathrm{adaptive}}}{N_{\mathrm{fixed\_5m}}} = 1 - \frac{96\mathrm{\,packets/day}}{288\mathrm{\,packets/day}} = 66.7\%", 28, height_in=0.40, fontsize=7.4)
     render_equation_image("eq_29.png", r"D = \frac{v_{\mathrm{sound}}(T) \cdot \Delta t_{\mathrm{echo}}}{2}, \quad L_{\mathrm{pct}} = \max\left(0, \min\left(100, \frac{H_{\mathrm{tank}} - D}{H_{\mathrm{tank}} - D_{\mathrm{blind}}} \times 100\right)\right)", 29, height_in=0.42, fontsize=7.3)
-    render_equation_image("eq_30.png", r"V_{\mathrm{ADC}} = V_{\mathrm{sensor}} \times \frac{R_2}{R_1 + R_2} = 5.0\mathrm{\,V} \times \frac{3.3\mathrm{\,k}\Omega}{2.2\mathrm{\,k}\Omega + 3.3\mathrm{\,k}\Omega} = 3.00\mathrm{\,V} \leq 3.30\mathrm{\,V}", 30, height_in=0.40, fontsize=7.3)
+    render_equation_image("eq_30.png", r"Q_t = \frac{f_{\mathrm{pulse}}}{K_{\mathrm{cal}}} \times 60 \quad (\mathrm{L/min}), \quad \Delta y_t = \max\left(0,\, y_t - y_{t-1}\right)", 30, height_in=0.40, fontsize=7.6)
 
     print(f"Successfully generated all 30 equation images in {EQ_DIR}")
 

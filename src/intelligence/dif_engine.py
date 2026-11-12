@@ -7,8 +7,9 @@ import time
 import uuid
 import math
 from datetime import datetime
+import copy
 import pandas as pd
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from src.intelligence.config import DIFConfig
 from src.intelligence.types import (
@@ -30,11 +31,19 @@ from src.intelligence.seasonal_baseline import SeasonalBaselineModel
 class EstateIQDIF:
     """Master EstateIQ-DIF Dynamic Intelligence Fusion Algorithm."""
 
-    def __init__(self, config: DIFConfig = None,
-                 baseline_model: SeasonalBaselineModel = None):
-        self.config = config or DIFConfig()
+    def __init__(
+        self,
+        config: DIFConfig = None,
+        baseline_model: Optional[Any] = None,
+        sensor_health_engine: Optional[Any] = None,
+        anomaly_threshold: Optional[float] = None,
+    ):
+        self.config = copy.copy(config) if config else DIFConfig()
+        if anomaly_threshold is not None:
+            self.config.anomaly_score_threshold = float(anomaly_threshold)
         self.quality_engine = DataQualityEngine()
         self.baseline_model = baseline_model
+        self.sensor_health_engine = sensor_health_engine
         self.context_filter = EstateIQContextFilter(self.config)
         self.adaptive_ensemble = EstateIQAdaptiveEnsemble(self.config)
         self.anomaly_consensus = EstateIQAnomalyConsensus(self.config)

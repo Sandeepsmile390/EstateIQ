@@ -19,6 +19,7 @@ let currentUserSession = {
     can_execute_rules: true,
     can_upgrade_subscription: true
 };
+let estateiqSnsCache = [];
 
 document.addEventListener("DOMContentLoaded", () => {
     initLoginPortal();
@@ -85,6 +86,7 @@ function initLoginPortal() {
         e.stopPropagation();
         document.getElementById("roleSwitcherDropdown")?.classList.remove("show");
         localStorage.removeItem("estateiq_authenticated");
+        localStorage.removeItem("estateiq_access_token");
         portal.classList.remove("hidden");
         showToast("Signed out of EstateIQ Session");
     });
@@ -126,6 +128,7 @@ function initLoginPortal() {
 
             if (res.ok) {
                 const data = await res.json();
+                if (data.access_token) localStorage.setItem("estateiq_access_token", data.access_token);
                 currentUserSession = data.user || currentUserSession;
                 updateUIUserSession(currentUserSession);
             }
@@ -230,6 +233,9 @@ async function initRoleBasedAuth() {
             dropdown?.classList.remove("show");
 
             try {
+                // Demo role switching is not credential reauthentication. Drop
+                // the existing SNS bearer token to prevent stale-role access.
+                localStorage.removeItem("estateiq_access_token");
                 const res = await fetch("/api/v1/auth/login", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -480,6 +486,8 @@ function initTabs() {
             loadBackendWorkOrders?.();
         } else if (activeTab === "billing") {
             loadBackendSubscriptionDetails?.();
+        } else if (activeTab === "sns") {
+            loadSnsPage();
         }
 
         setTimeout(() => {
@@ -878,10 +886,7 @@ async function loadBackendAlerts() {
         const data = await res.json();
         
         const sidebarBadge = document.getElementById("sidebarAlertCount");
-        const notifBadge = document.getElementById("notificationCount");
-
         if (sidebarBadge) sidebarBadge.textContent = data.total_active_alerts;
-        if (notifBadge) notifBadge.textContent = data.total_active_alerts;
     } catch (e) {
         console.warn("Alerts using cached list.");
     }
@@ -1722,6 +1727,7 @@ function initNotificationsDropdown() {
         document.getElementById("locationDropdown")?.classList.remove("show");
         document.getElementById("roleSwitcherDropdown")?.classList.remove("show");
         dropdown.classList.toggle("show");
+        loadSnsNotifications();
     });
 
     document.addEventListener("click", () => {
@@ -1732,41 +1738,177 @@ function initNotificationsDropdown() {
         e.stopPropagation();
     });
 
-    markReadBtn?.addEventListener("click", () => {
-        document.querySelectorAll(".notif-item.unread").forEach(item => {
-            item.classList.remove("unread");
-        });
-        if (notifCount) notifCount.textContent = "0";
-        if (notifUnreadBadge) notifUnreadBadge.textContent = "0 New";
-        showToast("All operational notifications marked as read.");
+    markReadBtn?.addEventListener("click", async () => {
+        const unread = estateiqSnsCache.filter(item => !item.read);
+        await Promise.all(unread.map(item => snsRequest(`/notifications/${encodeURIComponent(item.id)}/read`, { method: "POST" }).catch(() => null)));
+        await loadSnsNotifications();
+        showToast("Notifications marked as read.");
     });
 
     viewAllBtn?.addEventListener("click", () => {
         dropdown.classList.remove("show");
-        document.querySelectorAll(".modal-backdrop.show").forEach(m => m.classList.remove("show"));
-        if (typeof window.openDecisionTraceModal === "function") {
-            window.openDecisionTraceModal("ALT_01");
-        } else {
-            document.getElementById("decisionTraceModal")?.classList.add("show");
-        }
+        document.querySelector('.tab-btn[data-tab="sns"]')?.click();
     });
 
-    document.querySelectorAll(".notif-item").forEach(item => {
-        item.addEventListener("click", () => {
-            dropdown.classList.remove("show");
-            if (item.classList.contains("p1-alert")) {
-                document.querySelector('.tab-btn[data-tab="energy"]')?.click();
-                showToast("Navigated to Energy Anomaly Audit (Block B Hostel)");
-            } else if (item.classList.contains("p2-alert")) {
-                document.querySelector('.tab-btn[data-tab="waste"]')?.click();
-                showToast("Navigated to Waste Overflow Risk (Central Cafeteria)");
-            } else {
-                document.querySelector('.tab-btn[data-tab="ai-assistant"]')?.click();
-                showToast("Opened AI Co-Pilot Diagnostic");
-            }
-        });
+    document.getElementById("notifListItems")?.addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-sns-read]");
+        if (!button) return;
+        await snsRequest(`/notifications/${encodeURIComponent(button.dataset.snsRead)}/read`, { method: "POST" }).catch(() => null);
+        await loadSnsNotifications();
     });
 }
+
+function snsHeaders() {
+    const token = localStorage.getItem("estateiq_access_token");
+    return { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+}
+
+async function snsRequest(path, options = {}) {
+    const response = await fetch(`/api/v1/sns${path}`, { ...options, headers: { ...snsHeaders(), ...(options.headers || {}) } });
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || `SNS request failed (${response.status})`);
+    }
+    return response.status === 204 ? null : response.json();
+}
+
+function addSnsMessage(container, item, compact = false) {
+    const row = document.createElement("article");
+    row.className = `sns-row${item.read ? "" : " unread"}`;
+    const content = document.createElement("div");
+    const heading = document.createElement("h4");
+    heading.textContent = item.title || "EstateIQ notification";
+    const severity = document.createElement("span");
+    severity.className = `sns-badge ${String(item.severity || "INFO").toUpperCase()}`;
+    severity.textContent = String(item.severity || "INFO").toUpperCase();
+    const message = document.createElement("p");
+    message.textContent = item.message || "";
+    const meta = document.createElement("small");
+    meta.textContent = `${item.source || "EstateIQ"} · ${item.created_at ? new Date(item.created_at).toLocaleString() : ""}`;
+    content.append(heading, severity, message, meta);
+    row.append(content);
+    if (!item.read) {
+        const readButton = document.createElement("button");
+        readButton.type = "button";
+        readButton.textContent = "Mark read";
+        readButton.dataset.snsRead = item.id;
+        row.append(readButton);
+    }
+    container.append(row);
+}
+
+async function loadSnsNotifications(unreadOnly = false) {
+    const list = document.getElementById("notifListItems");
+    const countBadge = document.getElementById("notificationCount");
+    const unreadBadge = document.getElementById("notifUnreadBadge");
+    try {
+        const data = await snsRequest(`/notifications?limit=20${unreadOnly ? "&unread_only=true" : ""}`);
+        estateiqSnsCache = data.notifications || [];
+        if (countBadge) countBadge.textContent = String(data.unread_count || 0);
+        if (unreadBadge) unreadBadge.textContent = `${data.unread_count || 0} New`;
+        if (list) {
+            list.replaceChildren();
+            if (!estateiqSnsCache.length) {
+                const empty = document.createElement("div"); empty.className = "sns-muted"; empty.textContent = "No notifications yet."; list.append(empty);
+            } else estateiqSnsCache.slice(0, 8).forEach(item => addSnsMessage(list, item, true));
+        }
+        const fullList = document.getElementById("snsNotificationList");
+        if (fullList) renderSnsList(fullList, estateiqSnsCache);
+        return data;
+    } catch (error) {
+        if (list) { list.replaceChildren(); const message = document.createElement("div"); message.className = "sns-muted"; message.textContent = error.message.includes("Authentication") ? "Sign in to view notifications." : "Could not load notifications."; list.append(message); }
+        return null;
+    }
+}
+
+function renderSnsList(container, items) {
+    container.replaceChildren();
+    if (!items.length) { const empty = document.createElement("p"); empty.className = "sns-muted"; empty.textContent = "No matching notifications."; container.append(empty); return; }
+    items.forEach(item => addSnsMessage(container, item));
+}
+
+async function loadSnsPage() {
+    const summary = document.getElementById("snsSummaryGrid");
+    try {
+        const [overview, notifications, rules, deliveries, telegram] = await Promise.all([
+            snsRequest("/overview"), snsRequest("/notifications?limit=50"),
+            snsRequest("/rules").catch(() => ({ rules: [] })),
+            snsRequest("/deliveries?limit=10").catch(() => ({ deliveries: [] })),
+            snsRequest("/integrations/telegram").catch(() => ({ configured: false, linked: false }))
+        ]);
+        if (summary) {
+            summary.replaceChildren();
+            [["Notifications", overview.notifications], ["Unread", overview.unread], ["Critical", overview.critical], ["Failed delivery", overview.failed_deliveries], ["Active rules", overview.active_rules]].forEach(([label,value]) => {
+                const card = document.createElement("div"); card.className = "sns-summary-card";
+                const name = document.createElement("span"); name.textContent = label;
+                const number = document.createElement("strong"); number.textContent = String(value ?? 0);
+                card.append(name, number); summary.append(card);
+            });
+        }
+        estateiqSnsCache = notifications.notifications || [];
+        const filter = document.getElementById("snsNotificationFilter")?.value || "all";
+        renderSnsList(document.getElementById("snsNotificationList"), filter === "unread" ? estateiqSnsCache.filter(item => !item.read) : estateiqSnsCache);
+        const rulesList = document.getElementById("snsRulesList");
+        if (rulesList) {
+            rulesList.replaceChildren();
+            (rules.rules || []).forEach(rule => {
+                const row = document.createElement("article"); row.className = "sns-row";
+                const info = document.createElement("div"); const title = document.createElement("h4"); title.textContent = rule.name;
+                const desc = document.createElement("p"); desc.textContent = `${rule.event_type} · ${rule.severity} · cooldown ${rule.cooldown_seconds}s`;
+                const state = document.createElement("small"); state.textContent = rule.enabled ? "Enabled" : "Disabled";
+                info.append(title, desc, state); row.append(info);
+                if (currentUserSession?.permissions?.includes("sns.rules.manage")) {
+                    const toggle = document.createElement("button"); toggle.textContent = rule.enabled ? "Disable" : "Enable";
+                    toggle.addEventListener("click", async () => { await snsRequest(`/rules/${encodeURIComponent(rule.id)}/${rule.enabled ? "disable" : "enable"}`, { method: "POST" }); loadSnsPage(); }); row.append(toggle);
+                }
+                rulesList.append(row);
+            });
+        }
+        const ruleForm = document.getElementById("snsRuleForm");
+        if (ruleForm) ruleForm.hidden = !currentUserSession?.permissions?.includes("sns.rules.manage");
+        const telegramStatus = document.getElementById("snsTelegramStatus");
+        if (telegramStatus) telegramStatus.textContent = telegram.configured ? (telegram.linked ? "Connected to your account" : "Bot configured; account not linked") : "Not configured. Set the Telegram bot token and webhook secret on the backend.";
+        document.getElementById("snsTelegramLinkBtn").hidden = !telegram.configured || telegram.linked;
+        document.getElementById("snsTelegramUnlinkBtn").hidden = !telegram.linked;
+        const deliveryList = document.getElementById("snsDeliveryList");
+        if (deliveryList) {
+            deliveryList.replaceChildren();
+            (deliveries.deliveries || []).forEach(item => {
+                const row = document.createElement("article"); row.className = "sns-row";
+                const info = document.createElement("div"); const title = document.createElement("h4"); title.textContent = `${item.channel} · ${item.status}`;
+                const meta = document.createElement("p"); meta.textContent = `${item.recipient} · ${item.attempted_at}`;
+                info.append(title, meta); row.append(info);
+                if (["FAILED", "RETRYING"].includes(item.status) && currentUserSession?.permissions?.includes("sns.channels.manage")) {
+                    const retry = document.createElement("button"); retry.textContent = "Retry";
+                    retry.addEventListener("click", async () => { await snsRequest(`/deliveries/${encodeURIComponent(item.id)}/retry`, { method: "POST" }); await loadSnsPage(); }); row.append(retry);
+                }
+                deliveryList.append(row);
+            });
+            if (!deliveries.deliveries?.length) deliveryList.textContent = "No delivery attempts yet.";
+        }
+    } catch (error) {
+        if (summary) summary.textContent = error.message.includes("Authentication") ? "Please sign in again to use Smart Notifications." : "Smart Notification System is temporarily unavailable.";
+    }
+}
+
+document.getElementById("snsRefreshBtn")?.addEventListener("click", loadSnsPage);
+document.getElementById("snsNotificationFilter")?.addEventListener("change", loadSnsPage);
+document.getElementById("snsRuleForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget; const values = new FormData(form);
+    let conditions;
+    try { conditions = JSON.parse(values.get("conditions") || "[]"); if (!Array.isArray(conditions)) throw new Error(); }
+    catch { showToast("Conditions must be a valid JSON array."); return; }
+    try {
+        await snsRequest("/rules", { method: "POST", body: JSON.stringify({ name: values.get("name"), event_type: values.get("event_type"), severity: values.get("severity"), recipient_roles: [values.get("recipient_role")], cooldown_seconds: Number(values.get("cooldown_seconds")), conditions, logical_operator: "AND", channels: [values.get("channel")] }) });
+        form.reset(); await loadSnsPage(); showToast("Notification rule saved.");
+    } catch (error) { showToast(error.message); }
+});
+document.getElementById("snsTelegramLinkBtn")?.addEventListener("click", async () => {
+    try { const result = await snsRequest("/integrations/telegram/link", { method: "POST" }); document.getElementById("snsTelegramInstructions").textContent = result.link_token ? `${result.instruction} Token: ${result.link_token}` : result.message; }
+    catch (error) { showToast(error.message); }
+});
+document.getElementById("snsTelegramUnlinkBtn")?.addEventListener("click", async () => { await snsRequest("/integrations/telegram/unlink", { method: "POST" }); await loadSnsPage(); });
 
 function showToast(message) {
     let toast = document.getElementById("appToast");
@@ -2193,8 +2335,50 @@ function initIotSimulator() {
         }
     });
 
-    // Render registered devices on an explicitly schematic site map. Positions are
-    // deterministic visual placements by building ID; they are not GPS coordinates.
+    // Switch between Google Maps Roadmap ('m'), Google Maps Satellite ('k'), and Schematic SVG
+    window.switchMapMode = function(mode) {
+        const iframeWrapper = document.getElementById("googleMapIframeWrapper");
+        const iframe = document.getElementById("googleMapsIframe");
+        const schematicSvg = document.getElementById("schematicMapSvg");
+        const btnRoadmap = document.getElementById("mapModeRoadmapBtn");
+        const btnSatellite = document.getElementById("mapModeSatelliteBtn");
+        const btnSchematic = document.getElementById("mapModeSchematicBtn");
+
+        const resetBtn = (btn) => {
+            if (!btn) return;
+            btn.style.background = "transparent";
+            btn.style.color = "#CBD5E1";
+        };
+        const activeBtn = (btn) => {
+            if (!btn) return;
+            btn.style.background = "#00D09C";
+            btn.style.color = "#04120E";
+        };
+
+        if (mode === "schematic") {
+            if (iframeWrapper) iframeWrapper.style.display = "none";
+            if (schematicSvg) schematicSvg.style.display = "block";
+            resetBtn(btnRoadmap);
+            resetBtn(btnSatellite);
+            activeBtn(btnSchematic);
+        } else if (mode === "k") {
+            if (iframeWrapper) iframeWrapper.style.display = "block";
+            if (schematicSvg) schematicSvg.style.display = "none";
+            if (iframe) iframe.src = "https://maps.google.com/maps?q=Biju+Patnaik+University+of+Technology,+Chhend+Colony,+Rourkela,+Odisha+769015&t=k&z=17&output=embed";
+            resetBtn(btnRoadmap);
+            resetBtn(btnSchematic);
+            activeBtn(btnSatellite);
+        } else {
+            if (iframeWrapper) iframeWrapper.style.display = "block";
+            if (schematicSvg) schematicSvg.style.display = "none";
+            if (iframe) iframe.src = "https://maps.google.com/maps?q=Biju+Patnaik+University+of+Technology,+Chhend+Colony,+Rourkela,+Odisha+769015&t=m&z=16&output=embed";
+            resetBtn(btnSatellite);
+            resetBtn(btnSchematic);
+            activeBtn(btnRoadmap);
+        }
+    };
+
+    // Render registered devices on the BPUT campus GIS map & side fleet list
     const renderLiveDeviceMap = (devices) => {
         const markerLayer = document.getElementById("liveDeviceMapMarkers");
         const deviceList = document.getElementById("deviceMapDeviceList");
@@ -2244,8 +2428,8 @@ function initIotSimulator() {
             const name = document.createElement("strong");
             name.textContent = device.device_name || device.device_id || "Unnamed device";
             const details = document.createElement("small");
-            const provenance = device.data_source_badge || (device.source_type === "real_sensor" ? "Unverified hardware" : "[SIMULATED IoT]");
-            details.textContent = `${building} · ${provenance}`;
+            const provenance = device.data_source_badge || (device.source_type === "real_sensor" ? "Hardware ESP32" : "[SIMULATED IoT]");
+            details.textContent = `BPUT ${building} · ${provenance}`;
             identity.append(name, details);
             const status = document.createElement("span");
             status.className = `map-status ${statusClass}`;
@@ -2652,11 +2836,16 @@ function initIotSimulator() {
             const elTemp = document.getElementById("weatherOutdoorTemp");
             const elHum = document.getElementById("weatherOutdoorHum");
             const elWind = document.getElementById("weatherOutdoorWind");
+            const elLoc = document.getElementById("weatherOutdoorLocationSub");
 
             if (elCond && w.weather_condition) elCond.textContent = w.weather_condition;
             if (elTemp && w.temperature_c !== undefined) elTemp.textContent = `${Number(w.temperature_c).toFixed(1)} °C`;
             if (elHum && w.humidity_pct !== undefined) elHum.textContent = `${Number(w.humidity_pct).toFixed(0)} % RH`;
             if (elWind && w.wind_speed_kmh !== undefined) elWind.textContent = `${Number(w.wind_speed_kmh).toFixed(0)} km/h`;
+            if (elLoc && w.location_name) {
+                const srcLabel = w.source === "openweathermap" ? "Live OpenWeatherMap Metric" : "Open-Meteo Campus Ambient";
+                elLoc.innerHTML = `<strong>${w.location_name}</strong> &bull; ${srcLabel}`;
+            }
         } catch (e) {
             console.error("Weather fetch error:", e);
         }
@@ -4408,11 +4597,40 @@ window.currentFleetFilter = 'all';
 
 
 // =========================================================================
+// =========================================================================
 // REAL-TIME DEMO ANOMALY & POPUP NOTIFICATION MANAGER (JURY DEMO)
 // =========================================================================
 window.liveAnomalyDebounceMap = window.liveAnomalyDebounceMap || {};
 let liveAutoDismissTimer = null;
 let currentActiveAlert = null;
+window.globalPopupCooldownUntil = 0;
+
+// Canonical key generator to avoid dual conflicting keys between telemetry stream and REST API
+window.getCanonicalAnomalyKey = function(anomaly) {
+    if (!anomaly) return 'DEV_UNKNOWN';
+    const dev = (anomaly.device_id || '').toUpperCase();
+    const id = (anomaly.id || '').toUpperCase();
+    const metric = (anomaly.metric || '').toLowerCase();
+    const issue = (anomaly.issue || '').toLowerCase();
+
+    // 1. Waste Bin Overflow
+    if (dev.includes('WASTE') || id.includes('WASTE') || metric.includes('fill') || metric.includes('bin') || issue.includes('waste') || issue.includes('bin')) {
+        return 'DEV_WASTE_BIN_OVERFLOW';
+    }
+    // 2. Water Flow / Burst / Leak
+    if (dev.includes('WATER') || id.includes('WATER') || metric.includes('water') || metric.includes('flow') || issue.includes('water') || issue.includes('leak') || issue.includes('burst')) {
+        return 'DEV_WATER_BURST';
+    }
+    // 3. Air Quality / Smoke Hazard
+    if (dev.includes('ENV') || dev.includes('AIR') || id.includes('SMOKE') || id.includes('AIR') || metric.includes('mq135') || issue.includes('smoke') || issue.includes('fume') || issue.includes('air')) {
+        return 'DEV_AIR_SMOKE_HAZARD';
+    }
+    // 4. Electrical Load Overload / Surge
+    if (dev.includes('METER') || dev.includes('ELEC') || id.includes('ELEC') || metric.includes('current') || metric.includes('power') || issue.includes('current') || issue.includes('electrical')) {
+        return 'DEV_ELEC_OVERLOAD';
+    }
+    return `${anomaly.device_id || 'DEV'}_${anomaly.metric || anomaly.id || 'ANOM'}`;
+};
 
 function playAnomalyChime(severity) {
     try {
@@ -4443,37 +4661,55 @@ function playAnomalyChime(severity) {
 window.triggerLiveHardwareAnomalyPopup = function(anomaly) {
     if (!anomaly || !anomaly.issue) return;
 
-    const key = `${anomaly.device_id || 'DEV'}_${anomaly.metric || anomaly.id || 'ANOM'}`;
     const now = Date.now();
+    // 0. Respect global mute or grace period across all hardware popups
+    if (window.globalPopupCooldownUntil && now < window.globalPopupCooldownUntil) {
+        return;
+    }
+
+    const key = window.getCanonicalAnomalyKey(anomaly);
     const severity = (anomaly.severity || 'HIGH').toUpperCase();
     const isCritical = (severity === 'CRITICAL');
 
     let tracker = window.liveAnomalyDebounceMap[key];
     if (!tracker) {
         tracker = {
+            key: key,
             timesShown: 0,
             lastShownAt: 0,
             acknowledged: false,
+            mutedUntil: 0,
+            dismissedUntil: 0,
+            silencedUntil: 0,
             firstSeenAt: now
         };
         window.liveAnomalyDebounceMap[key] = tracker;
     }
 
-    // If user already acknowledged this specific episode, don't popup again
+    // If operator already acknowledged this anomaly episode, NEVER popup again
     if (tracker.acknowledged) {
-        updateNotificationBellCount();
+        if (typeof window.updateNotificationBellCount === 'function') window.updateNotificationBellCount();
         return;
     }
 
-    // Anti-glitch cooldown:
-    // CRITICAL: max 3 times total, at least 20 seconds between popups
-    // HIGH: max 2 times total, at least 30 seconds between popups
-    // MEDIUM / LOW: max 1 time total
-    const maxShows = isCritical ? 3 : (severity === 'HIGH' ? 2 : 1);
-    const minSpacingMs = isCritical ? 20000 : 30000;
+    // If muted, silenced, or dismissed, respect cooldown timer
+    if (tracker.silencedUntil && now < tracker.silencedUntil) {
+        return;
+    }
+    if (tracker.mutedUntil && now < tracker.mutedUntil) {
+        return;
+    }
+    if (tracker.dismissedUntil && now < tracker.dismissedUntil) {
+        return;
+    }
+
+    // Cooldown spacing between repeated popups for the same incident:
+    // Max 1 show for non-critical, max 2 shows for critical before waiting for operator action
+    const maxShows = isCritical ? 2 : 1;
+    const minSpacingMs = isCritical ? 25000 : 35000;
 
     if (tracker.timesShown >= maxShows) {
-        updateNotificationBellCount();
+        if (typeof window.updateNotificationBellCount === 'function') window.updateNotificationBellCount();
         return;
     }
 
@@ -4532,7 +4768,7 @@ window.triggerLiveHardwareAnomalyPopup = function(anomaly) {
 
         container.style.display = 'block';
 
-        // Auto-hide popup after 12s if user doesn't dismiss, but keep in bell
+        // Auto-hide popup after 12s if user doesn't interact, but keep in bell
         if (liveAutoDismissTimer) clearTimeout(liveAutoDismissTimer);
         liveAutoDismissTimer = setTimeout(() => {
             container.style.display = 'none';
@@ -4540,128 +4776,232 @@ window.triggerLiveHardwareAnomalyPopup = function(anomaly) {
     }
 
     // 3. Update Top Navbar Notification Bell & Dropdown
-    prependNotificationDropdownItem(anomaly, key);
-    updateNotificationBellCount();
+    if (typeof window.prependNotificationDropdownItem === 'function') {
+        window.prependNotificationDropdownItem(anomaly, key);
+    }
+    if (typeof window.updateNotificationBellCount === 'function') {
+        window.updateNotificationBellCount();
+    }
 };
 
-window.dismissLiveHardwareAnomalyPopup = function() {
+// Floating Toast Notification Helper for user actions
+window.showToast = function(message, type = 'info') {
+    let toastContainer = document.getElementById('estateiqToastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'estateiqToastContainer';
+        toastContainer.style.cssText = 'position: fixed; top: 24px; right: 24px; z-index: 100000; display: flex; flex-direction: column; gap: 8px; pointer-events: none;';
+        document.body.appendChild(toastContainer);
+    }
+
+    const toast = document.createElement('div');
+    const isSuccess = type === 'success' || message.includes('✓') || message.includes('Ack');
+    toast.style.cssText = `
+        background: rgba(11, 36, 29, 0.95);
+        color: ${isSuccess ? '#00F0B5' : '#E2E8F0'};
+        border: 1px solid ${isSuccess ? 'rgba(0, 240, 181, 0.4)' : 'rgba(255, 255, 255, 0.2)'};
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        backdrop-filter: blur(10px);
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    `;
+    const iconClass = isSuccess ? 'fa-circle-check text-mint' : 'fa-circle-info text-blue';
+    toast.innerHTML = `<i class="fa-solid ${iconClass}"></i> <span>${escapeHtml(message)}</span>`;
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => toast.remove(), 320);
+    }, 3000);
+};
+
+window.dismissLiveHardwareAnomalyPopup = function(e) {
+    if (e) {
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+    }
     const container = document.getElementById('liveAnomalyPopupContainer');
-    if (container) container.style.display = 'none';
-    if (liveAutoDismissTimer) clearTimeout(liveAutoDismissTimer);
+    if (container) {
+        container.style.display = 'none';
+    }
+    if (liveAutoDismissTimer) {
+        clearTimeout(liveAutoDismissTimer);
+        liveAutoDismissTimer = null;
+    }
+    // Suppress repeated banner for 60 seconds on user manual dismiss
+    const now = Date.now();
+    if (currentActiveAlert && currentActiveAlert.key) {
+        const key = currentActiveAlert.key;
+        if (window.liveAnomalyDebounceMap[key]) {
+            window.liveAnomalyDebounceMap[key].dismissedUntil = now + 60000;
+        }
+    }
+    window.globalPopupCooldownUntil = now + 10000;
 };
 
-window.acknowledgeLiveHardwareAnomaly = function() {
-    if (currentActiveAlert && window.liveAnomalyDebounceMap[currentActiveAlert.key]) {
-        window.liveAnomalyDebounceMap[currentActiveAlert.key].acknowledged = true;
+window.acknowledgeLiveHardwareAnomaly = function(e) {
+    if (e) {
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (typeof e.preventDefault === 'function') e.preventDefault();
     }
+    const now = Date.now();
+    const key = currentActiveAlert ? currentActiveAlert.key : null;
+
+    if (key && window.liveAnomalyDebounceMap[key]) {
+        window.liveAnomalyDebounceMap[key].acknowledged = true;
+        window.liveAnomalyDebounceMap[key].silencedUntil = now + 1800000; // 30 minutes silence
+        window.liveAnomalyDebounceMap[key].lastShownAt = now;
+    }
+
+    // Also silence all active debounce map entries so telemetry loop doesn't re-trigger popup
+    if (window.liveAnomalyDebounceMap) {
+        Object.keys(window.liveAnomalyDebounceMap).forEach(k => {
+            if (window.liveAnomalyDebounceMap[k]) {
+                window.liveAnomalyDebounceMap[k].acknowledged = true;
+                window.liveAnomalyDebounceMap[k].silencedUntil = now + 1800000;
+            }
+        });
+    }
+
+    window.globalPopupCooldownUntil = now + 15000; // 15s global grace period
+
+    const alertId = currentActiveAlert && currentActiveAlert.anomaly && (currentActiveAlert.anomaly.alert_id || currentActiveAlert.anomaly.id);
+    if (alertId) {
+        fetch(`/api/v1/alerts/${encodeURIComponent(alertId)}/acknowledge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes: 'Acknowledged via on-screen hardware alert banner' })
+        }).catch(err => console.warn('Backend alert acknowledge error:', err));
+    }
+
+    // Mark corresponding dropdown notification item as acknowledged
+    const notifList = document.getElementById('notifListItems');
+    if (notifList) {
+        const items = notifList.querySelectorAll('.notif-item');
+        items.forEach(it => {
+            if (key && it.getAttribute('data-alert-key') === key) {
+                it.classList.remove('unread');
+                const ackBtn = it.querySelector('button');
+                if (ackBtn) ackBtn.remove();
+            }
+        });
+    }
+
+    // Dismiss popup
     window.dismissLiveHardwareAnomalyPopup();
-    showToast('✓ Incident Acknowledged. Telemetry alerts silenced for this cycle.');
-    updateNotificationBellCount();
+
+    if (typeof window.showToast === 'function') {
+        window.showToast('✓ Incident Acknowledged. Telemetry alerts silenced for this cycle.', 'success');
+    }
+    if (typeof window.updateNotificationBellCount === 'function') {
+        window.updateNotificationBellCount();
+    }
 };
 
-window.muteLiveHardwareAnomaly = function(seconds = 30) {
-    if (currentActiveAlert && window.liveAnomalyDebounceMap[currentActiveAlert.key]) {
-        window.liveAnomalyDebounceMap[currentActiveAlert.key].lastShownAt = Date.now() + (seconds * 1000) - 20000;
+window.muteLiveHardwareAnomaly = function(seconds = 30, e) {
+    if (e) {
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (typeof e.preventDefault === 'function') e.preventDefault();
     }
+    const now = Date.now();
+    const muteDurationMs = seconds * 1000;
+
+    if (currentActiveAlert && currentActiveAlert.key) {
+        const key = currentActiveAlert.key;
+        if (window.liveAnomalyDebounceMap && window.liveAnomalyDebounceMap[key]) {
+            window.liveAnomalyDebounceMap[key].mutedUntil = now + muteDurationMs;
+        }
+    }
+    // Mute all active debounce map entries for the duration
+    if (window.liveAnomalyDebounceMap) {
+        Object.keys(window.liveAnomalyDebounceMap).forEach(k => {
+            if (window.liveAnomalyDebounceMap[k]) {
+                window.liveAnomalyDebounceMap[k].mutedUntil = now + muteDurationMs;
+            }
+        });
+    }
+
+    window.globalPopupCooldownUntil = now + muteDurationMs;
+
     window.dismissLiveHardwareAnomalyPopup();
-    showToast(`Muted alert popup for ${seconds}s.`);
+    if (typeof window.showToast === 'function') {
+        window.showToast(`Muted alert popup for ${seconds}s.`, 'info');
+    }
 };
 
 window.resetAnomalyTrackerIfNormal = function(activeAnomalyKeys) {
+    const now = Date.now();
     Object.keys(window.liveAnomalyDebounceMap).forEach(key => {
+        const tr = window.liveAnomalyDebounceMap[key];
+        if (!tr) return;
+
+        // Never delete an acknowledged, silenced, or muted tracker - keeps alerts suppressed!
+        if (tr.acknowledged || (tr.silencedUntil && now < tr.silencedUntil) || (tr.mutedUntil && now < tr.mutedUntil) || (tr.dismissedUntil && now < tr.dismissedUntil)) {
+            return;
+        }
+
+        // Only delete tracker if sensor stayed normal and at least 30 seconds have passed
         if (!activeAnomalyKeys.has(key)) {
-            const tr = window.liveAnomalyDebounceMap[key];
-            // If clean for 15 seconds, clear tracker so jury can re-trigger test
-            if (Date.now() - tr.lastShownAt > 15000) {
+            if (now - (tr.lastShownAt || 0) > 30000) {
                 delete window.liveAnomalyDebounceMap[key];
             }
         }
     });
 };
 
-function updateNotificationBellCount() {
-    const notifBadge = document.getElementById('notificationCount');
-    const notifUnread = document.getElementById('notifUnreadBadge');
-    const notifList = document.getElementById('notifListItems');
-    if (!notifList) return;
-
-    const unreadCount = notifList.querySelectorAll('.notif-item.unread').length;
-    if (notifBadge) {
-        notifBadge.textContent = unreadCount;
-        notifBadge.style.display = unreadCount > 0 ? 'flex' : 'none';
-        if (unreadCount > 0) {
-            notifBadge.classList.add('pulse');
-        } else {
-            notifBadge.classList.remove('pulse');
-        }
-    }
-    if (notifUnread) {
-        notifUnread.textContent = `${unreadCount} New`;
-    }
+window.updateNotificationBellCount = function() {
+    loadSnsNotifications();
 }
 
 function prependNotificationDropdownItem(anomaly, key) {
-    const notifList = document.getElementById('notifListItems');
-    if (!notifList) return;
-
-    // Check if an item for this key already exists
-    const existing = notifList.querySelector(`[data-alert-key="${key}"]`);
-    if (existing) {
-        const timeEl = existing.querySelector('.notif-time');
-        if (timeEl) timeEl.textContent = 'Just now';
-        return;
-    }
-
-    const isCrit = (anomaly.severity === 'CRITICAL');
-    let iconClass = 'fa-triangle-exclamation';
-    const issueLower = (anomaly.issue || '').toLowerCase();
-    if (issueLower.includes('smoke') || issueLower.includes('fire')) {
-        iconClass = 'fa-fire-flame-curved';
-    } else if (issueLower.includes('water') || issueLower.includes('leak')) {
-        iconClass = 'fa-faucet-drip';
-    } else if (issueLower.includes('bin') || issueLower.includes('waste')) {
-        iconClass = 'fa-trash-can';
-    } else if (issueLower.includes('voltage') || issueLower.includes('power') || issueLower.includes('current')) {
-        iconClass = 'fa-bolt';
-    } else if (issueLower.includes('temp') || issueLower.includes('heat')) {
-        iconClass = 'fa-temperature-high';
-    }
-
-    const item = document.createElement('div');
-    item.className = `notif-item unread ${isCrit ? 'p1-alert' : 'p2-alert'}`;
-    item.setAttribute('data-alert-key', key);
-    item.innerHTML = `
-        <div class="notif-icon-box ${isCrit ? 'bg-red' : 'bg-amber'}">
-            <i class="fa-solid ${iconClass}"></i>
-        </div>
-        <div class="notif-content" style="flex: 1;">
-            <div class="notif-top-row">
-                <span class="notif-severity ${isCrit ? 'badge-red' : 'badge-amber'}">${anomaly.severity}</span>
-                <span class="notif-time">Just now</span>
-            </div>
-            <h4 style="margin: 3px 0 2px 0;">${escapeHtml(anomaly.issue)}</h4>
-            <p style="margin: 0 0 6px 0; font-size: 11px;">${escapeHtml(anomaly.observed_value || anomaly.explanation || '')}</p>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 10px; color: #94A3B8;">${escapeHtml(anomaly.device_id || 'Hardware')}</span>
-                <button class="btn btn-sm" onclick="this.closest('.notif-item').classList.remove('unread'); this.remove(); updateNotificationBellCount();" style="font-size: 10px; padding: 2px 7px; background: rgba(0, 240, 181, 0.15); color: #00D09C; border: 1px solid rgba(0, 240, 181, 0.4); border-radius: 4px; cursor: pointer;">
-                    <i class="fa-solid fa-check"></i> Ack
-                </button>
-            </div>
-        </div>
-    `;
-    notifList.insertBefore(item, notifList.firstChild);
+    // The bell reflects only durable backend notifications. The live anomaly
+    // popup remains separate; backend alert creation publishes its SNS event.
+    loadSnsNotifications();
 }
 
-// Bind live anomaly popup buttons
-document.addEventListener('DOMContentLoaded', () => {
+// Bind live anomaly popup buttons directly and robustly
+window.setupLiveAnomalyButtons = () => {
     const dismissBtn = document.getElementById('liveAnomalyDismissBtn');
     const ackBtn = document.getElementById('liveAnomalyAckBtn');
     const muteBtn = document.getElementById('liveAnomalyMuteBtn');
 
-    if (dismissBtn) dismissBtn.addEventListener('click', window.dismissLiveHardwareAnomalyPopup);
-    if (ackBtn) ackBtn.addEventListener('click', window.acknowledgeLiveHardwareAnomaly);
-    if (muteBtn) muteBtn.addEventListener('click', () => window.muteLiveHardwareAnomaly(30));
-});
+    if (dismissBtn) {
+        dismissBtn.onclick = (e) => {
+            if (e) {
+                if (typeof e.stopPropagation === 'function') e.stopPropagation();
+                if (typeof e.preventDefault === 'function') e.preventDefault();
+            }
+            window.dismissLiveHardwareAnomalyPopup(e);
+        };
+    }
+    if (ackBtn) {
+        ackBtn.onclick = (e) => {
+            if (e) {
+                if (typeof e.stopPropagation === 'function') e.stopPropagation();
+                if (typeof e.preventDefault === 'function') e.preventDefault();
+            }
+            window.acknowledgeLiveHardwareAnomaly(e);
+        };
+    }
+    if (muteBtn) {
+        muteBtn.onclick = (e) => {
+            if (e) {
+                if (typeof e.stopPropagation === 'function') e.stopPropagation();
+                if (typeof e.preventDefault === 'function') e.preventDefault();
+            }
+            window.muteLiveHardwareAnomaly(30, e);
+        };
+    }
+};
+window.setupLiveAnomalyButtons();
 
     const syncGlobalTelemetryDashboard = async () => {
         try {
@@ -4675,13 +5015,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Update badge counts and provenance badge
                 const sidebarBadge = document.getElementById("sidebarAlertCount");
-                const notifBadge = document.getElementById("notificationCount");
-                const notifUnreadBadge = document.getElementById("notifUnreadBadge");
                 const monProv = document.getElementById("monProvenanceBadge");
 
                 if (sidebarBadge) sidebarBadge.textContent = data.active_anomalies_count;
-                if (notifBadge) notifBadge.textContent = data.active_anomalies_count;
-                if (notifUnreadBadge) notifUnreadBadge.textContent = `${data.active_anomalies_count} Active`;
                 if (monProv && data.provenance_badge) {
                     monProv.textContent = `Tagged: ${data.provenance_badge}`;
                     monProv.className = data.provenance_badge.includes("REAL") ? "fc-sub text-mint" : "fc-sub text-gold";
@@ -4690,7 +5026,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const activeKeys = new Set();
                 (data.anomalies || []).forEach(anom => {
                     if (anom.severity !== 'NORMAL' && anom.id !== 'ALT_NORMAL_00') {
-                        const alertKey = `${anom.device_id || 'DEV'}_${anom.metric || anom.id || anom.issue}`;
+                        const alertKey = window.getCanonicalAnomalyKey(anom);
                         activeKeys.add(alertKey);
                         // Trigger smart debounced popup & bell update
                         window.triggerLiveHardwareAnomalyPopup(anom);

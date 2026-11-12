@@ -22,8 +22,8 @@ def evaluate_domain_rules(event: EventData, expected_kwh: Optional[float] = None
         "off_peak_surge": (event.hour >= 20 or event.hour <= 5)
         and expected_kwh is not None and event.actual_kwh >= reference * after_hours_surge_ratio,
         "hvac_temperature_mismatch": (
-            (event.temperature > 30.0 and event.hvac_load < 10.0)
-            or (event.temperature < 20.0 and event.hvac_load > 80.0)
+            (event.temperature > 32.0 and expected_kwh is not None and event.hvac_load < 0.10 * reference)
+            or (event.temperature < 18.0 and event.hvac_load > 2.0 * max(10.0, reference))
         ),
         "low_power_factor": power_factor is not None and 0.0 < power_factor < 0.82,
     }

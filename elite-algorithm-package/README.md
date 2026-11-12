@@ -1,6 +1,48 @@
-# EstateIQ-DIF Evaluation Package
+# EstateIQ-DIF Python Package
 
-This package documents and evaluates the implemented EstateIQ Decision Intelligence Framework (DIF) path. “Elite” is the project name; the evaluated core is a robust seasonal contextual baseline, a two-sided residual score, operating-rule fusion, and bounded temporal persistence.
+This package exposes the implemented EstateIQ Decision Intelligence Framework (DIF) electricity anomaly-triage path and its evaluation tools. The core combines a seasonal median–MAD baseline, two-sided residual scoring, explicit operating rules, weighted evidence fusion, and bounded temporal persistence. It is not a trained multi-model ensemble.
+
+## Install and use
+
+From the repository root, install the package in editable mode:
+
+```powershell
+python -m pip install -e ".\\elite-algorithm-package"
+```
+
+Core dependencies are NumPy and pandas. Install optional evaluation and test tools with:
+
+```powershell
+python -m pip install -e ".\\elite-algorithm-package[evaluation,test]"
+```
+
+Minimal API example:
+
+```python
+from datetime import datetime, timezone
+from elite_algo import DIFConfig, EstateIQDIF, EventData, SeasonalBaselineModel
+
+# Fit only on historical training rows; never include the evaluation period.
+baseline = SeasonalBaselineModel(min_observations=8).fit(training_dataframe)
+detector = EstateIQDIF(config=DIFConfig(), baseline_model=baseline)
+
+event = EventData(
+    event_id="meter-1-0001",
+    facility_id="campus",
+    building_id="building-1",
+    timestamp=datetime.now(timezone.utc).isoformat(),
+    actual_kwh=24.8,
+    hour=12,
+    day_of_week=0,
+    occupancy=35,
+    temperature=25.0,
+    interval_hours=0.25,
+)
+decision = detector.analyze(event)
+print(decision.anomaly.anomaly_score, decision.anomaly.anomaly_level.value)
+```
+
+The convenience wrapper `EliteAlgorithmPipeline` returns a JSON-friendly dictionary. Its `water_flow_lmin` and `air_aqi` fields are echoed for demo compatibility and are **not analyzed** by the electricity DIF detector. The core package API accepts optional power factor in `EventData.extra_features`; other resource detectors are separate project components.
 
 ## Evidence and scope
 
@@ -30,14 +72,18 @@ The profile trainer reads only timestamp, building, and energy fields. Review th
 - `reports/evaluation_results.json` - machine-readable metrics and provenance.
 - `reports/metrics_summary.csv` - metric summary.
 - `charts/*.svg` - generated forecast, confusion-matrix, ROC/PR, and pipeline figures.
-- `../research/ieee/estateiq_elite_dif_research_paper.md` - editable generic IEEE-style manuscript.
+- `../research/ieee/estateiq_elite_dif_research_paper.md` - editable research manuscript.
 - `../output/pdf/estateiq_elite_dif_ieee_research_paper.pdf` - typeset research draft.
 
 ## Method summary
 
-For each building and weekly quarter-hour slot, the fitted baseline stores the median and a robust scale `max(1.4826 * MAD, relative floor, absolute floor)`. For residual `r = actual - expected`, `z = r / max(scale, epsilon)` and contextual score `C = 100 * (1 - exp(-abs(z)/3))`. The total score is the configured weighted sum of contextual score and a binary active-rule score. It is not a probability. Per-building persistence state is bounded and updated chronologically.
+For each building and UTC weekly quarter-hour slot, the fitted baseline stores the median and a robust scale `max(1.4826 * MAD, relative floor, absolute floor)`. For residual `r = actual - expected`, `z = r / max(scale, epsilon)` and contextual score `C = 100 * (1 - exp(-abs(z)/3))`. The total score is the configured weighted sum (default 80% contextual score, 20% active-rule score). It is not a probability. Per-building persistence state is bounded and updated chronologically. All event timestamps must include a timezone; the convenience wrapper normalizes them to UTC.
 
 Complexity: expected `O(N)` fit over `N` training rows; expected `O(1)` scalar lookup/scoring per event; retained profile and persistence memory `O(S+B)` for `S` slot profiles and at most `B` tracked buildings. An optional dataframe scan is `O(NF)` for `F` columns.
+
+## Validation limits
+
+Bundled anomaly results use generated data and only two injected episodes. They are preliminary synthetic evidence, not proof of generalization or live-facility accuracy. The current evaluator's anomaly metrics are not a direct Isolation Forest or LOF comparison. Do not claim the algorithm is superior to those methods until they are run on the same leakage-safe split.
 
 ## IEEE publication note
 

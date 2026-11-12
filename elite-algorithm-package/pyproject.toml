@@ -3,17 +3,25 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "elite-algorithm-package"
-version = "1.0.0"
-description = "EstateIQ Elite Algorithm Evaluation, Decision Intelligence Pipeline & Metric Validation Package"
+name = "estateiq-dif"
+version = "1.1.0"
+description = "EstateIQ Decision Intelligence Framework (DIF) anomaly detection and evaluation tools"
 authors = [{ name = "Team Elite — BPUT Hackathon 2026" }]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.22.0",
-    "pandas>=1.4.0",
-    "scikit-learn>=1.0.0",
-    "matplotlib>=3.5.0",
-    "seaborn>=0.11.0",
-    "joblib>=1.1.0"
+    "numpy>=1.22",
+    "pandas>=1.4"
 ]
+
+[project.optional-dependencies]
+evaluation = ["scikit-learn>=1.0", "matplotlib>=3.5", "seaborn>=0.11", "joblib>=1.1"]
+test = ["pytest>=7"]
+
+[tool.setuptools]
+package-dir = { "" = ".", "src" = "../src" }
+
+[tool.setuptools.packages.find]
+where = [".", ".."]
+include = ["elite_algo*", "src", "src.intelligence*", "src.data_quality*"]
+exclude = ["tests*", "src.tests*", "src.*.tests*"]

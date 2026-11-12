@@ -342,7 +342,7 @@ void readSensor() {
 
     if (!isfinite(newVoltage) || newVoltage < 80.0f || newVoltage > 280.0f) {
         s_failCount++;
-        if (s_failCount >= 3) {
+        if (s_failCount >= 5) {
             pzemConnected = false;
             voltage = NAN;
             current = NAN;
@@ -353,7 +353,7 @@ void readSensor() {
             Serial.printf("[PZEM-WARN] No PZEM reply (%d consecutive timeouts, voltage=%.2f V); check 5V/GND, crossed UART wires (PZEM TX->GPIO%d, PZEM RX->GPIO%d), and AC L/N input. A missing CT affects current measurement, not UART response.\n",
                           s_failCount, newVoltage, PZEM_RX_PIN, PZEM_TX_PIN);
         } else {
-            Serial.printf("[PZEM-WARN] Transient UART timeout (attempt %d/3); retaining previous telemetry.\n", s_failCount);
+            Serial.printf("[PZEM-WARN] Transient UART timeout (attempt %d/5); retaining previous telemetry.\n", s_failCount);
         }
         return;
     }
@@ -654,7 +654,7 @@ void loop() {
                 WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
             }
         } else {
-            if (!ntpSynchronized && now - lastTimeSyncAttemptMillis >= 15000UL) {
+            if (!ntpSynchronized && now - lastTimeSyncAttemptMillis >= 5000UL) {
                 lastTimeSyncAttemptMillis = now;
                 syncTimeFromBackend();
             }

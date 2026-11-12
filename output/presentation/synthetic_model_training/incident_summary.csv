@@ -1,0 +1,11 @@
+algorithm,pointwise_false_positives,pointwise_false_alerts_per_bld_day,alerts_per_portfolio_calendar_day,incident_false_positives,incident_false_alerts_per_bld_day,incident_precision,event_capture_rate,median_detection_delay_min
+"EstateIQ-DIF V3 (Adaptive, Calibrated, Gated n>=2)",23,0.0505,0.2527,19,0.0418,0.24,1.0,15.0
+"EstateIQ-DIF V3 (Adaptive, Calibrated, Pointwise)",366,0.8044,4.022,275,0.6044,0.0248,1.0,0.0
+"Random Forest Classifier (Supervised, Balanced)",106,0.233,1.1648,36,0.0791,0.0769,0.5,0.0
+Isolation Forest (Contextual Features),996,2.189,10.9451,82,0.1802,0.0575,0.6667,0.0
+Isolation Forest (Energy-Only / Univariate),896,1.9692,9.8462,64,0.1407,0.0448,0.5,0.0
+"EstateIQ-DIF V2 (Legacy Static 55, Gated n>=2)",1013,2.2264,11.1319,228,0.5011,0.038,1.0,15.0
+"EstateIQ-DIF V2 (Legacy Static 55, Pointwise)",2620,5.7582,28.7912,503,1.1055,0.0176,1.0,0.0
+Seasonal Gaussian Baseline (Slot MAD/Std),2339,5.1407,25.7033,632,1.389,0.0125,1.0,0.0
+"Rolling Z-Score (Window=28 Days, Thresh=3.0σ)",0,0.0,0.0,0,0.0,1.0,0.5,0.0
+Static P99 (Training Baseline),1678,3.6879,18.4396,64,0.1407,0.0448,0.5,0.0

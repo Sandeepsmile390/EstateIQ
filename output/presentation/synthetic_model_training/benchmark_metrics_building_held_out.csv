@@ -1,0 +1,4 @@
+model,held_out_building,test_intervals,exposure_building_days,pr_auc,f1_score,precision,recall,tp,fp,tn,fn,false_alerts_per_bld_day
+"EstateIQ-DIF V3 (Adaptive, Unseen Facility Transfer)",BLD004,17376,181.0,0.796,0.8077,0.9964,0.6791,273,1,16973,129,0.0055
+Random Forest Classifier (Supervised Cross-Building),BLD004,17376,181.0,0.4635,0.3882,0.3683,0.4104,165,283,16691,237,1.5635
+Isolation Forest (Unsupervised Cross-Building),BLD004,17376,181.0,0.2085,0.0,0.0,0.0,0,0,16974,402,0.0

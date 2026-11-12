@@ -6,8 +6,11 @@ verification requests, and status changes.
 
 import uuid
 import datetime
+import logging
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 class Notification(BaseModel):
     notification_id: str
@@ -94,6 +97,19 @@ class NotificationEngine:
             action_link=action_link
         )
         self._notifications[notif_id] = notif
+        # Keep existing callers compatible while making work-order notifications
+        # durable in the same SQLite-backed SNS store.
+        try:
+            from src.services.sns import create_notification as persist_notification
+            persist_notification(
+                recipient_email=recipient_email, recipient_role=recipient_role,
+                title=title, message=message, priority=priority,
+                related_object_id=related_object_id, action_link=action_link,
+                source="work_order", event_type="work_order.notification",
+                event_key=notif_id
+            )
+        except Exception:
+            logger.exception("Could not persist work-order notification for %s", recipient_email)
         return notif
 
     def get_user_notifications(
@@ -114,6 +130,11 @@ class NotificationEngine:
     def mark_read(self, notification_id: str) -> bool:
         if notification_id in self._notifications:
             self._notifications[notification_id].read = True
+            try:
+                from src.services.sns import update_notification
+                update_notification(notification_id, self._notifications[notification_id].recipient_email, "read")
+            except Exception:
+                logger.exception("Could not update persistent notification read state: %s", notification_id)
             return True
         return False
 

@@ -127,7 +127,17 @@ Open **[http://localhost:8502](http://localhost:8502)** in your browser.
 
 ---
 
-### 6. Demo Credentials & User Roles
+### 6. Start the EstateIQ Algorithm Benchmark App (Port 8503)
+Scientifically evaluate the real **EstateIQ-DIF** engine against standard statistical and time-series baselines (7-day seasonal naive, persistence, seasonal Gaussian, rolling Z-score, static P99, and ablations) for energy forecasting, anomaly detection, and computational Big-O complexity:
+```powershell
+# Open a new terminal:
+streamlit run benchmark_app.py --server.port 8503
+```
+Open **[http://localhost:8503](http://localhost:8503)** in your browser. Complete scientific methodology and Big-O derivations: [`docs/ALGORITHM_BENCHMARK.md`](docs/ALGORITHM_BENCHMARK.md).
+
+---
+
+### 7. Demo Credentials & User Roles
 | Username / Email | Password | Role | Access Level |
 |---|---|---|---|
 | `admin` / `admin@estateiq.in` | `password123` | `FACILITY_ADMIN` | Full campus management, live gateway approvals, system settings |

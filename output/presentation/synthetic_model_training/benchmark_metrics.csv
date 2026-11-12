@@ -1,0 +1,11 @@
+algorithm,threshold,is_persistence_gated,pr_auc,roc_auc,f1_score,precision,recall,tp,fp,tn,fn,pointwise_false_positives,false_alerts_per_bld_day,alerts_per_portfolio_calendar_day,incident_false_positives,incident_false_alerts_per_bld_day,incident_precision,events_detected,total_events,event_capture_rate,median_detection_delay_min,median_latency_us,p95_latency_us,p99_latency_us
+"EstateIQ-DIF V3 (Adaptive, Calibrated, Gated n>=2)",65.282,True,0.6635,0.9337,0.753,0.9318,0.6318,314,23,43114,183,23,0.0505,0.2527,19,0.0418,0.24,6,6,1.0,15.0,434.4,522.31,697.6
+"EstateIQ-DIF V3 (Adaptive, Calibrated, Pointwise)",65.282,False,0.6635,0.9337,0.5605,0.4786,0.6761,336,366,42771,161,366,0.8044,4.022,275,0.6044,0.0248,6,6,1.0,0.0,434.4,522.31,697.6
+"Random Forest Classifier (Supervised, Balanced)",0.32,False,0.4752,0.9027,0.5,0.6547,0.4044,201,106,43031,296,106,0.233,1.1648,36,0.0791,0.0769,3,6,0.5,0.0,4639.0,5962.99,6854.07
+Isolation Forest (Contextual Features),0.6118,False,0.2122,0.7756,0.1591,0.1147,0.2596,129,996,42141,368,996,2.189,10.9451,82,0.1802,0.0575,4,6,0.6667,0.0,4953.1,5986.04,6750.02
+Isolation Forest (Energy-Only / Univariate),0.7301,False,0.0176,0.5845,0.0449,0.0345,0.0644,32,896,42241,465,896,1.9692,9.8462,64,0.1407,0.0448,3,6,0.5,0.0,4953.1,5986.04,6750.02
+"EstateIQ-DIF V2 (Legacy Static 55, Gated n>=2)",55.0,True,0.4565,0.877,0.2986,0.2074,0.5332,265,1013,42124,232,1013,2.2264,11.1319,228,0.5011,0.038,6,6,1.0,15.0,434.4,522.31,697.6
+"EstateIQ-DIF V2 (Legacy Static 55, Pointwise)",55.0,False,0.4565,0.877,0.1692,0.099,0.5795,288,2620,40517,209,2620,5.7582,28.7912,503,1.1055,0.0176,6,6,1.0,0.0,434.4,522.31,697.6
+Seasonal Gaussian Baseline (Slot MAD/Std),4.6524,False,0.7374,0.9584,0.2542,0.1501,0.831,413,2339,40798,84,2339,5.1407,25.7033,632,1.389,0.0125,6,6,1.0,0.0,0.1,0.2,0.2
+"Rolling Z-Score (Window=28 Days, Thresh=3.0σ)",3.0,False,0.2016,0.4487,0.1421,1.0,0.0765,38,0,43137,459,0,0.0,0.0,0,0.0,1.0,3,6,0.5,0.0,,,
+Static P99 (Training Baseline),81.8277,False,0.0703,0.5675,0.0308,0.0199,0.0684,34,1678,41459,463,1678,3.6879,18.4396,64,0.1407,0.0448,3,6,0.5,0.0,,,

@@ -1,0 +1,11 @@
+{
+  "train_start": "2026-01-01 00:00:00+05:30",
+  "train_end": "2026-03-15 23:45:00+05:30",
+  "val_end": "2026-03-31 23:45:00+05:30",
+  "test_end": "2026-06-30 23:45:00+05:30",
+  "train_intervals": 35520,
+  "val_intervals": 7680,
+  "test_intervals": 43680,
+  "exposure_building_days": 455.0,
+  "exposure_portfolio_calendar_days": 91.0
+}

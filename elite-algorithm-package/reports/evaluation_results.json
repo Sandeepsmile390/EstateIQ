@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-03T16:36:25.330361+00:00",
+  "generated_at_utc": "2026-11-12T13:51:15.271393+00:00",
   "source": "facility_dataset/data/raw/energy_readings.csv (simulated/generated)",
   "energy": {
     "status": "EVALUATED",
@@ -139,20 +139,20 @@
     {
       "sample_count": 100,
       "warmup_count": 20,
-      "median_latency_ms": 0.0424,
-      "p95_latency_ms": 0.0506,
-      "p99_latency_ms": 0.0575,
-      "throughput_events_per_sec": 22973.19,
+      "median_latency_ms": 0.0441,
+      "p95_latency_ms": 0.1308,
+      "p99_latency_ms": 0.1692,
+      "throughput_events_per_sec": 18310.99,
       "environment": "Python 3.11.0 / Windows / AMD64",
       "measurement_note": "No dataframe; heuristic cold-start baseline; memory delta not reported."
     },
     {
       "sample_count": 1000,
       "warmup_count": 20,
-      "median_latency_ms": 0.043,
-      "p95_latency_ms": 0.0621,
-      "p99_latency_ms": 0.121,
-      "throughput_events_per_sec": 21415.84,
+      "median_latency_ms": 0.0427,
+      "p95_latency_ms": 0.057,
+      "p99_latency_ms": 0.1448,
+      "throughput_events_per_sec": 21217.91,
       "environment": "Python 3.11.0 / Windows / AMD64",
       "measurement_note": "No dataframe; heuristic cold-start baseline; memory delta not reported."
     }

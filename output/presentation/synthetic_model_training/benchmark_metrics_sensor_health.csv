@@ -1,0 +1,6 @@
+algorithm,threshold,pr_auc,f1_score,precision,recall,tp,fp,tn,fn,false_alerts_per_bld_day
+EstateIQ Sensor Health Engine (Hardware Monitor),1.0,0.9349,0.9663,1.0,0.9348,43,0,43137,3,0.0
+"EstateIQ-DIF V3 (Adaptive, Calibrated, Gated)",65.282,0.9525,0.7788,0.6567,0.9565,44,23,43114,2,0.0505
+Random Forest Classifier (Supervised),0.32,0.8641,0.4084,0.269,0.8478,39,106,43031,7,0.233
+Isolation Forest (Contextual Features),0.6118,0.0583,0.0246,0.0129,0.2826,13,996,42141,33,2.189
+Seasonal Gaussian Baseline,4.6524,0.7434,0.033,0.0168,0.8696,40,2339,40798,6,5.1407

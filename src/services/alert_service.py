@@ -14,9 +14,12 @@ from __future__ import annotations
 import time
 import uuid
 import datetime
+import logging
 from enum import Enum
 from typing import Dict, Any, List, Optional, Tuple
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 class AlertState(str, Enum):
@@ -223,6 +226,22 @@ class AlertService:
 
         self._alerts[alert_id] = new_alert
         self._active_key_index[key] = alert_id
+        # Publish only the first detection for this active incident. Telemetry
+        # updates are deduplicated above and therefore cannot create alert storms.
+        try:
+            from src.services.sns import emit_event
+            emit_event({
+                "event_type": "alert.created", "source": source_type,
+                "severity": sev_enum.value, "title": f"{metric.replace('_', ' ').title()} anomaly at {building_id}",
+                "message": new_alert.reason, "facility_id": facility_id, "building_id": building_id,
+                "device_id": device_id, "metric": metric, "observed_value": observed_value,
+                "expected_value": expected_value, "unit": unit, "related_id": alert_id,
+                "dedupe_key": alert_id
+            })
+        except Exception:
+            # Alert creation is safety critical; notification persistence must
+            # not break telemetry ingestion. Worker/API logs can report SNS errors.
+            logger.exception("SNS could not persist alert-created event %s", alert_id)
         return new_alert
 
     def auto_resolve_metric(
@@ -257,6 +276,15 @@ class AlertService:
                 )
             )
             self._active_key_index.pop(key, None)
+            try:
+                from src.services.sns import emit_event
+                emit_event({"event_type": "alert.resolved", "source": source_type, "severity": alert.severity.value,
+                    "title": f"Recovered: {metric.replace('_', ' ').title()} at {alert.building_id}",
+                    "message": resolved_reason, "facility_id": alert.facility_id, "building_id": alert.building_id,
+                    "device_id": device_id, "metric": metric, "related_id": alert.id,
+                    "dedupe_key": f"{alert.id}:resolved"})
+            except Exception:
+                logger.exception("SNS could not persist alert-resolved event %s", alert.id)
             return alert
         return None
 
@@ -324,6 +352,15 @@ class AlertService:
         key = (alert.source_type, alert.device_id, alert.metric)
         if self._active_key_index.get(key) == alert_id:
             self._active_key_index.pop(key, None)
+        try:
+            from src.services.sns import emit_event
+            emit_event({"event_type": "alert.resolved", "source": alert.source_type, "severity": alert.severity.value,
+                "title": f"Resolved: {alert.metric.replace('_', ' ').title()} at {alert.building_id}",
+                "message": resolution_notes, "facility_id": alert.facility_id, "building_id": alert.building_id,
+                "device_id": alert.device_id, "metric": alert.metric, "related_id": alert.id,
+                "dedupe_key": f"{alert.id}:resolved"})
+        except Exception:
+            logger.exception("SNS could not persist alert-resolved event %s", alert.id)
         return alert
 
     def dismiss_alert(self, alert_id: str, actor: str = "Operator", dismissal_reason: str = "False alarm or test event") -> FacilityAlert:

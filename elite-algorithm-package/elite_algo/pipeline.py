@@ -1,12 +1,13 @@
-"""
-Integrated Elite Algorithm Pipeline Wrapper (elite_algo/pipeline.py).
-Reuses EstateIQ's proprietary EstateIQ-DIF, contextual baseline engine, specialist ML models,
-SHAP explainability, and priority decision engines to run unified facility intelligence.
+"""Convenience wrapper around the implemented EstateIQ-DIF electricity path.
+
+Water-flow and air-quality values are retained in the response for compatibility
+with the demo API; they are not scored by this electricity anomaly detector.
 """
 
 import os
 import sys
 import datetime
+import math
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -39,14 +40,40 @@ class EliteAlgorithmPipeline:
         hvac_load_kw: float = 58.0,
         water_flow_lmin: float = 50.0,
         air_aqi: float = 110.0,
-        interval_hours: float = 0.25
+        interval_hours: float = 0.25,
+        power_factor: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
-        Executes the current Elite-DIF decision path. Trained-model inference,
-        SHAP attribution, and validated action recommendations are not wired in.
+        Execute the implemented electricity anomaly-triage path. Water and air
+        values are echoed only; trained-model inference and SHAP are not run.
         """
-        ts = timestamp or datetime.datetime.now()
-        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
+        ts = timestamp or datetime.datetime.now(datetime.timezone.utc)
+        if ts.tzinfo is None or ts.utcoffset() is None:
+            raise ValueError("timestamp must include a timezone; pass a timezone-aware datetime")
+        numeric_values = {
+            "actual_kwh": actual_kwh,
+            "temperature_c": temperature_c,
+            "hvac_load_kw": hvac_load_kw,
+            "water_flow_lmin": water_flow_lmin,
+            "air_aqi": air_aqi,
+            "interval_hours": interval_hours,
+        }
+        if power_factor is not None:
+            numeric_values["power_factor"] = power_factor
+        for name, value in numeric_values.items():
+            if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+                raise ValueError(f"{name} must be a finite number")
+        if actual_kwh < 0 or hvac_load_kw < 0 or water_flow_lmin < 0:
+            raise ValueError("energy, HVAC load, and water flow values must be non-negative")
+        if interval_hours <= 0:
+            raise ValueError("interval_hours must be positive")
+        if occupancy < 0:
+            raise ValueError("occupancy must be non-negative")
+        if power_factor is not None and not -1.0 <= power_factor <= 1.0:
+            raise ValueError("power_factor must be between -1 and 1")
+
+        ts = ts.astimezone(datetime.timezone.utc)
+        ts_str = ts.isoformat()
         evt_id = f"EVT_{int(ts.timestamp()*1000)}"
 
         event = EventData(
@@ -60,7 +87,8 @@ class EliteAlgorithmPipeline:
             occupancy=occupancy,
             temperature=temperature_c,
             hvac_load=hvac_load_kw,
-            interval_hours=interval_hours
+            interval_hours=interval_hours,
+            extra_features={"power_factor": power_factor} if power_factor is not None else {},
         )
 
         # Run primary DIF Decision Intelligence engine
@@ -79,6 +107,11 @@ class EliteAlgorithmPipeline:
                 "hvac_load_kw": round(hvac_load_kw, 1),
                 "water_flow_lmin": round(water_flow_lmin, 1),
                 "air_aqi": round(air_aqi, 1)
+            },
+            "analysis_scope": {
+                "scored_resource": "electricity",
+                "echo_only_fields": ["water_flow_lmin", "air_aqi"],
+                "timestamp_timezone": "UTC",
             },
             "contextual_baseline": {
                 "expected_kwh": round(decision.contextual.expected_kwh, 2),

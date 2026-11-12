@@ -31,10 +31,9 @@ from src.ai.exceptions import (
 
 # Priority model candidate chain for resilient fallback
 MODEL_CANDIDATE_CHAIN: List[str] = [
+    "qwen/qwen3.8-27b",
     "openai/gpt-oss-120b",
-    "openai/gpt-oss-20b",
-    "llama-3.3-70b-versatile",
-    "qwen/qwen3.8-27b"
+    "openai/gpt-oss-20b"
 ]
 
 from src.data.dataset_manager import GLOBAL_DATASET_MANAGER
@@ -297,14 +296,18 @@ class EstateIQAIService:
             except Exception as e:
                 last_exception = e
                 error_str = str(e)
-                # If model not found, silently retry with next model in chain
-                if "model_not_found" in error_str or "404" in error_str:
+                # If model not found or bad request json validation, retry with next model in chain
+                if "model_not_found" in error_str or "404" in error_str or "json_validate_failed" in error_str or "400" in error_str:
                     continue
-                # If auth error or rate limit, break and report
-                if "401" in error_str or "auth" in error_str.lower():
-                    raise GroqAuthenticationError(f"Groq API authentication failed: {error_str}")
+                # If auth error or rate limit
+                if "401" in error_str or "auth" in error_str.lower() or "invalid_api_key" in error_str:
+                    if self.config.is_production:
+                        raise GroqAuthenticationError(f"Groq API authentication failed: {error_str}")
+                    break
                 elif "429" in error_str or "rate limit" in error_str.lower():
-                    raise GroqRateLimitError(f"Groq API rate limit reached: {error_str}")
+                    if self.config.is_production:
+                        raise GroqRateLimitError(f"Groq API rate limit reached: {error_str}")
+                    break
 
         # If all candidate models failed
         duration_ms = round((time.time() - start_time) * 1000.0, 2)
@@ -312,6 +315,10 @@ class EstateIQAIService:
         GLOBAL_USAGE_TRACKER.log_request(self.config.model, duration_ms, success=False, error_msg=error_str)
 
         if self.config.is_production:
+            if "401" in error_str or "auth" in error_str.lower() or "invalid_api_key" in error_str:
+                raise GroqAuthenticationError(f"Groq API authentication failed: {error_str}")
+            elif "429" in error_str or "rate limit" in error_str.lower():
+                raise GroqRateLimitError(f"Groq API rate limit reached: {error_str}")
             raise ProviderUnavailableError(f"Groq AI provider error: {error_str}")
         else:
             return self._generate_fallback_response(req_id, sanitized_query, evidence_packet, now_iso)

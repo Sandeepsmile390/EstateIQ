@@ -1,6 +1,6 @@
 # EstateIQ-DIF reproducible evaluation
 
-Generated (UTC): 2026-11-03T16:36:25.330361+00:00
+Generated (UTC): 2026-11-12T13:51:15.271393+00:00
 
 > All source telemetry and anomaly injections in this evaluation are generated/simulated. These results are not evidence of production or real-facility performance.
 
@@ -50,7 +50,7 @@ The score threshold was fixed before the evaluated labels. This event-window poi
 
 ## Empirical runtime microbenchmark
 
-- N=100: median 0.0424 ms, p95 0.0506 ms, p99 0.0575 ms, throughput 22973.19 events/s (Python 3.11.0 / Windows / AMD64).
-- N=1000: median 0.043 ms, p95 0.0621 ms, p99 0.121 ms, throughput 21415.84 events/s (Python 3.11.0 / Windows / AMD64).
+- N=100: median 0.0441 ms, p95 0.1308 ms, p99 0.1692 ms, throughput 18310.99 events/s (Python 3.11.0 / Windows / AMD64).
+- N=1000: median 0.0427 ms, p95 0.057 ms, p99 0.1448 ms, throughput 21217.91 events/s (Python 3.11.0 / Windows / AMD64).
 
 ![Implemented decision path](../charts/dif_pipeline.svg)

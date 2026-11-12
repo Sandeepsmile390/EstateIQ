@@ -9,6 +9,9 @@ and audit logging.
 import os
 import uuid
 import datetime
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 import joblib
 import pandas as pd
 import numpy as np
@@ -116,6 +119,8 @@ def startup_security_and_db():
     try:
         from src.data.canonical_db import init_canonical_schema
         init_canonical_schema()
+        from src.services.sns import init_sns_schema
+        init_sns_schema()
     except Exception as e:
         print(f"Canonical schema init warning: {e}")
 
@@ -308,7 +313,9 @@ ROLE_FRONTEND_PROFILES = {
 def auth_login(req: LoginRequest):
     if req.email and req.password:
         user = authenticate_user(req.email, req.password)
+        auth_method = "password"
     elif req.role:
+        auth_method = "demo_role_switch"
         role_key = req.role.lower().strip()
         if role_key in ["admin", "super_admin", "facility_admin"]:
             user = USERS_DB["admin@estateiq.in"]
@@ -319,6 +326,7 @@ def auth_login(req: LoginRequest):
         else:
             user = USERS_DB["admin@estateiq.in"]
     else:
+        auth_method = "anonymous_demo"
         user = USERS_DB["admin@estateiq.in"]
 
     user_role = (user.get("role") or "").upper()
@@ -329,7 +337,7 @@ def auth_login(req: LoginRequest):
     else:
         profile = ROLE_FRONTEND_PROFILES["admin"]
 
-    token = create_user_token(user)
+    token = create_user_token(user, auth_method=auth_method)
     record_audit_event("LOGIN_SUCCESS", user, "LOGIN", "auth", result="SUCCESS")
     
     return {
@@ -1599,22 +1607,22 @@ def get_gateways_status():
     }
 
 @app.get("/api/v1/weather/current")
-def get_current_weather(lat: float = 28.6139, lon: float = 77.2090):
+def get_current_weather(lat: Optional[float] = None, lon: Optional[float] = None):
     from src.services.weather_service import GLOBAL_WEATHER_SERVICE
     data = GLOBAL_WEATHER_SERVICE.get_current_weather(lat=lat, lon=lon)
     return data.model_dump() if hasattr(data, "model_dump") else data.dict()
 
 @app.get("/api/v1/weather/forecast")
-def get_weather_forecast(lat: float = 28.6139, lon: float = 77.2090):
+def get_weather_forecast(lat: Optional[float] = None, lon: Optional[float] = None):
     from src.services.weather_service import GLOBAL_WEATHER_SERVICE
     current = GLOBAL_WEATHER_SERVICE.get_current_weather(lat=lat, lon=lon)
     curr_dict = current.model_dump() if hasattr(current, "model_dump") else current.dict()
     return {
         "current": curr_dict,
         "forecast": [
-            {"hour": "+1h", "temperature_c": current.temperature_c + 0.5, "weather": current.weather_condition},
-            {"hour": "+3h", "temperature_c": current.temperature_c + 1.2, "weather": current.weather_condition},
-            {"hour": "+6h", "temperature_c": current.temperature_c - 1.0, "weather": current.weather_condition}
+            {"hour": "+1h", "temperature_c": round(current.temperature_c + 0.5, 1), "weather": current.weather_condition},
+            {"hour": "+3h", "temperature_c": round(current.temperature_c + 1.2, 1), "weather": current.weather_condition},
+            {"hour": "+6h", "temperature_c": round(current.temperature_c - 1.0, 1), "weather": current.weather_condition}
         ]
     }
 
@@ -2033,6 +2041,7 @@ class AITestRequest(BaseModel):
 @app.post("/api/v1/ai/copilot")
 @app.post("/api/v1/ai/analyze")
 def query_ai_copilot(req: CopilotQueryRequest, user: Dict[str, Any] = Depends(require_permission("facility.read"))):
+    load_dotenv(override=True)
     record_audit_event("AI_COPILOT_QUERY", user, "COPILOT", "copilot", metadata={"query": req.user_query})
     return ai_service.query_copilot(
         user_query=req.user_query,
@@ -2042,10 +2051,12 @@ def query_ai_copilot(req: CopilotQueryRequest, user: Dict[str, Any] = Depends(re
 
 @app.get("/api/v1/ai/health")
 def get_ai_health():
+    load_dotenv(override=True)
     return ai_service.check_health()
 
 @app.post("/api/v1/ai/test")
 def test_ai_connection(req: AITestRequest = AITestRequest()):
+    load_dotenv(override=True)
     return ai_service.test_connection(prompt=req.prompt)
 
 @app.get("/api/v1/ai/capabilities")
@@ -2842,6 +2853,9 @@ def get_ai_insights(domain: str = "overview", building_id: Optional[str] = None)
 # --- Canonical Implementation Report REST API Routes ---
 from api.canonical_routes import router as canonical_router
 app.include_router(canonical_router)
+
+from api.sns_routes import router as sns_router
+app.include_router(sns_router)
 
 
 

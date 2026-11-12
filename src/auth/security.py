@@ -88,7 +88,9 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "reports.read", "reports.export",
         "audit.read", "users.read", "users.manage", "settings.read", "settings.manage",
         "billing.read", "billing.manage", "iot.read", "iot.manage",
-        "work_orders.read", "work_orders.create", "work_orders.update", "work-orders"
+        "work_orders.read", "work_orders.create", "work_orders.update", "work-orders",
+        "sns", "sns.read", "sns.rules.manage", "sns.recipients.manage", "sns.channels.manage",
+        "sns.deliveries.read", "sns.notifications.acknowledge", "sns.audit.read"
     ],
     "FACILITY_ADMIN": [
         "facility.read", "facility.manage",
@@ -99,7 +101,9 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "simulation.read", "simulation.run",
         "models.read", "reports.read", "reports.export",
         "audit.read", "users.read", "settings.read", "billing.read",
-        "work_orders.read", "work_orders.create", "work_orders.update", "work-orders"
+        "work_orders.read", "work_orders.create", "work_orders.update", "work-orders",
+        "sns", "sns.read", "sns.rules.manage", "sns.recipients.manage", "sns.channels.manage",
+        "sns.deliveries.read", "sns.notifications.acknowledge", "sns.audit.read"
     ],
     "OPERATIONS_ENGINEER": [
         "facility.read",
@@ -109,26 +113,27 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "recommendations.read", "recommendations.execute",
         "simulation.read", "simulation.run",
         "models.read", "reports.read", "iot.read", "iot.manage",
-        "work_orders.read", "work_orders.create", "work_orders.update", "work-orders"
+        "work_orders.read", "work_orders.create", "work_orders.update", "work-orders",
+        "sns", "sns.read", "sns.notifications.acknowledge", "sns.deliveries.read"
     ],
     "SUSTAINABILITY_OFFICER": [
         "facility.read",
         "energy.read", "water.read", "waste.read", "air.read", "mobility.read", "assets.read", "safety.read",
         "alerts.read", "recommendations.read",
-        "simulation.read", "reports.read", "reports.export", "audit.read"
+        "simulation.read", "reports.read", "reports.export", "audit.read", "sns", "sns.read", "sns.audit.read", "sns.deliveries.read"
     ],
     "ESG_AUDITOR": [
         "facility.read",
         "energy.read", "water.read", "waste.read", "air.read", "mobility.read", "assets.read", "safety.read",
         "alerts.read", "recommendations.read",
-        "simulation.read", "reports.read", "reports.export", "audit.read"
+        "simulation.read", "reports.read", "reports.export", "audit.read", "sns", "sns.read", "sns.audit.read", "sns.deliveries.read"
     ],
     "MANAGEMENT_VIEWER": [
         "facility.read", "energy.read", "water.read", "waste.read", "air.read", "mobility.read",
-        "alerts.read", "recommendations.read", "reports.read"
+        "alerts.read", "recommendations.read", "reports.read", "sns", "sns.read"
     ],
     "STAFF": [
-        "facility.read", "work_orders.read", "work_orders.update", "notifications.read"
+        "facility.read", "work_orders.read", "work_orders.update", "notifications.read", "sns", "sns.read", "sns.notifications.acknowledge"
     ]
 }
 
@@ -274,7 +279,7 @@ def require_role(allowed_roles: List[str]):
     return role_dependency
 
 
-def create_user_token(user: Dict[str, Any]) -> str:
+def create_user_token(user: Dict[str, Any], auth_method: str = "internal") -> str:
     now = time.time()
     role = user["role"]
     permissions = ROLE_PERMISSIONS.get(role, [])
@@ -286,6 +291,7 @@ def create_user_token(user: Dict[str, Any]) -> str:
         "role_label": user["role_label"],
         "facility_id": user["facility_id"],
         "permissions": permissions,
+        "auth_method": auth_method,
         "iat": int(now),
         "exp": int(now + ACCESS_TOKEN_EXPIRE_SECONDS)
     }
@@ -315,6 +321,7 @@ def verify_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Se
             "role_label": payload.get("role_label", payload["role"]),
             "facility_id": payload["facility_id"],
             "permissions": payload.get("permissions", ROLE_PERMISSIONS.get(payload["role"], [])),
+            "auth_method": payload.get("auth_method", "legacy"),
             "token": token
         }
     

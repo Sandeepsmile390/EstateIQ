@@ -1,0 +1,6 @@
+algorithm,threshold,pr_auc,f1_score,precision,recall,tp,fp,tn,fn,false_alerts_per_bld_day
+EstateIQ Sensor Health Engine (Flatline & Dropout Monitor),1.0,0.7177,0.8354,1.0,0.7174,33,0,43137,13,0.0
+"EstateIQ-DIF V3 (Adaptive Baseline, Calibrated Thresh, Gated)",60.621,0.9965,0.9565,0.9565,0.9565,44,2,43135,2,0.022
+Isolation Forest (Contextual Features),0.6399,0.0029,0.0,0.0,0.0,0,750,42387,46,8.2418
+Local Outlier Factor (LOF Novelty),1.7247,0.3813,0.0079,0.0039,0.8478,39,9849,33288,7,108.2308
+Seasonal Gaussian Baseline,4.6887,0.7391,0.0307,0.0156,0.8696,40,2520,40617,6,27.6923

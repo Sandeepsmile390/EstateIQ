@@ -1,0 +1,9 @@
+fault_type,intervals,DIF_V2_Pointwise_recall,DIF_V2_Gated_recall,EstateIQ-DIF (S_recall,DIF_V3_Pointwise_recall,DIF_V3_Gated_recall,IsoForest_Ctx_recall,Isolation Fores_recall,LOF_recall,Seasonal_Gaussian_recall,Rolling_Z_recall,Static P99 (Tra_recall
+after_hours_surge,25,1.0,1.0,0.96,1.0,0.96,0.0,0.0,1.0,1.0,0.0,0.0
+gradual_drift,289,0.8962,0.8616,0.7578,0.6505,0.6159,0.0,0.0,0.5225,0.8443,0.1142,0.0
+hvac_stuck_on,57,0.9825,0.9474,0.4912,0.4737,0.4386,0.5088,0.4737,1.0,0.7368,0.0,0.5088
+meter_dropout,13,1.0,0.9231,0.9231,1.0,0.9231,0.0,0.0,1.0,1.0,0.0,0.0
+meter_flatline,33,0.9091,0.8182,0.6667,1.0,0.9697,0.0,0.0,0.7879,0.8182,0.0,0.0
+normal,43137,0.2216,0.103,0.0106,0.0029,0.0,0.0174,0.0204,0.2283,0.0584,0.0,0.0389
+transient_surge,5,1.0,0.6,0.6,1.0,0.6,0.0,1.0,1.0,1.0,1.0,1.0
+weekend_schedule_mismatch,121,1.0,0.9917,0.9917,1.0,0.9917,0.0,0.0,1.0,1.0,0.0,0.0

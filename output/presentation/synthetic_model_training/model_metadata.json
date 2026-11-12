@@ -1,0 +1,19 @@
+{
+  "random_forest": {
+    "n_estimators": 100,
+    "max_depth": 12,
+    "class_weight": "balanced",
+    "calibrated_threshold": 0.32,
+    "model_file": "models/random_forest_model.joblib"
+  },
+  "isolation_forest": {
+    "n_estimators": 100,
+    "calibrated_threshold": 0.6118395751462768,
+    "model_file": "models/isolation_forest_model.joblib"
+  },
+  "estateiq_dif": {
+    "baseline": "AdaptiveSeasonalBaselineModel",
+    "persistence_window_n": 2,
+    "calibrated_threshold": 65.28199999999997
+  }
+}

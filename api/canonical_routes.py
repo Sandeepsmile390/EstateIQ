@@ -145,7 +145,9 @@ def canonical_login(req: CanonicalLoginRequest):
     user_identifier = req.username or req.email
     if user_identifier and req.password:
         user = authenticate_user(user_identifier, req.password)
+        auth_method = "password"
     elif req.role:
+        auth_method = "demo_role_switch"
         role_key = req.role.lower()
         if role_key in USER_ROLES_DB:
             user = USER_ROLES_DB[role_key]
@@ -153,9 +155,10 @@ def canonical_login(req: CanonicalLoginRequest):
             from src.auth.security import get_user_by_role
             user = get_user_by_role(role_key)
     else:
+        auth_method = "anonymous_demo"
         user = USER_ROLES_DB.get("admin") or USER_ROLES_DB["lead@estateiq.in"]
 
-    token = create_user_token(user)
+    token = create_user_token(user, auth_method=auth_method)
     record_audit_event(
         user_id=user["user_id"],
         entity_type="auth",

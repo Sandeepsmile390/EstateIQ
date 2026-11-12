@@ -407,7 +407,7 @@
                     <div class="notification-dropdown-wrapper" id="notificationsWrapper">
                         <button class="icon-btn notification-btn" id="notificationsBtn" aria-label="Notifications">
                             <i class="fa-regular fa-bell"></i>
-                            <span class="notification-badge" id="notificationCount">2</span>
+                            <span class="notification-badge" id="notificationCount">0</span>
                         </button>
 
                         <!-- NOTIFICATIONS DROPDOWN MENU -->
@@ -416,48 +416,12 @@
                                 <div class="notif-title-group">
                                     <i class="fa-solid fa-bell text-amber"></i>
                                     <strong>Operational Alerts</strong>
-                                    <span class="notif-count-badge" id="notifUnreadBadge">2 New</span>
+                                    <span class="notif-count-badge" id="notifUnreadBadge">0 New</span>
                                 </div>
                                 <button class="notif-mark-read" id="markAllNotifsReadBtn">Mark read</button>
                             </div>
 
-                            <div class="notif-list" id="notifListItems">
-                                <div class="notif-item unread p1-alert">
-                                    <div class="notif-icon-box bg-red"><i class="fa-solid fa-bolt"></i></div>
-                                    <div class="notif-content">
-                                        <div class="notif-top-row">
-                                            <span class="notif-severity badge-red">PRIORITY 1</span>
-                                            <span class="notif-time">12m ago</span>
-                                        </div>
-                                        <h4>HVAC Surge — Block B Hostel</h4>
-                                        <p>Observed 145.2 kWh vs 78.0 kWh baseline (+86.1% deviation).</p>
-                                    </div>
-                                </div>
-
-                                <div class="notif-item unread p2-alert">
-                                    <div class="notif-icon-box bg-amber"><i class="fa-solid fa-dumpster"></i></div>
-                                    <div class="notif-content">
-                                        <div class="notif-top-row">
-                                            <span class="notif-severity badge-amber">PRIORITY 2</span>
-                                            <span class="notif-time">35m ago</span>
-                                        </div>
-                                        <h4>Bin Overflow Risk — Central Cafeteria</h4>
-                                        <p>Bin #01 projected to reach >90% capacity within 2 hours.</p>
-                                    </div>
-                                </div>
-
-                                <div class="notif-item p3-alert">
-                                    <div class="notif-icon-box bg-teal"><i class="fa-solid fa-gears"></i></div>
-                                    <div class="notif-content">
-                                        <div class="notif-top-row">
-                                            <span class="notif-severity badge-green">NOTICE</span>
-                                            <span class="notif-time">1h ago</span>
-                                        </div>
-                                        <h4>Chiller 01 Vibration Telemetry</h4>
-                                        <p>Sensor registered 3.8 mm/s vibration. Maintenance scheduled.</p>
-                                    </div>
-                                </div>
-                            </div>
+                            <div class="notif-list" id="notifListItems"><div class="sns-muted">Sign in to load notifications.</div></div>
 
                             <div class="notif-footer">
                                 <button class="btn btn-secondary btn-block btn-sm" id="viewAllSignalsBtn">
@@ -673,12 +637,45 @@
                         <span>Work Orders</span>
                         <div class="tab-indicator"></div>
                     </button>
+                    <button class="tab-btn" data-tab="sns" id="tabSns">
+                        <i class="fa-solid fa-bell text-gold"></i>
+                        <span>Notifications</span>
+                        <div class="tab-indicator"></div>
+                    </button>
                     <button class="tab-btn" data-tab="ai-assistant" id="tabAiAssistant">
                         <i class="fa-solid fa-wand-magic-sparkles text-accent"></i>
                         <span>AI Co-Pilot</span>
                         <div class="tab-indicator"></div>
                     </button>
                 </nav>
+
+                <div class="tab-content" id="contentSns">
+                    <section class="sns-page">
+                        <div class="sns-page-heading">
+                            <div><p class="sns-eyebrow">ESTATEIQ OPERATIONS</p><h2>Smart Notifications</h2><p>Persistent alerts, configurable routing rules, and delivery diagnostics.</p></div>
+                            <button class="sns-refresh-btn" id="snsRefreshBtn" type="button"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                        </div>
+                        <div class="sns-summary-grid" id="snsSummaryGrid" aria-live="polite"></div>
+                        <div class="sns-layout-grid">
+                            <section class="sns-panel"><div class="sns-panel-heading"><div><h3>Notification center</h3><p>Your recent in-app messages</p></div><select id="snsNotificationFilter" aria-label="Filter notifications"><option value="all">All</option><option value="unread">Unread</option></select></div><div id="snsNotificationList" class="sns-notification-list"><p class="sns-muted">Sign in to load notifications.</p></div></section>
+                            <section class="sns-panel"><div class="sns-panel-heading"><div><h3>Routing rules</h3><p>Rules are evaluated when EstateIQ events arrive.</p></div></div><div id="snsRulesList" class="sns-rules-list"></div>
+                                <form id="snsRuleForm" class="sns-rule-form" hidden>
+                                    <h4>Create a rule</h4>
+                                    <label>Rule name<input name="name" required maxlength="100" placeholder="High energy alert"></label>
+                                    <label>Event type<input name="event_type" required maxlength="100" placeholder="alert.created"></label>
+                                    <label>Severity<select name="severity"><option>HIGH</option><option>CRITICAL</option><option>MEDIUM</option><option>LOW</option><option>INFO</option></select></label>
+                                    <label>Recipient role<select name="recipient_role"><option>OPERATIONS_ENGINEER</option><option>FACILITY_ADMIN</option><option>SUPER_ADMIN</option><option>SUSTAINABILITY_OFFICER</option></select></label>
+                                    <label>Cooldown (seconds)<input name="cooldown_seconds" type="number" min="0" max="604800" value="300"></label>
+                                    <label>Delivery channel<select name="channel"><option value="in_app">In-app</option><option value="telegram">Telegram</option></select></label>
+                                    <label>Conditions (JSON array)<textarea name="conditions" rows="3" placeholder='[{"field":"severity","operator":"eq","value":"CRITICAL"}]'>[]</textarea></label>
+                                    <button class="sns-primary-btn" type="submit">Save rule</button>
+                                </form>
+                            </section>
+                            <section class="sns-panel"><div class="sns-panel-heading"><div><h3>Telegram</h3><p>Optional external delivery channel</p></div></div><div id="snsTelegramStatus" class="sns-integration-status">Checking configuration…</div><button id="snsTelegramLinkBtn" class="sns-primary-btn" type="button">Link Telegram</button><button id="snsTelegramUnlinkBtn" class="sns-secondary-btn" type="button" hidden>Unlink</button><p id="snsTelegramInstructions" class="sns-muted"></p></section>
+                            <section class="sns-panel"><div class="sns-panel-heading"><div><h3>Recent delivery attempts</h3><p>In-app confirmation and external-channel status</p></div></div><div id="snsDeliveryList" class="sns-delivery-list"></div></section>
+                        </div>
+                    </section>
+                </div>
 
                 <!-- TAB CONTENT 1: OVERVIEW & DETAILED METRICS -->
                 <div class="tab-content active" id="contentOverview">
@@ -2016,7 +2013,7 @@
                                             <span style="font-size: 11px; color: #38BDF8; font-weight: 700;" id="weatherOutdoorCondition">Clear Sky</span>
                                             <span style="font-size: 10px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; padding: 2px 6px; border-radius: 4px;">NOT INDOOR HVAC</span>
                                         </div>
-                                        <div style="font-size: 11px; color: #94A3B8;">Delhi NCR Campus Ambient &bull; Open-Meteo Server Cache</div>
+                                        <div id="weatherOutdoorLocationSub" style="font-size: 11px; color: #94A3B8;">BPUT University Campus, Rourkela (Odisha) &bull; Live Telemetry Feed</div>
                                     </div>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 18px; font-size: 12px; font-weight: 700;">
@@ -2079,18 +2076,58 @@
                                 </div>
                             </div>
 
-                        <!-- SQUARE DEVICE MAP — schematic until site coordinates are configured -->
+                        <!-- GOOGLE MAPS & BPUT CAMPUS IOT FLEET MAP -->
                         <section class="iot-dark-card device-map-card" aria-labelledby="deviceMapTitle">
                             <div class="device-map-heading">
                                 <div>
-                                    <h3 id="deviceMapTitle"><i class="fa-solid fa-map-location-dot"></i> Facility Device Map</h3>
-                                    <p>Live device status by building. Marker positions are schematic; configure verified coordinates for a geographic map.</p>
+                                    <h3 id="deviceMapTitle"><i class="fa-solid fa-map-location-dot text-mint"></i> BPUT University Campus — IoT Fleet Geographic Map</h3>
+                                    <p>Live IoT telemetry deployment at <strong>Biju Patnaik University of Technology (BPUT)</strong>, Rourkela, Odisha (22.2530° N, 84.9015° E). Interactive Google Maps satellite &amp; street GIS with real hardware pinpoint tracking.</p>
                                 </div>
-                                <span class="map-schematic-badge">SCHEMATIC · not GPS</span>
+                                <span class="map-schematic-badge" style="display: none;">SCHEMATIC · not GPS</span>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <div class="btn-group" style="display: inline-flex; background: rgba(0,0,0,0.4); border: 1px solid rgba(0, 240, 181, 0.3); border-radius: 8px; padding: 2px;">
+                                        <button class="btn btn-sm" id="mapModeRoadmapBtn" onclick="window.switchMapMode('m')" style="font-size: 11px; padding: 4px 10px; border-radius: 6px; border: none; background: #00D09C; color: #04120E; font-weight: 700; cursor: pointer;">
+                                            <i class="fa-solid fa-map"></i> Roadmap
+                                        </button>
+                                        <button class="btn btn-sm" id="mapModeSatelliteBtn" onclick="window.switchMapMode('k')" style="font-size: 11px; padding: 4px 10px; border-radius: 6px; border: none; background: transparent; color: #CBD5E1; font-weight: 600; cursor: pointer;">
+                                            <i class="fa-solid fa-satellite"></i> Satellite
+                                        </button>
+                                        <button class="btn btn-sm" id="mapModeSchematicBtn" onclick="window.switchMapMode('schematic')" style="font-size: 11px; padding: 4px 10px; border-radius: 6px; border: none; background: transparent; color: #CBD5E1; font-weight: 600; cursor: pointer;">
+                                            <i class="fa-solid fa-network-wired"></i> Schematic
+                                        </button>
+                                    </div>
+                                    <a href="https://maps.google.com/?q=Biju+Patnaik+University+of+Technology+Rourkela" target="_blank" class="btn btn-sm" style="font-size: 11px; padding: 6px 12px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Google Maps
+                                    </a>
+                                </div>
                             </div>
                             <div class="device-map-layout">
-                                <div id="liveDeviceMap" class="device-map-canvas" role="img" aria-label="Schematic facility map showing registered telemetry devices by building">
-                                    <svg class="device-map-roads" viewBox="0 0 500 500" aria-hidden="true">
+                                <div id="liveDeviceMap" class="device-map-canvas" role="region" aria-label="Interactive Google Map of BPUT University campus">
+                                    <!-- Google Maps Live Iframe Container -->
+                                    <div id="googleMapIframeWrapper" style="width: 100%; height: 100%; min-height: 460px; position: relative; border-radius: 16px; overflow: hidden;">
+                                        <iframe id="googleMapsIframe" src="https://maps.google.com/maps?q=Biju+Patnaik+University+of+Technology,+Chhend+Colony,+Rourkela,+Odisha+769015&t=m&z=16&output=embed" style="width: 100%; height: 100%; min-height: 460px; border: 0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                                        
+                                        <!-- Floating Campus Location Pill -->
+                                        <div style="position: absolute; top: 12px; left: 12px; background: rgba(10, 37, 29, 0.92); backdrop-filter: blur(8px); border: 1px solid rgba(0, 240, 181, 0.4); padding: 6px 12px; border-radius: 20px; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); pointer-events: none;">
+                                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #00F0B5; box-shadow: 0 0 8px #00F0B5;"></span>
+                                            <span>BPUT University Campus (22.2530° N, 84.9015° E)</span>
+                                        </div>
+
+                                        <!-- Floating Deployment Summary Badge -->
+                                        <div style="position: absolute; bottom: 12px; left: 12px; right: 12px; background: rgba(8, 29, 23, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(0, 208, 156, 0.35); border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);">
+                                            <div style="display: flex; align-items: center; gap: 8px; font-size: 11px;">
+                                                <i class="fa-solid fa-microchip text-mint"></i>
+                                                <strong style="color: #FFFFFF;">Live Hardware Fleet:</strong>
+                                                <span style="color: #A3C9BE;">Block B Hostel Substation &bull; Riser Line &bull; Sonar Bay</span>
+                                            </div>
+                                            <span style="font-size: 10px; font-weight: 800; background: rgba(0, 240, 181, 0.18); color: #00F0B5; border: 1px solid rgba(0, 240, 181, 0.4); padding: 2px 8px; border-radius: 6px;">
+                                                5 NODES DEPLOYED
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Schematic SVG View (Hidden by default, switchable via toggle) -->
+                                    <svg id="schematicMapSvg" class="device-map-roads" viewBox="0 0 500 500" aria-hidden="true" style="display: none; width: 100%; height: 100%;">
                                         <rect x="0" y="0" width="500" height="500" rx="22" fill="#0B241D" />
                                         <path d="M-20 330 C100 260 160 290 250 220 S410 130 530 160" fill="none" stroke="#31564B" stroke-width="36" />
                                         <path d="M160 -20 C190 80 220 130 250 220 S300 390 330 520" fill="none" stroke="#31564B" stroke-width="28" />
@@ -2099,19 +2136,19 @@
                                         <rect x="330" y="52" width="120" height="76" rx="10" fill="#173C30" stroke="#3C7561" />
                                         <rect x="45" y="370" width="130" height="76" rx="10" fill="#173C30" stroke="#3C7561" />
                                         <rect x="335" y="340" width="116" height="82" rx="10" fill="#173C30" stroke="#3C7561" />
-                                        <text x="99" y="101" text-anchor="middle" fill="#D7EAE2" font-size="12">Academic Block</text>
-                                        <text x="390" y="95" text-anchor="middle" fill="#D7EAE2" font-size="12">Hostel</text>
-                                        <text x="110" y="412" text-anchor="middle" fill="#D7EAE2" font-size="12">Water Utility</text>
-                                        <text x="393" y="386" text-anchor="middle" fill="#D7EAE2" font-size="12">Service Block</text>
+                                        <text x="99" y="101" text-anchor="middle" fill="#D7EAE2" font-size="12">Academic Complex</text>
+                                        <text x="390" y="95" text-anchor="middle" fill="#D7EAE2" font-size="12">Block B Hostel</text>
+                                        <text x="110" y="412" text-anchor="middle" fill="#D7EAE2" font-size="12">Water Utility Reservoir</text>
+                                        <text x="393" y="386" text-anchor="middle" fill="#D7EAE2" font-size="12">Service Substation</text>
                                         <g id="liveDeviceMapMarkers"></g>
                                     </svg>
                                     <div id="deviceMapEmpty" class="device-map-empty" hidden>No telemetry devices are registered yet.</div>
                                 </div>
                                 <div class="device-map-side">
                                     <div class="map-legend" aria-label="Device status legend">
-                                        <span><i class="map-dot online"></i> Online</span>
-                                        <span><i class="map-dot stale"></i> Stale</span>
-                                        <span><i class="map-dot offline"></i> Offline / no sample</span>
+                                        <span><i class="map-dot online"></i> Real Sensor Online</span>
+                                        <span><i class="map-dot stale"></i> Stale (&gt;45s)</span>
+                                        <span><i class="map-dot offline"></i> Offline</span>
                                     </div>
                                     <div id="deviceMapDeviceList" class="device-map-device-list" aria-live="polite">
                                         <span class="map-list-loading">Loading registered devices…</span>
@@ -3159,12 +3196,24 @@
                     <div class="module-tab-wrapper">
                         
                         <!-- Hero Section -->
-                        <div class="interactive-card border-left-mint">
-                            <div class="card-header-styled">
-                                <i class="fa-solid fa-circle-question text-mint text-xl"></i>
-                                <div>
-                                    <h3 class="text-xl font-bold">EstateIQ System FAQ & Algorithm Knowledge Hub</h3>
-                                    <p class="text-secondary">Comprehensive documentation on EstateIQ algorithms, system architecture, multi-signal decision intelligence, and operational capabilities.</p>
+                        <div class="interactive-card border-left-mint" style="background: linear-gradient(135deg, rgba(8, 29, 23, 0.95) 0%, rgba(14, 46, 38, 0.95) 100%); border-radius: 16px; padding: 20px 24px; border: 1px solid rgba(0, 240, 181, 0.35);">
+                            <div class="card-header-styled" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+                                <div style="display: flex; align-items: center; gap: 14px;">
+                                    <div style="width: 46px; height: 46px; border-radius: 12px; background: rgba(0, 240, 181, 0.15); display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(0, 240, 181, 0.4);">
+                                        <i class="fa-solid fa-circle-question text-mint" style="font-size: 22px;"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-xl font-bold" style="color: #FFFFFF; margin: 0 0 4px 0;">EstateIQ System FAQ &amp; Algorithm Knowledge Hub</h3>
+                                        <p class="text-secondary" style="margin: 0; font-size: 13px; color: #A3C9BE;">Comprehensive documentation on the <strong>Elite Algo</strong> decision pipeline, dual ESP32 hardware telemetry, live BPUT GIS mapping, and operational decision intelligence.</p>
+                                    </div>
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                                    <span style="font-size: 11px; font-weight: 800; background: rgba(245, 158, 11, 0.18); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.4); padding: 4px 10px; border-radius: 6px;">
+                                        <i class="fa-solid fa-trophy"></i> BPUT HACKATHON 2026
+                                    </span>
+                                    <span style="font-size: 10px; color: #CBD5E1; font-weight: 600;">
+                                        Team Elite &bull; ID: <strong>BH26PS04T039</strong> &bull; Problem Statement-04
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -3178,8 +3227,8 @@
                                             <i class="fa-solid fa-microchip"></i>
                                         </div>
                                         <div>
-                                            <h3 class="algo-main-title">EstateIQ Multi-Tier Hybrid Algorithmic Architecture</h3>
-                                            <p class="algo-main-subtitle">Combining specialist predictive ML, multivariate anomaly fusion, TreeSHAP causal explainability, and real-time financial waste quantification.</p>
+                                            <h3 class="algo-main-title">Elite Algo: Multi-Tier Hybrid Algorithmic Architecture</h3>
+                                            <p class="algo-main-subtitle">Proprietary decision-intelligence pipeline engineered by Team Elite (BH26PS04T039), uniting predictive regression, dual anomaly consensus, TreeSHAP causality, and monetary DIF waste quantification.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -3212,7 +3261,7 @@
                                     
                                     <div class="algo-formula-box">
                                         <span class="formula-label">Ensemble Model Formula:</span>
-                                        <code>Ŷ = w₁·CatBoost + w₂·LightGBM + w₃·Prophet</code>
+                                        <code>Ŷ = w₁·CatBoost + w₂·LightGBM + w₃·XGBoost</code>
                                     </div>
                                     
                                     <div class="algo-complexity-grid">
@@ -3412,22 +3461,23 @@
                         <div class="interactive-card border-left-mint margin-top-md">
                             <div class="margin-bottom-sm">
                                 <h3 class="text-lg font-bold text-mint"><i class="fa-solid fa-circle-question margin-right-xs"></i> Frequently Asked Questions</h3>
-                                <p class="text-secondary text-xs">Filter or search through 31 comprehensive technical and operational questions.</p>
+                                <p class="text-secondary text-xs">Filter or search through 34 comprehensive technical, hardware, algorithmic, and operational questions.</p>
                             </div>
 
                             <!-- FAQ Search & Category Chips -->
                             <div class="kb-search-container margin-top-md">
                                 <i class="fa-solid fa-magnifying-glass kb-search-icon"></i>
-                                <input type="text" id="faqSearchInput" class="kb-search-input" placeholder="Search questions (e.g. algorithm, architecture, AI, ROI, IoT, security)..." onkeyup="filterFaqs()">
+                                <input type="text" id="faqSearchInput" class="kb-search-input" placeholder="Search questions (e.g. Elite algo, ESP32, Google Maps, popup, architecture, AI, ROI)..." onkeyup="filterFaqs()">
                             </div>
 
-                            <div class="faq-quick-prompts margin-top-sm">
-                                <span class="text-xs text-muted font-bold">Quick Prompts:</span>
-                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('What is EstateIQ')">What is EstateIQ?</button>
+                            <div class="faq-quick-prompts margin-top-sm" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                <span class="text-xs text-muted font-bold" style="align-self: center;">Quick Prompts:</span>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('Elite algo')">Elite Algo</button>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('ESP32')">Hardware ESP32</button>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('Google Maps')">Google Maps GIS</button>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('popup')">Live Anomaly Popups</button>
+                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('What-If')">What-If &amp; ROI</button>
                                 <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('different')">How is it different?</button>
-                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('architecture')">Architecture</button>
-                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('What-If')">What-If & Impact</button>
-                                <button class="faq-prompt-btn" onclick="setFaqSearchPrompt('IoT')">IoT Telemetry</button>
                             </div>
 
                             <div class="faq-category-chips margin-top-sm" id="faqCategoryChips">
@@ -3557,12 +3607,16 @@
                                         <i class="fa-solid fa-chevron-down chevron"></i>
                                     </button>
                                     <div class="faq-answer">
-                                        <strong>Data & Core:</strong> Python, Pandas, NumPy, SQLite/PostgreSQL, Time-Series Telemetry.<br>
-                                        <strong>Machine Learning:</strong> CatBoostRegressor, LightGBM, GradientBoosting, RandomForest, LinearRegression.<br>
-                                        <strong>Anomaly Detection:</strong> IsolationForest, Z-Score Anomaly Engine, DBSCAN.<br>
-                                        <strong>Explainability:</strong> SHAP Feature Contributions, Decision Trace Tree.<br>
-                                        <strong>Backend & UI:</strong> FastAPI REST APIs, Streamlit Control Center, Modern Web UI (HTML5/CSS3/Vanilla JS, Chart.js).<br>
-                                        <strong>AI & IoT:</strong> Grounded Co-Pilot Engine, ESP32 Edge Firmware <span class="badge-gold">Planned / Prototype</span>.
+                                        <strong>Core Algorithm:</strong> <em>Elite Algo</em> (engineered by Team Elite) — 4-tier decision pipeline fusing predictive forecasting, dual anomaly consensus, TreeSHAP causality, and monetary DIF waste quantification.<br>
+                                        <strong>Machine Learning:</strong> CatBoostRegressor, LightGBM, XGBoost, IsolationForest, Dynamic Rolling Z-Score &amp; IQR Envelopes.<br>
+                                        <strong>Explainability &amp; Traceability:</strong> TreeSHAP Shapley feature weights, Decision Trace Audit Log, and What-If scenario simulator.<br>
+                                        <strong>Real Hardware IoT Fleet (LIVE &amp; STREAMING):</strong>
+                                        <ul style="margin: 6px 0 6px 18px; padding: 0;">
+                                            <li><strong>Node 1 (ESP32 AC Submeter):</strong> PZEM-004T v3.0 digital submetering (Line Voltage, Line Current, Active Power kW, Energy Accumulator kWh, Frequency 50Hz, Power Factor) with RS485/UART optocoupler isolation.</li>
+                                            <li><strong>Node 2 (ESP32 Multi-Utility Gateway):</strong> MQ-135 Gas/Smoke sensor, HC-SR04 Ultrasonic Sonar (waste bin depth &amp; fill level %), YFS201 Hall-effect water pulse flow meter, DHT22 ambient room temperature &amp; humidity, and DS18B20 digital reservoir temperature probe.</li>
+                                        </ul>
+                                        <strong>GIS &amp; Campus Mapping:</strong> Interactive Google Maps GIS centered at BPUT University Campus, Rourkela (22.2530° N, 84.9015° E) with Roadmap, Satellite, and Schematic switcher modes.<br>
+                                        <strong>Backend &amp; AI:</strong> FastAPI REST APIs (sub-10ms), Paho MQTT subscriber, MongoDB historical telemetry, Groq AI Copilot (<code>qwen/qwen3.8-27b</code>) with grounded telemetry facts, and real-time edge anomaly audio/visual popup alerts.
                                     </div>
                                 </div>
 
@@ -3648,24 +3702,26 @@
                                     </div>
                                 </div>
 
-                                <!-- CATEGORY 6: IOT & ENERGY -->
+                                <!-- CATEGORY 6: IOT & HARDWARE -->
                                 <div class="faq-accordion-item" data-category="iot">
                                     <button class="faq-question" onclick="toggleFaq(this)">
                                         <span><i class="fa-solid fa-microchip text-mint margin-right-xs"></i> Q19. How can EstateIQ monitor electricity in a college campus?</span>
                                         <i class="fa-solid fa-chevron-down chevron"></i>
                                     </button>
                                     <div class="faq-answer">
-                                        The power distribution topology maps: Grid → Main Campus Switchyard → Transformers → Building Submeters → HVAC/Lighting loads. Smart energy meters and CT sensors transmit voltage, current, power factor, and kWh via IoT gateways to the platform for continuous anomaly detection and forecasting.
+                                        The power distribution topology maps: <strong>Grid → Main Campus 11kV Substation → Step-Down Transformers → Building Distribution Panels → Block B Hostel Submeter → HVAC/Lighting/Appliance Loads</strong>.<br><br>
+                                        EstateIQ integrates with our deployed <strong>ESP32 PZEM-004T v3.0</strong> submeter to stream high-precision measurements every second: Line Voltage (V), Line Current (A), Active Power Demand (kW), Cumulative Energy (kWh), Grid Frequency (50.0 Hz), and Power Factor (cos φ). The <em>Elite Algo</em> continuously compares these values against rolling contextual envelopes to detect overvoltage, harmonic distortion, low power factor penalties, and peak-hour energy surges.
                                     </div>
                                 </div>
 
                                 <div class="faq-accordion-item" data-category="iot">
                                     <button class="faq-question" onclick="toggleFaq(this)">
-                                        <span><i class="fa-solid fa-microchip text-mint margin-right-xs"></i> Q20. Can EstateIQ work without physical IoT sensors?</span>
+                                        <span><i class="fa-solid fa-microchip text-mint margin-right-xs"></i> Q20. Can EstateIQ work with both physical IoT sensors and simulated streams?</span>
                                         <i class="fa-solid fa-chevron-down chevron"></i>
                                     </button>
                                     <div class="faq-answer">
-                                        Yes. EstateIQ supports real IoT telemetry, existing facility databases, synthetic campus datasets, and open historical telemetry streams. The UI transparently labels data sources (e.g. <span class="badge-green">LIVE SENSOR</span>, <span class="badge-gold">SYNTHETIC DATA</span>).
+                                        Yes. EstateIQ supports both live physical IoT sensors and facility benchmark datasets. When hardware is plugged in, the system automatically detects the telemetry stream and elevates data confidence to 100%.<br><br>
+                                        The UI transparently differentiates data provenance using color-coded badges: <span class="badge-green" style="background: rgba(0, 240, 181, 0.18); color: #00F0B5; padding: 2px 6px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(0, 240, 181, 0.4);">[REAL SENSOR]</span> for live ESP32 hardware feeds, and <span class="badge-gold" style="background: rgba(245, 158, 11, 0.18); color: #F59E0B; padding: 2px 6px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(245, 158, 11, 0.4);">[SIMULATED IoT]</span> for simulated facility expansion scenarios.
                                     </div>
                                 </div>
 
@@ -3708,7 +3764,7 @@
                                     </button>
                                     <div class="faq-answer">
                                         Formula: <strong>Excess Usage (kWh) = Observed kWh - Contextual Baseline kWh</strong><br>
-                                        <strong>Hourly Financial Waste (₹/hr) = Excess kWh × Commercial Tariff Rate (₹14/kWh)</strong><br>
+                                        <strong>Hourly Financial Waste (₹/hr) = Excess kWh × Institutional Tariff Rate (₹9.50/kWh)</strong><br>
                                         <strong>30-Day Cost of Inaction (₹) = Hourly Waste × 24 hrs × 30 days</strong>
                                     </div>
                                 </div>
@@ -3783,6 +3839,50 @@
                                     </button>
                                     <div class="faq-answer">
                                         EstateIQ turns facility data into operational decisions. The platform moves from <em>"Here is your data"</em> to <strong>"Here is what is happening, why it matters, what you should do, what could happen if you act, and whether the action worked."</strong>
+                                    </div>
+                                </div>
+
+                                <!-- Q32: LIVE HARDWARE ANOMALY POPUP SYSTEM -->
+                                <div class="faq-accordion-item" data-category="hackathon">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-bell text-mint margin-right-xs"></i> Q32. How does the live hardware anomaly popup system work for jury demonstration?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        EstateIQ features an instant edge anomaly popup notification engine designed specifically for live jury evaluation:<br><br>
+                                        <strong>1. Interactive Physical Trigger:</strong> Introducing smoke/gas near the MQ-135 or obstructing the HC-SR04 sonar causes real sensor telemetry to surge past contextual baseline thresholds.<br>
+                                        <strong>2. Instant Visual &amp; Audio Alert:</strong> The dashboard fires a floating glassmorphism banner on the bottom-right with an audio chime, pulsing beacon, device ID, observed metric, and recommended operator action.<br>
+                                        <strong>3. Operator Lifecycle Controls:</strong> The operator or jury member can click <strong>"Acknowledge"</strong> to silence the alert cycle and log the event, <strong>"Mute 30s"</strong> for temporary debouncing, or <strong>"✕"</strong> to dismiss.<br>
+                                        <strong>4. Notification Bell Sync:</strong> The top navigation bell counter automatically pulses, increments the unread badge, and records the incident in the notification dropdown with one-click resolution.
+                                    </div>
+                                </div>
+
+                                <!-- Q33: GOOGLE MAPS GIS CAMPUS FLEET INTEGRATION -->
+                                <div class="faq-accordion-item" data-category="architecture">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-map-location-dot text-mint margin-right-xs"></i> Q33. How does the Google Maps GIS integration track campus facilities?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        EstateIQ embeds interactive Google Maps centered directly at <strong>Biju Patnaik University of Technology (BPUT), Chhend Colony, Rourkela, Odisha (22.2530° N, 84.9015° E)</strong>:<br><br>
+                                        <strong>• View Mode Switcher:</strong> Instantly toggle between <strong>Roadmap</strong> (street &amp; building layout), <strong>Satellite</strong> (high-resolution aerial campus imagery), and <strong>Schematic</strong> (electrical substation topology).<br>
+                                        <strong>• Live Hardware Fleet Pinpoints:</strong> The fleet directory card links each physical ESP32 node to its campus location (Block B Hostel Substation, Water Utility Reservoir, Academic Complex, Service Substation) with live streaming status indicators.<br>
+                                        <strong>• Direct Navigation:</strong> An "Open in Google Maps" shortcut launches full-screen directions and spatial terrain mapping.
+                                    </div>
+                                </div>
+
+                                <!-- Q34: GROQ AI COPILOT TELEMETRY GROUNDING -->
+                                <div class="faq-accordion-item" data-category="ai">
+                                    <button class="faq-question" onclick="toggleFaq(this)">
+                                        <span><i class="fa-solid fa-brain text-mint margin-right-xs"></i> Q34. How does the Groq AI Copilot integrate with live sensor telemetry?</span>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+                                    <div class="faq-answer">
+                                        Powered by Groq's high-speed inference engine using <code>qwen/qwen3.8-27b</code>:<br><br>
+                                        <strong>1. Universal Intent Routing:</strong> User natural language queries are parsed into facility domain intents (Anomalies, Forecasts, Diagnostics, Water, Waste, ESG, or Algorithmic explanations).<br>
+                                        <strong>2. Dynamic Evidence Context Building:</strong> Live ESP32 readings, CatBoost baseline predictions, Isolation Forest anomaly flags, TreeSHAP feature attributions, and DIF financial impacts are compiled into a structured evidence packet.<br>
+                                        <strong>3. Zero-Hallucination Grounding:</strong> The LLM is strictly bounded by the evidence packet to explain root causes and suggest next best actions without inventing phantom values.<br>
+                                        <strong>4. Resilient Offline Fallback:</strong> If network or external API limits occur, the platform automatically switches to EstateIQ's deterministic analytical engine so facility operations never stop.
                                     </div>
                                 </div>
 
@@ -4518,7 +4618,7 @@
                     <span class="live-anomaly-severity-pill" id="liveAnomalySeverityBadge">CRITICAL</span>
                     <span class="live-anomaly-device-tag" id="liveAnomalyDeviceTag">ENV-BLOCK-B-001</span>
                 </div>
-                <button class="live-anomaly-close-btn" id="liveAnomalyDismissBtn" title="Dismiss Alert">&times;</button>
+                <button class="live-anomaly-close-btn" id="liveAnomalyDismissBtn" onclick="window.dismissLiveHardwareAnomalyPopup(event)" title="Dismiss Alert">&times;</button>
             </div>
             <div class="live-anomaly-body">
                 <div class="live-anomaly-icon-box" id="liveAnomalyIconBox">
@@ -4535,16 +4635,16 @@
             <div class="live-anomaly-footer">
                 <span class="live-anomaly-time" id="liveAnomalyTimeText">Just now • Live Hardware Sensor</span>
                 <div class="live-anomaly-actions">
-                    <button class="btn btn-sm btn-ghost" id="liveAnomalyMuteBtn">Mute 30s</button>
-                    <button class="btn btn-sm btn-danger" id="liveAnomalyAckBtn"><i class="fa-solid fa-check"></i> Acknowledge</button>
+                    <button class="btn btn-sm btn-ghost" id="liveAnomalyMuteBtn" onclick="window.muteLiveHardwareAnomaly(30, event)">Mute 30s</button>
+                    <button class="btn btn-sm btn-danger" id="liveAnomalyAckBtn" onclick="window.acknowledgeLiveHardwareAnomaly(event)"><i class="fa-solid fa-check"></i> Acknowledge</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Custom JavaScript -->
-    <script src="js/charts.js?v=20261108_dark_v4"></script>
-    <script src="js/resource_simulator.js?v=20261108_dark_v4"></script>
-    <script src="js/app.js?v=20261108_dark_v4"></script>
+    <script src="js/charts.js?v=20261112_live_v7"></script>
+    <script src="js/resource_simulator.js?v=20261112_live_v7"></script>
+    <script src="js/app.js?v=20261112_live_v7"></script>
 </body>
 </html>

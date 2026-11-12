@@ -1,0 +1,36 @@
+{
+  "input_features": [
+    "electricity_kwh",
+    "hvac_kwh",
+    "lighting_kwh",
+    "equipment_kwh",
+    "other_kwh",
+    "power_factor",
+    "temperature_c",
+    "occupancy_count",
+    "hvac_ratio",
+    "lighting_ratio",
+    "equipment_ratio",
+    "sin_hour",
+    "cos_hour",
+    "sin_dow",
+    "cos_dow",
+    "is_weekend"
+  ],
+  "feature_count": 16,
+  "prohibited_leakage_columns_strictly_excluded": [
+    "anomaly_flag",
+    "anomaly_type",
+    "fault_category",
+    "event_id",
+    "severity",
+    "injection_parameters"
+  ],
+  "data_scaling": "StandardScaler (fit exclusively on X_train)",
+  "cyclical_encodings": [
+    "sin_hour",
+    "cos_hour",
+    "sin_dow",
+    "cos_dow"
+  ]
+}

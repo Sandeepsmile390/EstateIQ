@@ -676,18 +676,37 @@ static void oledUpdateDashboard() {
         oledDrawLineClamped(6, lineBuf);
         oledDrawString(108, 7, "2/3");
     } else {
-        const bool pzemFresh = g_lastElec.valid && g_lastElec.last_update_ms != 0 &&
-                               (now - g_lastElec.last_update_ms) <= 12000UL;
-        if (pzemFresh) snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.1fV %.3fA", g_lastElec.voltage_v, g_lastElec.current_a);
-        else snprintf(lineBuf, sizeof(lineBuf), "PZEM: waiting for data");
+        // PZEM Page 3/3: Multi-tier Display Freshness
+        // Tier 1 (Live Active <= 45s): Continuous real-time readings
+        // Tier 2 (Cached Hold 45s..120s): Graceful hold with '*' marker (prevents flickering during Wi-Fi jitter)
+        // Tier 3 (Standby > 120s or uninitialized): Waiting / Standby
+        const unsigned long pzemAgeMs = (g_lastElec.last_update_ms != 0) ? (now - g_lastElec.last_update_ms) : 999999UL;
+        const bool pzemLive = g_lastElec.valid && (pzemAgeMs <= 45000UL);
+        const bool pzemHold = (g_lastElec.last_update_ms != 0) && (pzemAgeMs <= 120000UL) && (g_lastElec.voltage_v >= 80.0f);
+
+        if (pzemLive) {
+            snprintf(lineBuf, sizeof(lineBuf), "PZEM: %.1fV %.3fA", g_lastElec.voltage_v, g_lastElec.current_a);
+        } else if (pzemHold) {
+            snprintf(lineBuf, sizeof(lineBuf), "PZEM*: %.1fV %.3fA", g_lastElec.voltage_v, g_lastElec.current_a);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "PZEM: Connecting...");
+        }
         oledDrawLineClamped(2, lineBuf);
 
-        if (pzemFresh) snprintf(lineBuf, sizeof(lineBuf), "Power: %.0fW PF:%.2f", g_lastElec.active_power_kw * 1000.0f, g_lastElec.power_factor);
-        else snprintf(lineBuf, sizeof(lineBuf), "Power: --  PF: --");
+        if (pzemLive || pzemHold) {
+            snprintf(lineBuf, sizeof(lineBuf), "Power: %.0fW PF:%.2f", g_lastElec.active_power_kw * 1000.0f, g_lastElec.power_factor);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "Power: --  PF: --");
+        }
         oledDrawLineClamped(4, lineBuf);
 
-        if (pzemFresh) snprintf(lineBuf, sizeof(lineBuf), "E:%.3fkWh F:%.1fHz", g_lastElec.cumulative_energy_kwh, g_lastElec.frequency_hz);
-        else snprintf(lineBuf, sizeof(lineBuf), "Energy: waiting");
+        if (pzemLive) {
+            snprintf(lineBuf, sizeof(lineBuf), "E:%.3fkWh F:%.1fHz", g_lastElec.cumulative_energy_kwh, g_lastElec.frequency_hz);
+        } else if (pzemHold) {
+            snprintf(lineBuf, sizeof(lineBuf), "E:%.3fkWh (Hold)", g_lastElec.cumulative_energy_kwh);
+        } else {
+            snprintf(lineBuf, sizeof(lineBuf), "Energy: Standby");
+        }
         oledDrawLineClamped(6, lineBuf);
         oledDrawString(108, 7, "3/3");
     }
@@ -818,7 +837,8 @@ static bool isNewPeerPzemSample(const char* sampleAt) {
 
 static void syncPeerPzemFromNetwork() {
     unsigned long now = millis();
-    if (g_lastElec.last_update_ms != 0 && (now - g_lastElec.last_update_ms) > 12000UL) {
+    // Only invalidate if no sample has arrived for over 120 seconds (2 full minutes)
+    if (g_lastElec.last_update_ms != 0 && (now - g_lastElec.last_update_ms) > 120000UL) {
         g_lastElec.valid = false;
     }
     if (WiFi.status() != WL_CONNECTED) return;
@@ -863,8 +883,6 @@ static void syncPeerPzemFromNetwork() {
                     g_lastElec.power_factor = newPf;
                     g_lastElec.last_update_ms = now;
                     syncSuccess = true;
-                } else {
-                    g_lastElec.valid = false;
                 }
             }
         }
@@ -887,21 +905,24 @@ static void syncPeerPzemFromNetwork() {
                     float newCurrent = tel["current_a"] | (tel["current"] | 0.0f);
                     float newPowerKw = tel["active_power_kw"] | (tel["power_kw"] | 0.0f);
                     float newEnergy = tel["cumulative_energy_kwh"] | (tel["energy_kwh"] | 0.0f);
+                    float newPf = tel["power_factor"] | (tel["pf"] | 0.95f);
+                    float newFreq = tel["frequency_hz"] | (tel["frequency"] | 50.0f);
                     if (isfinite(newVoltage) && newVoltage >= 80.0f && newVoltage <= 280.0f &&
                         isfinite(newCurrent) && newCurrent >= 0.0f && newCurrent <= 100.0f &&
                         isfinite(newPowerKw) && newPowerKw >= 0.0f && newPowerKw <= 28.0f &&
                         isfinite(newEnergy) && newEnergy >= 0.0f) {
                         const char* sampleAt = bDoc["last_sample_at"] | "";
                         const bool newSample = isNewPeerPzemSample(sampleAt);
-                        if (newSample) g_lastElec.last_update_ms = now;
+                        if (newSample || g_lastElec.last_update_ms == 0) {
+                            g_lastElec.last_update_ms = now;
+                        }
                         g_lastElec.voltage_v = newVoltage;
                         g_lastElec.current_a = newCurrent;
                         g_lastElec.active_power_kw = newPowerKw;
                         g_lastElec.cumulative_energy_kwh = newEnergy;
-                        g_lastElec.power_factor = tel["power_factor"] | 0.0f;
-                        g_lastElec.frequency_hz = tel["frequency_hz"] | 0.0f;
-                        g_lastElec.valid = newSample ||
-                            (g_lastElec.last_update_ms != 0 && (now - g_lastElec.last_update_ms) <= 12000UL);
+                        g_lastElec.power_factor = newPf;
+                        g_lastElec.frequency_hz = newFreq;
+                        g_lastElec.valid = (g_lastElec.last_update_ms != 0 && (now - g_lastElec.last_update_ms) <= 60000UL);
                         syncSuccess = g_lastElec.valid;
                     }
                 }
@@ -946,21 +967,24 @@ bool sendHttpTelemetry(const char* payload) {
                     float newVoltage = pm["voltage_v"].as<float>();
                     float newCurrent = pm["current_a"].as<float>();
                     float newEnergy = pm["energy_kwh"].as<float>();
+                    float newPf = pm["power_factor"] | 0.95f;
+                    float newFreq = pm["frequency_hz"] | 50.0f;
                     if (isfinite(newVoltage) && newVoltage >= 80.0f && newVoltage <= 280.0f &&
                         isfinite(newCurrent) && newCurrent >= 0.0f && newCurrent <= 100.0f &&
                         isfinite(newPowerKw) && newPowerKw >= 0.0f && newPowerKw <= 28.0f &&
                         isfinite(newEnergy) && newEnergy >= 0.0f) {
                         const char* sampleAt = pm["last_sample_at"] | "";
                         const bool newSample = isNewPeerPzemSample(sampleAt);
-                        if (newSample) {
-                            g_lastElec.voltage_v = newVoltage;
-                            g_lastElec.current_a = newCurrent;
-                            g_lastElec.active_power_kw = newPowerKw;
-                            g_lastElec.cumulative_energy_kwh = newEnergy;
+                        if (newSample || g_lastElec.last_update_ms == 0) {
                             g_lastElec.last_update_ms = millis();
                         }
-                        g_lastElec.valid = newSample ||
-                            (g_lastElec.last_update_ms != 0 && (millis() - g_lastElec.last_update_ms) <= 12000UL);
+                        g_lastElec.voltage_v = newVoltage;
+                        g_lastElec.current_a = newCurrent;
+                        g_lastElec.active_power_kw = newPowerKw;
+                        g_lastElec.cumulative_energy_kwh = newEnergy;
+                        g_lastElec.power_factor = newPf;
+                        g_lastElec.frequency_hz = newFreq;
+                        g_lastElec.valid = (g_lastElec.last_update_ms != 0 && (millis() - g_lastElec.last_update_ms) <= 60000UL);
                     }
                 }
             }

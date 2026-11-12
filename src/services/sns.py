@@ -78,6 +78,9 @@ def init_sns_schema() -> None:
             id INTEGER PRIMARY KEY CHECK (id=1), next_update_id INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS sns_telegram_global_events (
+            event_key TEXT PRIMARY KEY, notification_id TEXT NOT NULL, created_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS sns_recipient_channels (
             user_email TEXT NOT NULL, channel TEXT NOT NULL, channel_user_id TEXT NOT NULL,
             active INTEGER NOT NULL DEFAULT 1, linked_at TEXT NOT NULL,
@@ -183,6 +186,11 @@ def create_notification(*, recipient_email: str, title: str, message: str, recip
     if action_link:
         body["action_link"] = action_link
     channel_list = list(channels or ["in_app"])
+    global_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    # A configured shared chat receives every newly-created SNS notification.
+    # Per-user Telegram links remain available when no shared chat is configured.
+    if global_chat_id:
+        channel_list = [channel for channel in channel_list if channel != "telegram"]
     conn = get_db_connection()
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -210,7 +218,21 @@ def create_notification(*, recipient_email: str, title: str, message: str, recip
             if channel == "in_app" and outbox:
                 conn.execute("INSERT OR IGNORE INTO sns_deliveries (id,notification_id,outbox_id,channel,recipient,status,attempt,attempted_at) VALUES(?,?,?,?,?,'DELIVERED',1,?)",
                              ("DLV_" + uuid.uuid4().hex[:16].upper(),persisted_id,outbox["id"],channel,recipient,now))
+        if inserted.rowcount and global_chat_id:
+            global_event = conn.execute("INSERT OR IGNORE INTO sns_telegram_global_events(event_key,notification_id,created_at) VALUES(?,?,?)",
+                (key, persisted_id, now))
+            if global_event.rowcount:
+                telegram_outbox_id = "OUT_" + uuid.uuid4().hex[:16].upper()
+                telegram_payload = _json({"title": title, "message": message, "severity": priority.upper(), "notification_id": persisted_id})
+                conn.execute("INSERT OR IGNORE INTO sns_outbox (id,notification_id,channel,recipient,payload_json,status,created_at,updated_at) VALUES(?,?, 'telegram', ?, ?, 'PENDING', ?, ?)",
+                    (telegram_outbox_id, persisted_id, global_chat_id, telegram_payload, now, now))
         conn.commit()
+        if inserted.rowcount and (global_chat_id or any(c == "telegram" for c in channel_list)):
+            try:
+                import threading
+                threading.Thread(target=deliver_telegram_outbox, kwargs={"batch_size": 10}, daemon=True).start()
+            except Exception:
+                pass
         result = dict(row)
         result["payload"] = body
         result["read"] = False
@@ -281,13 +303,14 @@ def emit_event(event: Dict[str, Any]) -> List[Dict[str, Any]]:
         roles = set(json.loads(rule["recipient_roles_json"] or "[]"))
         explicit = {value.lower() for value in json.loads(rule["recipient_emails_json"] or "[]")}
         recipients = [user for user in users if user.get("role") in roles or user.get("email", "").lower() in explicit]
+        channels = json.loads(rule["channels_json"] or '["in_app"]')
         for user in recipients:
             email = user["email"].lower()
             event_key = f"{rule_id}:{dedupe_key}"
             result = create_notification(recipient_email=email,recipient_role=user.get("role","STAFF"),title=str(event.get("title") or rule["name"]),
                 message=str(event.get("message") or event.get("summary") or rule["description"] or rule["name"]),priority=str(event.get("severity") or rule["severity"]),
                 related_object_id=event.get("related_id"),source=str(event.get("source", "estateiq")),event_type=event_type,
-                facility_id=event.get("facility_id"),payload=event,event_key=event_key,channels=json.loads(rule["channels_json"] or '["in_app"]'))
+                facility_id=event.get("facility_id"),payload=event,event_key=event_key,channels=channels)
             created.append(result)
     return created
 
@@ -426,10 +449,14 @@ def complete_telegram_link(token: str, telegram_chat_id: str) -> bool:
 
 def telegram_status(email: str) -> Dict[str, Any]:
     configured = bool(os.getenv("TELEGRAM_BOT_TOKEN"))
+    shared_chat_configured = bool(os.getenv("TELEGRAM_CHAT_ID", "").strip())
     conn = get_db_connection()
     try:
         row = conn.execute("SELECT active,linked_at FROM sns_recipient_channels WHERE user_email=? AND channel='telegram'", (email.lower(),)).fetchone()
-        return {"configured": configured, "linked": bool(row and row["active"]), "linked_at": row["linked_at"] if row else None}
+        linked = shared_chat_configured or bool(row and row["active"])
+        return {"configured": configured, "linked": linked,
+                "mode": "shared_chat" if shared_chat_configured else "per_user",
+                "linked_at": row["linked_at"] if row else None}
     finally:
         conn.close()
 
@@ -445,18 +472,22 @@ def unlink_telegram(email: str) -> bool:
 
 
 def deliver_telegram_outbox(batch_size: int = 20) -> Dict[str, int]:
-    """Deliver queued Telegram messages; safe to run from a separate worker process."""
+    """Deliver queued Telegram messages; safe to run from a separate worker process or asynchronously."""
     import urllib.request
-    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    from dotenv import load_dotenv
+    load_dotenv()
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     if not token:
         return {"sent": 0, "failed": 0, "skipped": 0}
+    configured_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
     init_sns_schema()
     conn = get_db_connection()
     try:
-        rows = conn.execute("""SELECT o.*, c.channel_user_id FROM sns_outbox o
-            JOIN sns_recipient_channels c ON c.user_email=o.recipient AND c.channel='telegram' AND c.active=1
+        rows = conn.execute("""SELECT o.*, COALESCE(c.channel_user_id, o.recipient) AS channel_user_id FROM sns_outbox o
+            LEFT JOIN sns_recipient_channels c ON c.user_email=o.recipient AND c.channel='telegram' AND c.active=1
             WHERE o.channel='telegram' AND o.status IN ('PENDING','RETRYING')
-              AND (o.next_attempt_at IS NULL OR o.next_attempt_at<=?) ORDER BY o.created_at LIMIT ?""", (_now(),batch_size)).fetchall()
+              AND (c.channel_user_id IS NOT NULL OR o.recipient=?)
+              AND (o.next_attempt_at IS NULL OR o.next_attempt_at<=?) ORDER BY o.created_at LIMIT ?""", (configured_chat_id,_now(),batch_size)).fetchall()
     finally:
         conn.close()
     counts = {"sent": 0, "failed": 0, "skipped": 0}
@@ -473,11 +504,21 @@ def deliver_telegram_outbox(batch_size: int = 20) -> Dict[str, int]:
             counts["skipped"] += 1
             continue
         payload = json.loads(row["payload_json"])
-        text = f"{payload.get('severity','INFO')}: {payload.get('title','EstateIQ alert')}\n{payload.get('message','')}"
+        severity = str(payload.get('severity', 'INFO')).upper()
+        title = payload.get('title', 'EstateIQ Alert')
+        message = payload.get('message', '').strip()
+        icon = "🚨" if severity in ("CRITICAL", "HIGH") else "⚠️" if severity == "MEDIUM" else "🔔"
+        text = f"{icon} [{severity}] {title}\n{message}"
+        target_chat = str(row["channel_user_id"] or configured_chat_id).strip()
         status, error = "DELIVERED", None
         try:
-            req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=_json({"chat_id":row["channel_user_id"],"text":text}).encode(), headers={"Content-Type":"application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=8) as response:
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                data=_json({"chat_id": target_chat, "text": text}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
                 result = json.loads(response.read().decode())
                 if not result.get("ok"):
                     raise RuntimeError("Telegram API rejected delivery")

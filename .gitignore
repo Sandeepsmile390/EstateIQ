@@ -5,6 +5,7 @@
 facility_dataset/facility.db
 facility_dataset/data/
 data/synthetic/*.csv
+output/sagemaker/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

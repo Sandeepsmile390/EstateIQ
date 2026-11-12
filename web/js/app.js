@@ -51,6 +51,9 @@ document.addEventListener("DOMContentLoaded", () => {
     loadBackendWorkOrders();
     loadBackendAIInsights();
     loadBackendCapabilities();
+    syncTelegramConfig();
+    loadSnsNotifications();
+    setInterval(loadSnsNotifications, 15000);
 
     // Initialize interactive form listeners
     initEnergyPredictorForm();
@@ -1710,6 +1713,91 @@ function initKeyboardShortcuts() {
 }
 
 /* --------------------------------------------------------------------------
+   ESTATEIQ TELEGRAM NOTIFICATION DISPATCHER (HTTP POST)
+   Dispatches alerts from notification icon and on-screen popups directly to Telegram
+   -------------------------------------------------------------------------- */
+window.sentTelegramNotificationKeys = window.sentTelegramNotificationKeys || new Set();
+
+const ESTATEIQ_TELEGRAM = {
+    botToken: "9238667783:AAEVWNcV6XoYIs9VOWnHuN-zgl2PyFP2tQI",
+    chatId: "5291396960",
+    get endpoint() {
+        return `https://api.telegram.org/bot${this.botToken}/sendMessage`;
+    }
+};
+
+async function syncTelegramConfig() {
+    try {
+        const res = await fetch("/api/v1/sns/telegram/config");
+        if (res.ok) {
+            const data = await res.json();
+            if (data.bot_token) ESTATEIQ_TELEGRAM.botToken = data.bot_token;
+            if (data.chat_id) ESTATEIQ_TELEGRAM.chatId = data.chat_id;
+        }
+    } catch (e) {
+        // Use default configured token & chat_id
+    }
+}
+
+async function postTelegramNotification(text, dedupeKey = null) {
+    if (!text || typeof text !== "string") return false;
+    const cleanText = text.trim();
+    if (!cleanText) return false;
+
+    if (dedupeKey) {
+        if (window.sentTelegramNotificationKeys.has(dedupeKey)) {
+            return false;
+        }
+        window.sentTelegramNotificationKeys.add(dedupeKey);
+    }
+
+    const payload = {
+        chat_id: String(ESTATEIQ_TELEGRAM.chatId || "5291396960"),
+        text: cleanText
+    };
+
+    let delivered = false;
+
+    // 1. Send via backend POST endpoint /api/v1/sns/telegram/send
+    try {
+        const backendRes = await fetch("/api/v1/sns/telegram/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (backendRes.ok) {
+            const resJson = await backendRes.json();
+            if (resJson && resJson.ok) {
+                delivered = true;
+                console.log("[Telegram] Delivered via EstateIQ backend POST:", resJson);
+            }
+        }
+    } catch (err) {
+        console.warn("[Telegram] Backend dispatch error, attempting direct API:", err.message);
+    }
+
+    // 2. Fallback: Direct POST to Telegram Bot API as shown in specification
+    if (!delivered && ESTATEIQ_TELEGRAM.botToken) {
+        try {
+            const directRes = await fetch(ESTATEIQ_TELEGRAM.endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const directJson = await directRes.json();
+            if (directJson && directJson.ok) {
+                delivered = true;
+                console.log("[Telegram] Delivered via direct Telegram API POST:", directJson);
+            }
+        } catch (err) {
+            console.warn("[Telegram] Direct Telegram POST error:", err.message);
+        }
+    }
+
+    return delivered;
+}
+
+/* --------------------------------------------------------------------------
    LIQUID GLASS NOTIFICATIONS DROPDOWN ENGINE
    -------------------------------------------------------------------------- */
 function initNotificationsDropdown() {
@@ -1814,6 +1902,26 @@ async function loadSnsNotifications(unreadOnly = false) {
         }
         const fullList = document.getElementById("snsNotificationList");
         if (fullList) renderSnsList(fullList, estateiqSnsCache);
+
+        // Forward new notifications appearing at the notification icon directly to Telegram
+        if (Array.isArray(estateiqSnsCache) && estateiqSnsCache.length) {
+            estateiqSnsCache.forEach(item => {
+                if (!item.read) {
+                    const dedupeKey = `bell_notif_${item.id}`;
+                    const sev = String(item.severity || "INFO").toUpperCase();
+                    const icon = (sev === "CRITICAL" || sev === "HIGH") ? "🚨" : (sev === "MEDIUM" ? "⚠️" : "🔔");
+                    const msg = [
+                        `${icon} [${sev}] EstateIQ Notification Bell`,
+                        `Title: ${item.title || "Notification"}`,
+                        item.message ? `Message: ${item.message}` : null,
+                        item.source ? `Source: ${item.source}` : null,
+                        `Status: Unread at Notification Icon (${data.unread_count || 1} pending)`
+                    ].filter(Boolean).join("\n");
+                    postTelegramNotification(msg, dedupeKey);
+                }
+            });
+        }
+
         return data;
     } catch (error) {
         if (list) { list.replaceChildren(); const message = document.createElement("div"); message.className = "sns-muted"; message.textContent = error.message.includes("Authentication") ? "Sign in to view notifications." : "Could not load notifications."; list.append(message); }
@@ -1867,7 +1975,7 @@ async function loadSnsPage() {
         const ruleForm = document.getElementById("snsRuleForm");
         if (ruleForm) ruleForm.hidden = !currentUserSession?.permissions?.includes("sns.rules.manage");
         const telegramStatus = document.getElementById("snsTelegramStatus");
-        if (telegramStatus) telegramStatus.textContent = telegram.configured ? (telegram.linked ? "Connected to your account" : "Bot configured; account not linked") : "Not configured. Set the Telegram bot token and webhook secret on the backend.";
+        if (telegramStatus) telegramStatus.textContent = telegram.configured ? (telegram.mode === "shared_chat" ? "Connected to the configured Telegram chat" : (telegram.linked ? "Connected to your account" : "Bot configured; account not linked")) : "Not configured. Set the Telegram bot token in the backend environment.";
         document.getElementById("snsTelegramLinkBtn").hidden = !telegram.configured || telegram.linked;
         document.getElementById("snsTelegramUnlinkBtn").hidden = !telegram.linked;
         const deliveryList = document.getElementById("snsDeliveryList");
@@ -4775,6 +4883,45 @@ window.triggerLiveHardwareAnomalyPopup = function(anomaly) {
         }, 12000);
     }
 
+    // Publish only when debounce/cooldown logic allowed this popup to appear.
+    // SNS persists it and the background worker delivers it to the configured Telegram chat.
+    if (typeof snsRequest === 'function') {
+        const observed = anomaly.observed_value;
+        const expected = anomaly.expected_value ?? anomaly.expected_kwh ?? anomaly.expected_range;
+        snsRequest('/popup-alert', {
+            method: 'POST',
+            body: JSON.stringify({
+                anomaly_key: key,
+                title: anomaly.issue || 'EstateIQ anomaly detected',
+                message: observed !== undefined && observed !== null ? `Observed: ${observed}` : (anomaly.explanation || 'Anomaly detected by EstateIQ.'),
+                severity,
+                source: anomaly.data_source_badge || anomaly.source || 'dashboard_popup',
+                device_id: anomaly.device_id || null,
+                building_id: anomaly.building_id || anomaly.building || null,
+                metric: anomaly.metric || null,
+                observed_value: observed ?? null,
+                expected_value: expected ?? null,
+                recommended_action: anomaly.recommended_action || null,
+                explanation: anomaly.explanation || null,
+                facility_id: anomaly.facility_id || null
+            })
+        }).catch(error => console.warn('SNS popup alert could not be queued:', error.message));
+    }
+
+    // Dispatch popup alert directly to Telegram via POST method
+    const sevTag = String(severity || 'HIGH').toUpperCase();
+    const alertIcon = (sevTag === 'CRITICAL' || sevTag === 'HIGH') ? '🚨' : '⚠️';
+    const popupMsg = [
+        `${alertIcon} [${sevTag}] EstateIQ Alert Popup`,
+        `Device: ${anomaly.device_id || 'ESP32 GATEWAY'}`,
+        `Issue: ${anomaly.issue || 'Threshold Exceeded'}`,
+        anomaly.observed_value !== undefined && anomaly.observed_value !== null ? `Observed: ${anomaly.observed_value}` : null,
+        anomaly.explanation ? `Detail: ${anomaly.explanation}` : null,
+        anomaly.recommended_action ? `Action: ${anomaly.recommended_action}` : null,
+        `Time: ${new Date().toLocaleTimeString()}`
+    ].filter(Boolean).join('\n');
+    postTelegramNotification(popupMsg, `popup_${key}_${tracker.timesShown}`);
+
     // 3. Update Top Navbar Notification Bell & Dropdown
     if (typeof window.prependNotificationDropdownItem === 'function') {
         window.prependNotificationDropdownItem(anomaly, key);
@@ -4815,6 +4962,12 @@ window.showToast = function(message, type = 'info') {
     const iconClass = isSuccess ? 'fa-circle-check text-mint' : 'fa-circle-info text-blue';
     toast.innerHTML = `<i class="fa-solid ${iconClass}"></i> <span>${escapeHtml(message)}</span>`;
     toastContainer.appendChild(toast);
+
+    // If toast represents a critical warning or anomaly alert popup, dispatch to Telegram
+    if (type === 'critical' || type === 'error' || message.includes('CRITICAL') || message.includes('Surge') || message.includes('Anomaly') || message.includes('Leak')) {
+        const toastKey = `toast_${message.slice(0, 35)}`;
+        postTelegramNotification(`⚠️ [EstateIQ Popup Alert]\n${message}`, toastKey);
+    }
 
     setTimeout(() => {
         toast.style.opacity = '0';

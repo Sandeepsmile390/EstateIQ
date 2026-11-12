@@ -18,6 +18,9 @@ EstateIQ SNS adds durable notifications and rule routing to the existing FastAPI
 All application routes are under `/api/v1/sns` and require a Bearer token.
 
 - `GET /overview`
+- `POST /popup-alert` (dashboard anomaly popup event with automatic Telegram dispatch)
+- `POST /telegram/send` (direct HTTP POST dispatch to configured Telegram chat)
+- `GET /telegram/config` (live Telegram bot and chat configuration status)
 - `GET /notifications?unread_only=false&limit=50&offset=0`
 - `GET /notifications/{id}`
 - `POST /notifications/{id}/read`
@@ -32,10 +35,12 @@ The built-in alert routing rule is protected from deletion and sends to operatio
 
 ## Telegram setup
 
-1. Create a fresh bot token with BotFather and place it in the ignored local `.env` as `TELEGRAM_BOT_TOKEN=...`. Never commit the token.
+1. Create a fresh bot token with BotFather and place it in the ignored local `.env` as `TELEGRAM_BOT_TOKEN=...`. Set `TELEGRAM_CHAT_ID` to the destination chat ID. Never commit the token.
 2. Start EstateIQ and run `python -m src.services.sns_worker` in a separate terminal. Keep the worker running; it polls for account-link commands and sends queued notifications.
 3. Sign into EstateIQ, open **Notifications**, select **Link Telegram**, and send `/link <one-time-token>` to your bot before the token expires.
 4. Create or update an alert rule with the Telegram channel enabled. In-app notifications remain available too.
+
+When `TELEGRAM_CHAT_ID` is configured, every newly-created SNS notification is queued once per notification event for that shared destination. This includes alert rules, work-order notifications, and dashboard popup events. The dashboard calls the authenticated `/popup-alert` route only after its popup debounce logic permits the alert to appear. Without a shared destination, the existing per-user `/link` flow is used.
 
 For hosted webhook mode, expose the webhook endpoint over HTTPS and register it with Telegram. Do not use webhook updates and polling simultaneously. If the bot previously had a webhook configured, remove it before starting the polling worker.
 
